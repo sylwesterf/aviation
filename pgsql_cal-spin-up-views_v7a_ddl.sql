@@ -1,28 +1,7 @@
 
 create schema cal_gen;
 
-/*
-drop view if exists cal_gen.make_year_week_v;
-drop view if exists cal_gen.make_calendar_date_v;
-
-drop view if exists cal_gen.make_gregorian_year_week_v;
-drop view if exists cal_gen.make_gregorian_year_quarter_v;
-drop view if exists cal_gen.make_gregorian_quarter_of_year_v;
-drop view if exists cal_gen.make_minute_of_hour_v;
-drop view if exists cal_gen.make_hour_of_day_v;
-drop view if exists cal_gen.make_day_of_week_v;
-drop view if exists cal_gen.make_day_nbr_v;
-drop view if exists cal_gen.make_gregorian_calendar_date_v;
-
-drop view if exists cal_gen.make_gregorian_month_of_year_v cascade;
-drop view if exists cal_gen.make_gregorian_year_month_v cascade;
-drop view if exists cal_gen.make_gregorian_year_v cascade;
-drop view if exists cal_gen.make_day_of_month_v cascade;
-*/
-
--- PostgreSQL 9.6
--- select * from cal_gen.make_gregorian_year_v;
--- drop view cal_gen.make_gregorian_year_v;
+-- cal_gen.make_gregorian_year_v;
 create or replace view cal_gen.make_gregorian_year_v as
 select year_nbr::smallint as year_nbr
      , year_cd::char(4) as year_code
@@ -45,8 +24,7 @@ cross join (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) v4
 where year_nbr between 1000 and 3000
 order by 2;
 
---PostgreSQL 9.6
---drop view cal_gen.make_hour_of_day_v;
+-- cal_gen.make_hour_of_day_v;
 create or replace view cal_gen.make_hour_of_day_v as
 select column1::integer as hour_of_day_nbr
       , column2::char(2) as hour_of_day_code
@@ -59,9 +37,7 @@ from (values
 ,(18,'18','pm'),(19,'19','pm'),(20,'20','pm'),(21,'21','pm'),(22,'22','pm'),(23,'23','pm')
  ) hod;
 
---PostgreSQL 9.6
---select * from cal_gen.make_minute_of_hour_v; 
---drop view cal_gen.make_minute_of_hour_v;
+-- cal_gen.make_minute_of_hour_v;
 create or replace view cal_gen.make_minute_of_hour_v as
 select cast(v1.column1::char(1) || v2.column1::char(1) as char(2)) as minute_of_hour_code
      , cast(v1.column1::char(1) || v2.column1::char(1) as smallint) as minute_of_hour_nbr
@@ -70,8 +46,7 @@ cross join (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) v2
 where cast(v1.column1::char(1) || v2.column1::char(1) as smallint) < 60
 order by 1,2;
 
---PostgreSQL 9.6
---drop view cal_gen.make_day_of_month_v;
+-- cal_gen.make_day_of_month_v;
 create or replace view cal_gen.make_day_of_month_v as
 select cast(v1.column1::char(1) || v2.column1::char(1) as smallint) as day_of_month_nbr
      , cast(v1.column1::char(1) || v2.column1::char(1) as char(2)) as day_of_month_code
@@ -80,9 +55,7 @@ cross join (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) v2
 where cast(v1.column1::char(1) || v2.column1::char(1) as smallint) between 1 and 35
 order by 1,2;
 
---PostgreSQL 9.6
---select * from cal_gen.make_gregorian_month_of_year_v;
---drop view if exists cal_gen.make_gregorian_month_of_year_v cascade;
+-- cal_gen.make_gregorian_month_of_year_v cascade;
 create or replace view cal_gen.make_gregorian_month_of_year_v as
 select column1::smallint as month_of_year_nbr
      , column2::char(2) as month_of_year_code
@@ -107,9 +80,7 @@ values
 , (12,'12','4','31','31','Dec','December')
 ) mo;
 
---PostgreSQL 9.6
---select * from cal_gen.make_day_of_week_v;
---drop view if exists cal_gen.make_day_of_week_v;
+-- cal_gen.make_day_of_week_v;
 create or replace view cal_gen.make_day_of_week_v as
 select column2::smallint as day_of_week_iso_nbr
      , column1::smallint as day_of_week_common_nbr
@@ -127,9 +98,7 @@ values
 , (7,6,6,'Sat','Saturday')
 ) dow order by 1;
 
---PostgreSQL 9.6
---select * from cal_gen.make_gregorian_quarter_of_year_v;
---drop view if exists cal_gen.make_gregorian_quarter_of_year_v;
+-- cal_gen.make_gregorian_quarter_of_year_v;
 create or replace view cal_gen.make_gregorian_quarter_of_year_v as
 select column1::smallint as quarter_of_year_nbr
      , column2::char(1) as quarter_of_year_code
@@ -143,16 +112,11 @@ values
 , (4,'4','Q4','Fourth Quarter')
 ) qoy;
 
---vacuum; -- 1.2 secs
---analyze; -- 1.9 secs
-
 ---------------------------------------------
 --from here on down depends on views above --
 ---------------------------------------------
 
---PostgreSQL 9.6
---select * from cal_gen.make_gregorian_year_quarter_v;
---drop view if exists cal_gen.make_gregorian_year_quarter_v;
+-- cal_gen.make_gregorian_year_quarter_v;
 create or replace view cal_gen.make_gregorian_year_quarter_v as
 select year_quarter_nbr::integer as year_quarter_nbr
      , year_quarter_standard_code::char(7) as year_quarter_standard_code
@@ -185,9 +149,7 @@ order by 1 --desc
 --limit 100
 ;
 
---PostgreSQL 9.6
---select * from cal_gen.make_gregorian_year_month_v limit 100;
---drop view if exists cal_gen.make_gregorian_year_month_v;
+-- cal_gen.make_gregorian_year_month_v;
 create or replace view cal_gen.make_gregorian_year_month_v as
 select year_month_nbr::integer as year_month_nbr
      , year_month_standard_code::char(7) as year_month_standard_code
@@ -217,9 +179,7 @@ where y.year_nbr between 1000 and 3000
 ) ym
 order by 1;
 
---PostgreSQL 9.6
---select * from cal_gen.make_calendar_date_v; -- 17 secs!
---drop view if exists cal_gen.make_calendar_date_v;
+-- cal_gen.make_calendar_date_v;
 create or replace view cal_gen.make_calendar_date_v as 
 select dt.calendar_date
      , extract(isodow from dt.calendar_date)::smallint as day_of_week_iso_nbr
@@ -258,9 +218,7 @@ order by 1 --desc
 --limit 100
 ;
 
---PostgreSQL 9.6
---select * from cal_gen.make_year_week_v; -- 9 secs!
---drop view if exists cal_gen.make_year_week_v;
+-- cal_gen.make_year_week_v;
 create or replace view cal_gen.make_year_week_v as
 select year_week_nbr
      , max(week_of_year_nbr) as week_of_year_nbr
@@ -276,5 +234,3 @@ group by 1
 order by 1 --desc
 --limit 100
 ;
-
-select * from cal_gen.make_year_week_v where year_nbr = 2006 and week_of_year_nbr > 50;
