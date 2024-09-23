@@ -313,18 +313,6 @@ SELECT world_area_oai_seq_id, world_area_key
 	, sovereign_country_name, capital_city_name, world_area_comments_text
 FROM airlines_pg.air_oai_dims.world_areas;
 
--- drop view if exists airlines_pg.world_areas_current_v:
-create or replace view airlines_pg.world_areas_current_v as
-SELECT world_area_oai_id
-    --, world_area_oai_seq_id, world_area_key
-	--, effective_from_date, effective_thru_date, world_area_latest_ind
-	, world_area_name, world_region_name
-	, subdivision_iso_code, subdivision_fips_code, subdivision_name
-	, country_iso_code, country_short_name, country_type_descr
-	, sovereign_country_name, capital_city_name, world_area_comments_text
-FROM airlines_pg.air_oai_dims.world_areas
-where world_area_latest_ind = 1;
-
 -- drop view if exists airlines_pg.airline_entity_legacy_groups_v;
 create or replace view airlines_pg.airline_entity_legacy_groups_v as
 select airline_old_group_nbr
@@ -358,3 +346,32 @@ create or replace view airlines_pg.airline_traffic_data_sources_v as
 SELECT service_class_code
 	, descr 
 FROM air_oai_dims.airline_traffic_data_sources
+
+-- drop view if exists airlines_pg.airframe_and_engine_inventory_annual_v;
+create or replace view airlines_pg.airframe_and_engine_inventory_annual_v as
+select inventory_key
+	, airline_entity_id
+	, airline_entity_key
+	, airline_oai_code
+	, year_nbr 
+	, tail_nbr
+	, serial_nbr 
+	, manufacturer_name
+	, model_ref
+	, aircraft_oai_type
+	, aircraft_icao_type
+	, aircraft_iata_type
+	, --aircraft_type_brief_name
+	, manufacture_year_nbr
+	, acquisition_date
+	, aircraft_status_code
+	, operating_status_ind
+	, seats_qty
+	, capacity_lbr
+from air_oai_fin.airframe_and_engine_inventory_annual
+
+-- drop view if exists airlines_pg.airline_aircraft_by_tail_v;
+create or replace view airlines_pg.airline_aircraft_by_tail_v as
+select 1 --TODO
+--from airline_aircraft_by_tail
+
