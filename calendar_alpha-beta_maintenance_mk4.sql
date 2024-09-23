@@ -1,5 +1,5 @@
 
-create schema calendar;
+create schema if not exists calendar_pg;
 
 /* -- how to decide which years should be part of the calendar?
 select year_nbr, year_from_date, extract(dow from year_from_date) as dow_nbr
