@@ -329,7 +329,7 @@ from air_oai_dims.airline_entity_new_groups
 
 -- drop view if exists airlines_pg.airline_geographic_types_v;
 create or replace view airlines_pg.airline_geographic_types_v as
-select geograhic_type_oai_id
+select geographic_type_oai_id
 	, descr
 	, long_descr 
 from air_oai_dims.airline_geographic_types
