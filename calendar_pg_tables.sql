@@ -2,6 +2,7 @@
 create schema if not exists calendar_pg;
 
 -- hour_of_day_v, minute_of_hour_v replaced with calendar_date_hour_min, calendar_date_hour
+--drop cal_gen tables/views
 
 /* -- how to decide which years should be part of the calendar?
 select year_nbr, year_from_date, extract(dow from year_from_date) as dow_nbr
