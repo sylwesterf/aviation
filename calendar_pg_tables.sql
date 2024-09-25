@@ -17,23 +17,23 @@ where year_nbr > 2050 and year_nbr < 2110;
 create or replace view calendar.calendar_date_v as select *, 1::integer as calendar_date_qty from calendar.calendar_date_alpha;
 create or replace view calendar.calendar_year_v as select *, 1::integer as calendar_year_qty from calendar.gregorian_year_alpha;
 create or replace view calendar.day_of_week_v as select *, 1::integer as day_of_week_qty from calendar.day_of_week_alpha;
---create or replace view calendar.hour_of_day_v as select *, 1::integer as hour_of_day_qty from calendar.hour_of_day_alpha;
---create or replace view calendar.minute_of_hour_v as select *, 1::integer as minute_of_hour_qty from calendar.minute_of_hour_alpha;
+create or replace view calendar.hour_of_day_v as select *, 1::integer as hour_of_day_qty from calendar.hour_of_day_alpha;
+create or replace view calendar.minute_of_hour_v as select *, 1::integer as minute_of_hour_qty from calendar.minute_of_hour_alpha;
 create or replace view calendar.month_of_year_v as select *, 1::integer as month_of_year_qty from calendar.gregorian_month_of_year_alpha;
 create or replace view calendar.quarter_of_year_v as select *, 1::integer as quarter_of_year_qty from calendar.gregorian_quarter_of_year_alpha;
 create or replace view calendar.year_month_v as select *, 1::integer as year_month_qty from calendar.gregorian_year_month_alpha;
 create or replace view calendar.year_quarter_v as select *, 1::integer as year_quarter_qty from calendar.gregorian_year_quarter_alpha;
 create or replace view calendar.year_week_v as select *, 1::integer as year_week_qty from calendar.year_week_alpha;
-create or replace view calendar.calendar_date_hour_min_v as select *, 1::integer as calendar_date_hour_min_qty from calendar.calendar_date_hour_min;
-create or replace view calendar.calendar_date_hour_v as select *, 1::integer as calendar_date_hour_qty from calendar.calendar_date_hour;
+create or replace view calendar.calendar_date_hour_min_v as select *, 1::integer as calendar_date_hour_min_qty from calendar.calendar_date_hour_min_alpha;
+create or replace view calendar.calendar_date_hour_v as select *, 1::integer as calendar_date_hour_qty from calendar.calendar_date_hour_alpha;
 */
 
 /* -- switch calendar views over to beta calendar tables
 create or replace view calendar.calendar_date_v as select *, 1::integer as calendar_date_qty from calendar.calendar_date_beta;
 create or replace view calendar.calendar_year_v as select *, 1::integer as calendar_year_qty from calendar.gregorian_year_beta;
 create or replace view calendar.day_of_week_v as select *, 1::integer as day_of_week_qty from calendar.day_of_week_beta;
---create or replace view calendar.hour_of_day_v as select *, 1::integer as hour_of_day_qty from calendar.hour_of_day_beta;
---create or replace view calendar.minute_of_hour_v as select *, 1::integer as minute_of_hour_qty from calendar.minute_of_hour_beta;
+create or replace view calendar.hour_of_day_v as select *, 1::integer as hour_of_day_qty from calendar.hour_of_day_beta;
+create or replace view calendar.minute_of_hour_v as select *, 1::integer as minute_of_hour_qty from calendar.minute_of_hour_beta;
 create or replace view calendar.month_of_year_v as select *, 1::integer as month_of_year_qty from calendar.gregorian_month_of_year_beta;
 create or replace view calendar.quarter_of_year_v as select *, 1::integer as quarter_of_year_qty from calendar.gregorian_quarter_of_year_beta;
 create or replace view calendar.year_month_v as select *, 1::integer as year_month_qty from calendar.gregorian_year_month_beta;
@@ -96,8 +96,19 @@ create table calendar.year_week_alpha as select * from cal_gen.make_year_week_v 
 create table calendar.calendar_date_alpha as select * from cal_gen.make_calendar_date_v where year_nbr between 1900 and 2090;
 */
 
-/* -- extra tables from postgre
-create table calendar_pg.calendar_date_hour_min as
+/* -- extra views from postgre
+CREATE OR REPLACE VIEW calendar_pg.calendar_date_hour_min_v
+(
+  calendar_timestamp,
+  calendar_date,
+  hour_of_day_nbr,
+  hour_of_day_code,
+  hour_of_day_time,
+  period_code,
+  minute_of_hour_nbr,
+  minute_of_hour_code
+)
+AS 
  SELECT (((((((d.calendar_date::character(10)::text || ' '::text) || h.hour_of_day_code::text) || ':'::text) || m.minute_of_hour_code::text) || ':'::text) || '00'::character(2)::text))::timestamp(0) without time zone AS calendar_timestamp,
     d.calendar_date,
     h.hour_of_day_nbr,
@@ -106,24 +117,37 @@ create table calendar_pg.calendar_date_hour_min as
     h.period_code,
     m.minute_of_hour_nbr,
     m.minute_of_hour_code
-   FROM cal_gen.make_calendar_date_v d 
-     JOIN cal_gen.make_hour_of_day_v h ON 1 = 1
-     JOIN cal_gen.make_minute_of_hour_v m ON 1 = 1
-where d.year_nbr between 1900 and 2090
-ORDER BY d.calendar_date, h.hour_of_day_nbr, m.minute_of_hour_nbr;
+   FROM calendar_pg.calendar_date_alpha d
+     JOIN calendar_pg.hour_of_day_alpha h ON 1 = 1
+     JOIN calendar_pg.minute_of_hour_alpha m ON 1 = 1
+  ORDER BY d.calendar_date, h.hour_of_day_nbr, m.minute_of_hour_nbr;
 
-create table calendar_pg.calendar_date_hour as
+CREATE OR REPLACE VIEW calendar_pg.calendar_date_hour_v
+(
+  calendar_timestamp,
+  calendar_date,
+  hour_of_day_nbr,
+  hour_of_day_code,
+  hour_of_day_time,
+  period_code
+)
+AS 
  SELECT (((d.calendar_date::character(10)::text || ' '::text) || h.hour_of_day_time::character(8)::text))::timestamp(0) without time zone AS calendar_timestamp,
     d.calendar_date,
     h.hour_of_day_nbr,
     h.hour_of_day_code,
     h.hour_of_day_time,
     h.period_code
-   FROM cal_gen.make_calendar_date_v d 
-     JOIN cal_gen.make_hour_of_day_v h ON 1 = 1
-where d.year_nbr between 1900 and 2090
+   FROM calendar_pg.calendar_date_alpha d
+     JOIN calendar_pg.hour_of_day_alpha h ON 1 = 1
   ORDER BY d.calendar_date, h.hour_of_day_nbr;
 
+
+GRANT TRIGGER, INSERT, TRUNCATE, DELETE, REFERENCES, SELECT, UPDATE ON calendar_pg.calendar_date_hour_v TO sfron1726676831;
+
+
+
+COMMIT;
 */
 
 /* -- generate keys for alpha calendar tables
