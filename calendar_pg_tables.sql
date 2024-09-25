@@ -24,6 +24,8 @@ create or replace view calendar.quarter_of_year_v as select *, 1::integer as qua
 create or replace view calendar.year_month_v as select *, 1::integer as year_month_qty from calendar.gregorian_year_month_alpha;
 create or replace view calendar.year_quarter_v as select *, 1::integer as year_quarter_qty from calendar.gregorian_year_quarter_alpha;
 create or replace view calendar.year_week_v as select *, 1::integer as year_week_qty from calendar.year_week_alpha;
+create or replace view calendar.calendar_date_hour_min_v as select *, 1::integer as calendar_date_hour_min_qty from calendar.calendar_date_hour_min;
+create or replace view calendar.calendar_date_hour_v as select *, 1::integer as calendar_date_hour_qty from calendar.calendar_date_hour;
 */
 
 /* -- switch calendar views over to beta calendar tables
