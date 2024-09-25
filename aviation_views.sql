@@ -120,7 +120,7 @@ SELECT flight_key, diversion_nbr, flight_date
 	, diverted_wheels_on_tmstz_lcl, diverted_wheels_on_tmstz_utc
 	, diverted_wheels_off_tmstz_lcl, diverted_wheels_off_tmstz_utc
 	, diverted_total_ground_time_min, diverted_longest_ground_time_min
-FROM airlines_pg.air_oai_facts.airline_flights_diverted_legs;
+FROM air_oai_facts.airline_flights_diverted_legs;
 
 -- drop view if exists airlines_pg.airline_traffic_market_v:
 create or replace view airlines_pg.airline_traffic_market_v as
@@ -191,7 +191,7 @@ SELECT itinerary_oai_id, market_oai_id, year_quarter_start_date, year_quarter_nb
 	, bulk_fare_ind, market_coupon_qty
 	, passenger_qty, market_fare_amount_usd, market_distance_smi
 	, market_flown_distance_smi, non_stop_distance_smi
-FROM airlines_pg.air_oai_facts.airfare_survey_market;
+FROM air_oai_facts.airfare_survey_market;
 
 -- select market_oai_id, count(*) from airlines_pg.airfare_survey_market_v group by 1 having count(*) > 1 order by count(*) desc;
 
@@ -235,7 +235,7 @@ SELECT airline_entity_id
 	, operating_region_code
 	, source_from_date
 	, source_thru_date
-FROM airlines_pg.air_oai_dims.airline_entities;
+FROM air_oai_dims.airline_entities;
 
 -- drop view if exists airlines_pg.airline_entities_current_v:
 create or replace view airlines_pg.airline_entities_current_v as
@@ -254,7 +254,7 @@ SELECT --airline_entity_id, airline_entity_key
 	, operating_region_code
 	--, source_from_date
 	--, source_thru_date
-FROM airlines_pg.air_oai_dims.airline_entities
+FROM air_oai_dims.airline_entities
 where source_thru_date is null;
 
 -- drop view if exists airlines_pg.airline_service_classes_v;
@@ -263,7 +263,7 @@ SELECT service_class_code
 	, scheduled_ind
 	, chartered_ind
 	, service_class_descr
-FROM airlines_pg.air_oai_dims.airline_service_classes;
+FROM air_oai_dims.airline_service_classes;
 
 -- drop view if exists airlines_pg.airport_history_v;
 create or replace view airlines_pg.airport_history_v as
@@ -277,7 +277,7 @@ SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from
 	, subdivision_iso_code, subdivision_fips_code, subdivision_name
 	, country_iso_code, country_name
 	, latitude_decimal_nbr, longitude_decimal_nbr
-FROM airlines_pg.air_oai_dims.airport_history;
+FROM air_oai_dims.airport_history;
 
 -- drop view if exists airlines_pg.airport_current_v;
 create or replace view airlines_pg.airport_current_v as
@@ -294,7 +294,7 @@ SELECT -- airport_history_id, airport_history_key,
 	, subdivision_iso_code, subdivision_fips_code, subdivision_name
 	, country_iso_code, country_name
 	, latitude_decimal_nbr, longitude_decimal_nbr
-FROM airlines_pg.air_oai_dims.airport_history
+FROM air_oai_dims.airport_history
 where airport_latest_ind = 1;
 
 /*
@@ -311,7 +311,7 @@ SELECT world_area_oai_seq_id, world_area_key
 	, subdivision_iso_code, subdivision_fips_code, subdivision_name
 	, country_iso_code, country_short_name, country_type_descr
 	, sovereign_country_name, capital_city_name, world_area_comments_text
-FROM airlines_pg.air_oai_dims.world_areas;
+FROM air_oai_dims.world_areas;
 
 -- drop view if exists airlines_pg.airline_entity_legacy_groups_v;
 create or replace view airlines_pg.airline_entity_legacy_groups_v as
