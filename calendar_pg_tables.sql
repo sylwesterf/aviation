@@ -94,9 +94,9 @@ ALTER TABLE calendar_pg.minute_of_hour ADD CONSTRAINT minute_of_hour_pk  PRIMARY
 CREATE UNIQUE INDEX gregorian_month_of_year_ak1 ON calendar_pg.gregorian_month_of_year (month_of_year_code);
 CREATE UNIQUE INDEX gregorian_year_quarter_ak1 ON calendar_pg.gregorian_year_quarter (year_quarter_standard_code);
 CREATE UNIQUE INDEX year_week_ak1 ON calendar_pg.year_week (year_nbr, week_of_year_nbr);
-CREATE INDEX calendar_pg.date_year_week_if1 ON calendar_pg.calendar_date (year_week_nbr);
-CREATE INDEX calendar_pg.date_year_month_if2 ON calendar_pg.calendar_date (year_month_nbr);
-CREATE INDEX calendar_pg.date_day_of_week_if3 ON calendar_pg.calendar_date (day_of_week_iso_nbr);
+CREATE INDEX calendar_date_year_week_if1 ON calendar_pg.calendar_date (year_week_nbr);
+CREATE INDEX calendar_date_year_month_if2 ON calendar_pg.calendar_date (year_month_nbr);
+CREATE INDEX calendar_date_day_of_week_if3 ON calendar_pg.calendar_date (day_of_week_iso_nbr);
 CREATE INDEX gregorian_month_of_year_quarter_of_year_if1 ON calendar_pg.gregorian_month_of_year (quarter_of_year_nbr);
 CREATE INDEX gregorian_year_month_year_quarter_if1 ON calendar_pg.gregorian_year_month (year_quarter_nbr);
 CREATE INDEX gregorian_year_month_of_year_if1 ON calendar_pg.gregorian_year_month (month_of_year_nbr);
@@ -105,11 +105,11 @@ CREATE INDEX gregorian_year_quarter_of_year_if2 ON calendar_pg.gregorian_year_qu
 CREATE INDEX year_week_if1 ON calendar_pg.year_week (year_nbr);
 
 -- define foreign keys to calendar_pg tables
-ALTER TABLE calendar_pg.calendar_date ADD CONSTRAINT calendar_pg.date_year_week_fk 
+ALTER TABLE calendar_pg.calendar_date ADD CONSTRAINT calendar_date_year_week_fk 
 FOREIGN KEY (year_week_nbr) REFERENCES calendar_pg.year_week (year_week_nbr);
-ALTER TABLE calendar_pg.calendar_date ADD CONSTRAINT calendar_pg.date_year_month_fk 
+ALTER TABLE calendar_pg.calendar_date ADD CONSTRAINT calendar_date_year_month_fk 
 FOREIGN KEY (year_month_nbr) REFERENCES calendar_pg.gregorian_year_month (year_month_nbr);
-ALTER TABLE calendar_pg.calendar_date ADD CONSTRAINT calendar_pg.date_day_of_week_fk 
+ALTER TABLE calendar_pg.calendar_date ADD CONSTRAINT calendar_date_day_of_week_fk 
 FOREIGN KEY (day_of_week_iso_nbr) REFERENCES calendar_pg.day_of_week (day_of_week_iso_nbr);
 ALTER TABLE calendar_pg.gregorian_month_of_year ADD CONSTRAINT gregorian_month_of_year_quarter_of_year_fk  
 FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_pg.gregorian_quarter_of_year (quarter_of_year_nbr);
@@ -123,6 +123,10 @@ ALTER TABLE calendar_pg.gregorian_year_quarter ADD CONSTRAINT gregorian_year_qua
 FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_pg.gregorian_quarter_of_year (quarter_of_year_nbr);
 ALTER TABLE calendar_pg.year_week ADD CONSTRAINT year_week_gregorian_year_fk  
 FOREIGN KEY (year_nbr) REFERENCES calendar_pg.gregorian_year (year_nbr);
+alter table calendar_pg.calendar_date_hour_min  add constraint calendar_date_hour_min_calendar_date_fk 
+foreign key (calendar_date) references calendar_pg.calendar_date (calendar_date);
+alter table calendar_pg.calendar_date_hour  add constraint calendar_date_hour_calendar_date_fk 
+foreign key (calendar_date) references calendar_pg.calendar_date (calendar_date);
 
 -- generate transformation tables
 -- MTD
