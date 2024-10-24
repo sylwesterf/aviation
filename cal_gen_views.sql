@@ -1,5 +1,5 @@
-
-create schema cal_gen;
+-- create cal_gen schema
+create if not exists schema cal_gen;
 
 -- cal_gen.make_gregorian_year_v;
 create or replace view cal_gen.make_gregorian_year_v as
@@ -229,8 +229,35 @@ select year_week_nbr
 from cal_gen.make_calendar_date_v
 where year_nbr between 1000 and 3000
 group by 1
---having max(substring(year_week_nbr::varchar(6),1,4))::smallint = 2006
---and max(week_of_year_nbr) > 50
 order by 1 --desc
 --limit 100
 ;
+
+-- cal_gen.make_calendar_date_hour_min_v;
+CREATE OR REPLACE VIEW cal_gen.make_calendar_date_hour_min_v
+AS 
+SELECT (((((((d.calendar_date::character(10)::text || ' '::text) || h.hour_of_day_code::text) || ':'::text) || m.minute_of_hour_code::text) || ':'::text) || '00'::character(2)::text))::timestamp(0) without time zone AS calendar_timestamp,
+    d.calendar_date,
+    h.hour_of_day_nbr,
+    h.hour_of_day_code,
+    h.hour_of_day_time,
+    h.period_code,
+    m.minute_of_hour_nbr,
+    m.minute_of_hour_code
+FROM cal_gen.make_calendar_date_v d
+JOIN cal_gen.make_hour_of_day_v h ON 1 = 1
+JOIN cal_gen.make_minute_of_hour_v m ON 1 = 1
+ORDER BY d.calendar_date, h.hour_of_day_nbr, m.minute_of_hour_nbr;
+
+-- cal_gen.make_calendar_date_hour_v;
+CREATE OR REPLACE VIEW cal_gen.make_calendar_date_hour_v
+AS 
+SELECT (((d.calendar_date::character(10)::text || ' '::text) || h.hour_of_day_time::character(8)::text))::timestamp(0) without time zone AS calendar_timestamp,
+    d.calendar_date,
+    h.hour_of_day_nbr,
+    h.hour_of_day_code,
+    h.hour_of_day_time,
+    h.period_code
+FROM cal_gen.make_calendar_date_v d
+JOIN cal_gen.make_hour_of_day_v h ON 1 = 1
+ORDER BY d.calendar_date, h.hour_of_day_nbr;
