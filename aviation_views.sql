@@ -345,6 +345,7 @@ FROM air_oai_dims.airfare_classes
 create or replace view airlines_pg.airline_traffic_data_sources_v as
 SELECT service_class_code
 	, descr 
+	, long_descr 
 FROM air_oai_dims.airline_traffic_data_sources
 
 -- drop view if exists airlines_pg.airframe_and_engine_inventory_annual_v;
@@ -371,7 +372,24 @@ select inventory_key
 from air_oai_fin.airframe_and_engine_inventory_annual
 
 -- drop view if exists airlines_pg.airline_aircraft_by_tail_v;
-create or replace view airlines_pg.airline_aircraft_by_tail_v as
-select 1 --TODO
---from airline_aircraft_by_tail
-
+CREATE OR REPLACE VIEW airlines_pg.airline_aircraft_by_tail_v AS 
+SELECT airline_entity_id,
+    max(airline_entity_key) AS airline_entity_key,
+    max(airline_oai_code::text) AS airline_oai_code,
+    min(year_nbr) AS min_year_nbr,
+    max(year_nbr) AS max_year_nbr,
+    tail_nbr,
+    max(serial_nbr::text) AS serial_nbr,
+    max(manufacturer_name::text) AS manufacturer_name,
+    max(model_ref::text) AS model_ref,
+    max(aircraft_oai_type::text) AS aircraft_oai_type,
+    max(aircraft_icao_type) AS aircraft_icao_type,
+    max(aircraft_iata_type::text) AS aircraft_iata_type,
+    max(manufacture_year_nbr) AS manufacture_year_nbr,
+    max(acquisition_date) AS acquisition_date,
+    max(aircraft_status_code) AS aircraft_status_code,
+    max(operating_status_ind) AS operating_status_ind,
+    max(seats_qty) AS seats_qty,
+    max(capacity_lbr) AS capacity_lbr
+FROM air_oai_fin.airframe_and_engine_inventory_annual
+GROUP BY airline_entity_id, tail_nbr;
