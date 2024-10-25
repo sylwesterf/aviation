@@ -1,5 +1,5 @@
 -- create cal_gen schema
-create if not exists schema cal_gen;
+create schema if not exists cal_gen;
 
 -- cal_gen.make_gregorian_year_v;
 create or replace view cal_gen.make_gregorian_year_v as
