@@ -8,18 +8,18 @@ DECLARE
 	start_year INT = 1900;
 	end_year INT = 2090;
 BEGIN 
-	create or replace table calendar_pg.day_of_week as select * from cal_gen.make_day_of_week_v;
-	create or replace table calendar_pg.gregorian_month_of_year as select * from cal_gen.make_gregorian_month_of_year_v;
-	create or replace table calendar_pg.gregorian_quarter_of_year as select * from cal_gen.make_gregorian_quarter_of_year_v;
-	create or replace table calendar_pg.gregorian_year as select * from cal_gen.make_gregorian_year_v where year_nbr between start_year and end_year; 
-	create or replace table calendar_pg.gregorian_year_quarter as select * from cal_gen.make_gregorian_year_quarter_v where year_nbr between start_year and end_year; 
-	create or replace table calendar_pg.gregorian_year_month as select * from cal_gen.make_gregorian_year_month_v where year_nbr between start_year and end_year; 
-	create or replace table calendar_pg.year_week as select * from cal_gen.make_year_week_v where year_nbr between start_year and end_year; 
-	create or replace table calendar_pg.calendar_date as select * from cal_gen.make_calendar_date_v where year_nbr between start_year and end_year; 
-	create or replace table calendar_pg.hour_of_day_alpha as select * from cal_gen.make_hour_of_day_v;
-	create or replace table calendar_pg.minute_of_hour_alpha as select * from cal_gen.make_minute_of_hour_v;
-	create or replace table calendar_pg.calendar_date_hour_min as select * from cal_gen.make_calendar_date_hour_min_v where date_part('year', calendar_date) between start_year and end_year; 
-	create or replace table calendar_pg.calendar_date_hour as select * from cal_gen.make_calendar_date_hour_v where date_part('year', calendar_date) between start_year and end_year; 
+	create table if not exists calendar_pg.day_of_week as select * from cal_gen.make_day_of_week_v;
+	create table if not exists calendar_pg.gregorian_month_of_year as select * from cal_gen.make_gregorian_month_of_year_v;
+	create table if not exists calendar_pg.gregorian_quarter_of_year as select * from cal_gen.make_gregorian_quarter_of_year_v;
+	create table if not exists calendar_pg.gregorian_year as select * from cal_gen.make_gregorian_year_v where year_nbr between start_year and end_year; 
+	create table if not exists calendar_pg.gregorian_year_quarter as select * from cal_gen.make_gregorian_year_quarter_v where year_nbr between start_year and end_year; 
+	create table if not exists calendar_pg.gregorian_year_month as select * from cal_gen.make_gregorian_year_month_v where year_nbr between start_year and end_year; 
+	create table if not exists calendar_pg.year_week as select * from cal_gen.make_year_week_v where year_nbr between start_year and end_year; 
+	create table if not exists calendar_pg.calendar_date as select * from cal_gen.make_calendar_date_v where year_nbr between start_year and end_year; 
+	create table if not exists calendar_pg.hour_of_day as select * from cal_gen.make_hour_of_day_v;
+	create table if not exists calendar_pg.minute_of_hour as select * from cal_gen.make_minute_of_hour_v;
+	create table if not exists calendar_pg.calendar_date_hour_min as select * from cal_gen.make_calendar_date_hour_min_v where date_part('year', calendar_date) between start_year and end_year; 
+	create table if not exists calendar_pg.calendar_date_hour as select * from cal_gen.make_calendar_date_hour_v where date_part('year', calendar_date) between start_year and end_year; 
 END $$;
 
 -- add comments to calendar tables
@@ -130,7 +130,7 @@ foreign key (calendar_date) references calendar_pg.calendar_date (calendar_date)
 
 -- generate transformation tables
 -- MTD
-create or replace table calendar_pg.cumulative_month_to_dates as
+create table if not exists calendar_pg.cumulative_month_to_dates as
 select d.calendar_date, x.calendar_date as cumulative_month_to_date
 from calendar_pg.calendar_date d join calendar_pg.calendar_date x 
   on d.year_month_nbr = x.year_month_nbr
@@ -139,7 +139,7 @@ and x.calendar_date <= (select max(calendar_date) from calendar_pg.calendar_date
 order by d.calendar_date, x.calendar_date;
 
 -- QTD 
-create or replace table calendar_pg.cumulative_quarter_to_dates as
+create table if not exists calendar_pg.cumulative_quarter_to_dates as
 select d.calendar_date, x.calendar_date as cumulative_quarter_to_date
 from calendar_pg.calendar_date d join calendar_pg.calendar_date x 
   on d.year_quarter_nbr = x.year_quarter_nbr
@@ -147,7 +147,7 @@ where x.calendar_date <= d.calendar_date
 order by d.calendar_date, x.calendar_date;
 
 -- YTD
-create or replace table calendar_pg.cumulative_year_to_dates as
+create table if not exists calendar_pg.cumulative_year_to_dates as
 select d.calendar_date, x.calendar_date as cumulative_year_to_date
 from calendar_pg.calendar_date d join calendar_pg.calendar_date x 
   on d.year_nbr = x.year_nbr
@@ -155,7 +155,7 @@ where x.calendar_date <= d.calendar_date
 order by d.calendar_date, x.calendar_date;
 
 -- WTD
-create or replace table calendar_pg.cumulative_week_to_dates as
+create table if not exists calendar_pg.cumulative_week_to_dates as
 select d.calendar_date, x.calendar_date as cumulative_week_to_date
 from calendar_pg.calendar_date d join calendar_pg.calendar_date x 
   on d.year_week_nbr = x.year_week_nbr
