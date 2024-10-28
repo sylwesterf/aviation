@@ -16,7 +16,8 @@ CREATE EXTENSION pgrouting;
 --CREATE SERVER rokuko_24tb FOREIGN DATA WRAPPER file_fdw;
 --CREATE SERVER mochida FOREIGN DATA WRAPPER file_fdw;
 
-create schema air_oai_dims;
+create schema if not exists air_oai_dims;
+comment on schema air_oai_dims is 'Dimension data tables and associated foreign tables for processing OAI dimension data.';
 
 -----------------------------
 -- Create Reference Tables --
