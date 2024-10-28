@@ -1,5 +1,6 @@
 -- create cal_gen schema
 create schema if not exists cal_gen;
+comment on schema cal_gen is 'Gregorian calendar generation views to be able to adjust data time frame in calendar schema.';
 
 -- cal_gen.make_gregorian_year_v;
 create or replace view cal_gen.make_gregorian_year_v as
