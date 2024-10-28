@@ -1,4 +1,5 @@
 create schema if not exists airlines_pg;
+comment on schema airlines_pg is 'Views that simplify the presentation of schemata like air_ for analysis tools, such as MicroStrategy.';
 
 -- drop view if exists airlines_pg.airline_flights_scheduled_v;
 create or replace view airlines_pg.airline_flights_scheduled_v as
