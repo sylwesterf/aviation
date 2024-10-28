@@ -1,5 +1,6 @@
 -- create calendar schema
 create schema if not exists calendar_pg;
+comment on schema calendar_pg is 'Gregorian calendar data as well as time transformation for ROLAP analysis.';
 
 -- create calendar tables based on base views and start/end year
 -- set calendar start and end years as variables
