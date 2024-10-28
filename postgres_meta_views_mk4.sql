@@ -25,12 +25,10 @@ comment on schema air_faa_reg is 'Dimension and spatial data tables and associat
 comment on schema air_oai_dims is 'Dimension data tables and associated foreign tables for processing OAI dimension data.';
 comment on schema air_oai_facts is 'Fact data and associated foreign tables and materialized views for processing OAI fact data.';
 comment on schema air_oai_parts is 'Holds partition tables for data tables in schema air_oai_facts.';
-comment on schema aviation is 'Views that simplify the presentation of schemata like air_ for analysis tools, such as MicroStrategy.';
-comment on schema cal_gen is 'Gregorian and Julian calendar generation views to be able to adjust data time frame in calendar schema.';
-comment on schema calendar is 'Gregorian and Julian calendar data as well as time transformation for ROLAP analysis.';
+
 comment on schema geography is 'geo-political dimension and spatial data in support of aviation analysis.';
 comment on schema zed_meta is 'Metadata and examples from documentation to assist with Postgres design and analysis.';
--- COMMENT ON TABLE mytable IS 'This is my table.'; 
+
 
 -- select * from zed_meta.database_objects_v;
 -- CREATE VIEW zed_meta.database_objects_v AS  
