@@ -48,7 +48,7 @@ order by year_nbr, carrier_oai_code, tail_nbr;
 --select * from air_oai_fin.airframe_and_engine_inventory_annual limit 25;
 --drop table if exists air_oai_fin.airframe_and_engine_inventory_annual;
 create table air_oai_fin.airframe_and_engine_inventory_annual as
-select md5(year_nbr::text ||'~'|| replace(f.carrier_oai_code,' ','') ||'~'|| tail_nbr ||'~'|| serial_nbr)::char(32) as inventory_key
+select md5(year_nbr::text ||'~'|| replace(f.carrier_oai_code,' ','') ||'~'|| tail_nbr ||'~'|| serial_nbr)::char(32) as inventory_key -- add seats_qty, capacity_lbr
      , ae.airline_entity_id
      , max(ae.airline_entity_key)::char(32) as airline_entity_key
      , max(replace(f.carrier_oai_code,' ',''))::varchar(3) as airline_oai_code
