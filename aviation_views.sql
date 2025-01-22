@@ -1,3 +1,4 @@
+-- create airlines_pg schema
 create schema if not exists airlines_pg;
 comment on schema airlines_pg is 'Views that simplify the presentation of schemata like air_ for analysis tools, such as MicroStrategy.';
 
