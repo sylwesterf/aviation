@@ -1,6 +1,6 @@
-
--- select * from zed_meta.database_schema_descriptions_v;
--- CREATE VIEW zed_meta.database_schema_descriptions_v AS  
+-- zed_meta.database_schema_descriptions_v
+CREATE OR REPLACE VIEW zed_meta.database_schema_descriptions_v 
+AS  
 SELECT n.oid as schema_oid
      , max(n.nspname) AS schema_name
      , sum(sum_object_size_mb)::numeric(12,4) as sum_object_size_mb
@@ -19,8 +19,9 @@ WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
 GROUP BY n.oid
 ORDER BY n.nspname;
 
--- select * from zed_meta.database_objects_v;
--- CREATE VIEW zed_meta.database_objects_v AS  
+-- zed_meta.database_objects_v
+CREATE OR REPLACE VIEW zed_meta.database_objects_v 
+AS  
 SELECT current_database() AS database_name
      , n.nspname AS schema_name
      , c.relname AS object_name
@@ -51,10 +52,4 @@ LEFT JOIN (
 WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
 and c.relkind = 'r'
 ORDER BY 3,7 desc;
-
--- drop table air_oai_facts.airfare_survey_coupon_bak;
--- drop table air_oai_facts.airfare_survey_market_bak;
--- drop table air_oai_facts.airfare_survey_itinerary_bak;
-
-
 
