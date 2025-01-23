@@ -1,6 +1,4 @@
 
-create schema zed_meta;
-
 -- select * from zed_meta.database_schema_descriptions_v;
 -- CREATE VIEW zed_meta.database_schema_descriptions_v AS  
 SELECT n.oid as schema_oid
@@ -20,15 +18,6 @@ LEFT JOIN (
 WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
 GROUP BY n.oid
 ORDER BY n.nspname;
-
-comment on schema air_faa_reg is 'Dimension and spatial data tables and associated objects for processing FAA data.';
-comment on schema air_oai_dims is 'Dimension data tables and associated foreign tables for processing OAI dimension data.';
-comment on schema air_oai_facts is 'Fact data and associated foreign tables and materialized views for processing OAI fact data.';
-comment on schema air_oai_parts is 'Holds partition tables for data tables in schema air_oai_facts.';
-
-comment on schema geography is 'geo-political dimension and spatial data in support of aviation analysis.';
-comment on schema zed_meta is 'Metadata and examples from documentation to assist with Postgres design and analysis.';
-
 
 -- select * from zed_meta.database_objects_v;
 -- CREATE VIEW zed_meta.database_objects_v AS  
