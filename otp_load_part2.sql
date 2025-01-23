@@ -1,17 +1,4 @@
-
--- DROP VIEW if exists airlines_pg.airline_flights_scheduled_v;
-CREATE VIEW airlines_pg.airline_flights_scheduled_v AS  
-SELECT flight_key, flight_date, flight_nbr, flight_count, tail_nbr, flight_status
-    , airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
-    , depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
-    , arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
-    , distance_smi, distance_nmi, distance_kmt, distance_group_id, depart_time_block, arrive_time_block
-    , report_depart_tmstz_lcl, (report_depart_tmstz_lcl)::date AS report_depart_date_lcl
-    , report_depart_tmstz_utc, (report_depart_tmstz_utc)::date AS report_depart_date_utc
-    , report_arrive_tmstz_lcl, (report_arrive_tmstz_lcl)::date AS report_arrive_date_lcl
-    , report_arrive_tmstz_utc, (report_arrive_tmstz_utc)::date AS report_arrive_date_utc
-    , report_elapsed_time_min
-FROM air_oai_facts.airline_flights_scheduled;
+-- merge w/ otp_load.sql
 
 alter table air_oai_facts.airline_flights_scheduled rename to airline_flights_scheduled_bak2;
 alter table air_oai_facts.airline_flights_scheduled_new rename to airline_flights_scheduled;
