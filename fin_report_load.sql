@@ -1,54 +1,52 @@
---------
--- '/opt/_data/_air/_oai/_fin/T_F41SCHEDULE_B43.csv'
--- s3://mstr-aviation-oai/FIN/T_F41SCHEDULE_B43.csv.gz
--- air_oai_fin.airframe_and_engine_inventory_annual;
---------
+-- merge with support_tables_load.sql
 
--- select count(*) from air_oai_fdw.f41_schedule_b43_fdw where aircraft_type is null; -- 94151 / 29933
+-- Air Carrier Financial Reports (US DoT data)
+-- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Air Carrier Financial Reports (Form 41 Financial Data)
+-- https://www.transtats.bts.gov/Tables.asp?QO_VQ=EGI&QO_anzr=Nv4%FDPn44vr4%FDSv0n0pvny%FDer21465%FD%FLS14z%FDHE%FDSv0n0pvny%FDQn6n%FM&QO_fu146_anzr=Nv4%FDPn44vr4%FDSv0n0pvny
 
--- select year_nbr, count(*) from air_oai_fdw.f41_schedule_b43_fdw group by 1 order by 1;
--- select * from air_oai_fdw.f41_schedule_b43_fdw limit 25;
--- DROP FOREIGN TABLE IF EXISTS air_oai_fdw.f41_schedule_b43_fdw;
-CREATE FOREIGN TABLE air_oai_fdw.f41_schedule_b43_fdw
-( year_nbr 							smallint
-, carrier_oai_code 					varchar(3)
-, carrier_name 						varchar(125)
-, manufacture_year_nbr 				smallint
-, carrier_unique_name 				varchar(125)
-, serial_nbr 						varchar(25)
-, tail_nbr 							varchar(25)
-, aircraft_status_code 				varchar(25)
-, operating_status_code 			varchar(25)
-, seats_qty 						integer
-, manufacturer_name 				varchar(75)
-, aircraft_oai_type					varchar(15)
-, model_ref 						varchar(25)
-, capacity_lbr 						integer
-, acquisition_date 					date
-, airline_id 						smallint
-, carrier_unique_oai_code 			varchar(7)
---, filler_txt 						varchar(10)
+-- STEPS:
+-- 0. download and unzip pre-zipped data file: Annual Inventory of Airframe and Aircraft Engines
+-- 1. create airframe_and_engine_inventory_annual lookup 
+-- 1.1. create air_oai_dims.f41_schedule_b43_fdw table in postgre
+-- 1.2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw
+-- 1.3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
+-- 1.4. define keys and indexes
+-- 1.5. add comments 
+-- 1.6. data validation
+
+-- 1.1. create air_oai_dims.f41_schedule_b43_fdw table in postgre
+DROP TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
+CREATE TABLE air_oai_dims.f41_schedule_b43_fdw
+( 
+	year_nbr 							smallint
+	, carrier_oai_code 					varchar(3)
+	, carrier_name 						varchar(125)
+	, manufacture_year_nbr 				smallint
+	, carrier_unique_name 				varchar(125)
+	, serial_nbr 						varchar(25)
+	, tail_nbr 							varchar(25)
+	, aircraft_status_code 				varchar(25)
+	, operating_status_code 			varchar(25)
+	, seats_qty 						integer
+	, manufacturer_name 				varchar(75)
+	, aircraft_oai_type					varchar(15)
+	, model_ref 						varchar(25)
+	, capacity_lbr 						integer
+	, acquisition_date 					date
+	, airline_id 						smallint
+	, carrier_unique_oai_code 			varchar(7)
+	--, filler_txt 						varchar(10)
 )
-server ubu_hydra options 
-	( format 'csv'
-	, header 'true'
-	, filename '/opt/_data/_air/_oai/_fin/T_F41SCHEDULE_B43.csv'
-	, delimiter ','
-	, null ''
-	);
 
-/* -- verify uniqueness
-select * from air_oai_fdw.f41_schedule_b43_fdw
-where year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/ in
-(select year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/
-from air_oai_fdw.f41_schedule_b43_fdw group by 1 having count(*) > 1)
-order by year_nbr, carrier_oai_code, tail_nbr;
-*/
+-- 1.2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw
+--mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.f41_schedule_b43_fdw FROM 'T_F41SCHEDULE_B43.csv' CSV HEADER";
 
---select * from air_oai_fin.airframe_and_engine_inventory_annual limit 25;
---drop table if exists air_oai_fin.airframe_and_engine_inventory_annual;
-create table air_oai_fin.airframe_and_engine_inventory_annual as
-select md5(year_nbr::text ||'~'|| replace(f.carrier_oai_code,' ','') ||'~'|| tail_nbr ||'~'|| serial_nbr)::char(32) as inventory_key -- add seats_qty, capacity_lbr
+-- 1.3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
+drop table if exists air_oai_fin.airframe_and_engine_inventory_annual;
+create table air_oai_fin.airframe_and_engine_inventory_annual 
+as
+select 
+	md5(year_nbr::text ||'~'|| replace(f.carrier_oai_code,' ','') ||'~'|| tail_nbr ||'~'|| serial_nbr)::char(32) as inventory_key -- add seats_qty, capacity_lbr
      , ae.airline_entity_id
      , max(ae.airline_entity_key)::char(32) as airline_entity_key
      , max(replace(f.carrier_oai_code,' ',''))::varchar(3) as airline_oai_code
@@ -67,7 +65,7 @@ select md5(year_nbr::text ||'~'|| replace(f.carrier_oai_code,' ','') ||'~'|| tai
 	 , max(f.operating_status_code)::char(1) as operating_status_ind
 	 , max(f.seats_qty) as seats_qty
 	 , max(f.capacity_lbr) as capacity_lbr
-     , 'gxclark'::varchar(32) as created_by
+     , current_user::varchar(32) as created_by
      , current_timestamp::timestamp(0) as created_ts
      , null::varchar(25) as updated_by
      , null::timestamp(0) as updated_ts
@@ -80,13 +78,11 @@ where (f.year_nbr::text ||'-01-01')::date between source_from_date and coalesce(
 group by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr, replace(f.carrier_oai_code,' ','')
 order by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr;
 
-alter table air_oai_fin.airframe_and_engine_inventory_annual
-add constraint airframe_and_engine_inventory_annual_pk
-primary key (inventory_key);
+-- 1.4. define keys and indexes
+alter table air_oai_fin.airframe_and_engine_inventory_annual add constraint airframe_and_engine_inventory_annual_pk primary key (inventory_key);
+create unique index airframe_and_engine_inventory_annual_nk on air_oai_fin.airframe_and_engine_inventory_annual (airline_entity_id, year_nbr, tail_nbr, serial_nbr);
 
-create unique index airframe_and_engine_inventory_annual_nk 
-on air_oai_fin.airframe_and_engine_inventory_annual (airline_entity_id, year_nbr, tail_nbr, serial_nbr);
-
+-- 1.5. add comments 
 comment on table air_oai_fin.airframe_and_engine_inventory_annual is 'Annual Inventory of Airframe and Aircraft Engines.';
 comment on column air_oai_fin.inventory_key is 'composite hashed key of year_nbr~airline_oai_code~tail_nbr~serial_nbr.';
 comment on column air_oai_fin.airline_entity_id is 'Foreign key column to air_oai_dims.airline_entities.';
@@ -110,3 +106,17 @@ comment on column air_oai_fin.created_by is 'audit column, who loaded this row?'
 comment on column air_oai_fin.created_ts is 'audit column, when was this row loaded?';
 comment on column air_oai_fin.updated_by is 'audit column, who modified this row?';
 comment on column air_oai_fin.updated_ts is 'audit column, when was this row modified?';
+
+-- 1.6. data validation
+-- select count(*) from air_oai_fdw.f41_schedule_b43_fdw where aircraft_type is null; -- 94151 / 29933
+
+-- select year_nbr, count(*) from air_oai_fdw.f41_schedule_b43_fdw group by 1 order by 1;
+-- select * from air_oai_fdw.f41_schedule_b43_fdw limit 25;
+
+/* -- verify uniqueness
+select * from air_oai_fdw.f41_schedule_b43_fdw
+where year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/ in
+(select year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/
+from air_oai_fdw.f41_schedule_b43_fdw group by 1 having count(*) > 1)
+order by year_nbr, carrier_oai_code, tail_nbr;
+*/
