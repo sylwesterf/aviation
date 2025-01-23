@@ -367,7 +367,7 @@ select inventory_key
 	, operating_status_ind
 	, seats_qty
 	, capacity_lbr
-from air_oai_fin.airframe_and_engine_inventory_annual
+from air_oai_dims.airframe_and_engine_inventory_annual
 
 -- drop view if exists airlines_pg.airline_aircraft_by_tail_v;
 CREATE OR REPLACE VIEW airlines_pg.airline_aircraft_by_tail_v AS 
@@ -389,5 +389,5 @@ SELECT airline_entity_id,
     max(operating_status_ind) AS operating_status_ind,
     max(seats_qty) AS seats_qty,
     max(capacity_lbr) AS capacity_lbr
-FROM air_oai_fin.airframe_and_engine_inventory_annual
+FROM air_oai_dims.airframe_and_engine_inventory_annual
 GROUP BY airline_entity_id, tail_nbr;
