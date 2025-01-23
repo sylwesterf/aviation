@@ -6,7 +6,6 @@ CREATE EXTENSION PostGIS;
 CREATE SERVER abrams_ssd8tb FOREIGN DATA WRAPPER file_fdw;
 --CREATE SERVER rokuko_24tb FOREIGN DATA WRAPPER file_fdw;
 
-create schema air_oai_facts;
 
 ----------------------------
 --airfare_survey_itinerary--
