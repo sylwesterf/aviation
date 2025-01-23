@@ -1,5 +1,4 @@
-
-create schema air_oai_facts;
+-- TODO (merge part 2)
 
 ----------------------------
 -- Airline Traffic Market --
@@ -519,3 +518,64 @@ GROUP BY year_month_nbr, service_class_code
 -- drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
 -- drop materialized view air_oai_facts.f41_traffic_t100_segment_load_mv;
 -- drop table if exists air_oai_facts.f41_traffic_t100_segment_archive;
+
+
+-------------------
+-- Establish FKs --
+-------------------
+
+-- air_oai_facts.airline_traffic_segment
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_service_fk 
+foreign key (service_class_code) references air_oai_dims.airline_service_classes (service_class_code);
+
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_aircraft_configuration_fk 
+foreign key (aircraft_configuration_ref) references air_oai_dims.aircraft_configurations (aircraft_configuration_ref);
+
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_aircraft_type_fk 
+foreign key (aircraft_type_oai_nbr) references air_oai_dims.aircraft_types (aircraft_type_oai_nbr);
+
+-- IDS:
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_airline_id_fk 
+foreign key (airline_entity_id) references air_oai_dims.airline_entities (airline_entity_id);
+
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_depart_airport_id_fk 
+foreign key (depart_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_arrive_airport_id_fk 
+foreign key (arrive_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+
+-- KEYS:
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_airline_key_fk 
+foreign key (airline_entity_key) references air_oai_dims.airline_entities (airline_entity_key);
+
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_depart_airport_key_fk 
+foreign key (depart_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
+
+alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_arrive_airport_key_fk 
+foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
+
+-----
+
+-- air_oai_facts.airline_traffic_market
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_service_fk 
+foreign key (service_class_code) references air_oai_dims.airline_service_classes (service_class_code);
+
+-- IDS:
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_airline_id_fk 
+foreign key (airline_entity_id) references air_oai_dims.airline_entities (airline_entity_id);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_depart_airport_id_fk 
+foreign key (depart_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_arrive_airport_id_fk 
+foreign key (arrive_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+
+-- KEYS:
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_airline_key_fk 
+foreign key (airline_entity_key) references air_oai_dims.airline_entities (airline_entity_key);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_depart_airport_key_fk 
+foreign key (depart_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_arrive_airport_key_fk 
+foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
