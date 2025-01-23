@@ -1,3 +1,5 @@
+-- add to t100 load
+
 -- drop table air_oai_dims.airline_service_classes
 create table air_oai_dims.airline_service_classes as
 select f.service_class_code
