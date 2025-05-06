@@ -136,7 +136,7 @@ where (asf.year_nbr::text ||
 -------------------------
 -- 2.1 Create table a air_oai_facts.airfare_survey_coupon_load
 
-create foreign table air_oai_facts.airfare_survey_coupon_load
+create table air_oai_facts.airfare_survey_coupon_load
 	( itinerary_oai_id             		bigint null
 	, market_oai_id						bigint null
 	, flight_pass_seq					integer null
