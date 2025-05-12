@@ -375,7 +375,7 @@ create table air_oai_facts.airfare_survey_market
 
 -- 3.4 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
 
-INSERT INTO aviation.air_oai_facts.airfare_survey_market
+INSERT INTO air_oai_facts.airfare_survey_market
 	( itinerary_oai_id, market_oai_id, year_quarter_start_date
 	, ticketing_airline_entity_id, ticketing_airline_entity_key, ticketing_airline_change_ind, ticketing_airlines_group_code
 	, operating_airline_entity_id, operating_airline_entity_key, operating_airline_change_ind, operating_airlines_group_code
@@ -420,15 +420,15 @@ SELECT am.itinerary_oai_id
 	 , current_user
 	 , current_timestamp
 FROM air_oai_facts.airfare_survey_market_load am
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aet
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aet
   on am.ticketing_airline_oai_code = aet.airline_oai_code
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aeo
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aeo
   on am.operating_airline_oai_code = aeo.airline_oai_code
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aer
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aer
   on am.reporting_airline_oai_code = aer.airline_oai_code
-left join air_oai_facts.airport_history ahd
+left join air_oai_dims.airport_history ahd
   on am.depart_airport_oai_seq_id = ahd.airport_oai_seq_id
-left join air_oai_facts.airport_history aha
+left join air_oai_dims.airport_history aha
   on am.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
 where (am.year_nbr::text || 
        case when am.quarter_nbr = 1 then '-01-01' when am.quarter_nbr = 2 then '-04-01' 
@@ -492,7 +492,7 @@ create table air_oai_facts.airfare_survey_coupon_2020Q2 partition of air_oai_fac
 create table air_oai_facts.airfare_survey_coupon_2020Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-01-01') to ('2020-03-31');
 
 -- 3.5 Create partition, create primary key and index on the table airfare_survey_market
-
+create table air_oai_facts.airfare_survey_market_2023Q1 partition of air_oai_facts.airfare_survey_market for values from ('2023-10-01') to ('2024-01-31');
 create table air_oai_facts.airfare_survey_market_2023Q1 partition of air_oai_facts.airfare_survey_market for values from ('2023-01-01') to ('2023-03-31');
 create table air_oai_facts.airfare_survey_market_2022Q4 partition of air_oai_facts.airfare_survey_market for values from ('2022-10-01') to ('2022-12-31');
 create table air_oai_facts.airfare_survey_market_2022Q3 partition of air_oai_facts.airfare_survey_market for values from ('2022-07-01') to ('2022-09-30');
