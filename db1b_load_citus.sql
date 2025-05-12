@@ -449,7 +449,9 @@ and   (am.year_nbr::text ||
 -- 5 Create partition, create primary key and index on the tables
 
 --5.1 Create partition on the table airfare_survey_itinerary
-
+create table air_oai_facts.airfare_survey_itinerary_2020Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-10-01') to ('2024-12-31');
+create table air_oai_facts.airfare_survey_itinerary_2020Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-07-01') to ('2023-09-30');
+create table air_oai_facts.airfare_survey_itinerary_2020Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-04-01') to ('2023-06-30');
 create table air_oai_facts.airfare_survey_itinerary_2023Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-01-01') to ('2023-03-31');
 create table air_oai_facts.airfare_survey_itinerary_2022Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-10-01') to ('2022-12-31');
 create table air_oai_facts.airfare_survey_itinerary_2022Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-07-01') to ('2022-09-30');
