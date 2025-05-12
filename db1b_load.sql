@@ -215,7 +215,6 @@ create table air_oai_facts.airfare_survey_coupon
 	) partition by range (year_quarter_start_date)
 	;
 -- 2.4 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
-
 INSERT INTO air_oai_facts.airfare_survey_coupon
 	(itinerary_oai_id, flight_pass_seq, year_quarter_start_date, market_oai_id
 	, ticketing_airline_entity_id, ticketing_airline_entity_key
@@ -255,15 +254,15 @@ SELECT ac.itinerary_oai_id
 	 , current_user
 	 , current_timestamp
 FROM air_oai_facts.airfare_survey_coupon_load ac
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aet
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aet
   on ac.ticketing_airline_oai_code = aet.airline_oai_code
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aeo
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aeo
   on ac.operating_airline_oai_code = aeo.airline_oai_code
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aer
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aer
   on ac.reporting_airline_oai_code = aer.airline_oai_code
-left join air_oai_facts.airport_history ahd
+left join air_oai_dims.airport_history ahd
   on ac.depart_airport_oai_seq_id = ahd.airport_oai_seq_id
-left join air_oai_facts.airport_history aha
+left join air_oai_dims.airport_history aha
   on ac.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
 where (ac.year_nbr::text || 
        case when ac.quarter_nbr = 1 then '-01-01' when ac.quarter_nbr = 2 then '-04-01' 
