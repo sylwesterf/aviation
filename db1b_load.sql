@@ -119,7 +119,7 @@ SELECT asf.itinerary_oai_id
 	 , fare_per_person_amount_usd, fare_per_smi
 	 , current_user, now()
 FROM air_oai_facts.airfare_survey_ticket_load asf
--- air_oai_facts.airfare_survey_ticket_fdw asf
+-- air_oai_facts.airfare_survey_ticket_load asf
 left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
 left join air_oai_dims.airport_history ah
