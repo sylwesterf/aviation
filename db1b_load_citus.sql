@@ -136,7 +136,7 @@ where (asf.year_nbr::text ||
 -------------------------
 -- 2.1 Create table a air_oai_facts.airfare_survey_coupon_load
 
-create foreign table air_oai_facts.airfare_survey_coupon_load
+create table air_oai_facts.airfare_survey_coupon_load
 	( itinerary_oai_id             		bigint null
 	, market_oai_id						bigint null
 	, flight_pass_seq					integer null
@@ -215,7 +215,6 @@ create table air_oai_facts.airfare_survey_coupon
 	) partition by range (year_quarter_start_date)
 	;
 -- 2.4 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
-
 INSERT INTO air_oai_facts.airfare_survey_coupon
 	(itinerary_oai_id, flight_pass_seq, year_quarter_start_date, market_oai_id
 	, ticketing_airline_entity_id, ticketing_airline_entity_key
@@ -255,15 +254,15 @@ SELECT ac.itinerary_oai_id
 	 , current_user
 	 , current_timestamp
 FROM air_oai_facts.airfare_survey_coupon_load ac
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aet
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aet
   on ac.ticketing_airline_oai_code = aet.airline_oai_code
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aeo
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aeo
   on ac.operating_airline_oai_code = aeo.airline_oai_code
-left join (select * from air_oai_facts.airline_entities where operating_region_code = 'Domestic') aer
+left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aer
   on ac.reporting_airline_oai_code = aer.airline_oai_code
-left join air_oai_facts.airport_history ahd
+left join air_oai_dims.airport_history ahd
   on ac.depart_airport_oai_seq_id = ahd.airport_oai_seq_id
-left join air_oai_facts.airport_history aha
+left join air_oai_dims.airport_history aha
   on ac.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
 where (ac.year_nbr::text || 
        case when ac.quarter_nbr = 1 then '-01-01' when ac.quarter_nbr = 2 then '-04-01' 
@@ -449,9 +448,9 @@ and   (am.year_nbr::text ||
 -- 5 Create partition, create primary key and index on the tables
 
 --5.1 Create partition on the table airfare_survey_itinerary
-create table air_oai_facts.airfare_survey_itinerary_2020Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-10-01') to ('2024-12-31');
-create table air_oai_facts.airfare_survey_itinerary_2020Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-07-01') to ('2023-09-30');
-create table air_oai_facts.airfare_survey_itinerary_2020Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-04-01') to ('2023-06-30');
+create table air_oai_facts.airfare_survey_itinerary_2023Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-10-01') to ('2024-12-31');
+create table air_oai_facts.airfare_survey_itinerary_2023Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-07-01') to ('2023-09-30');
+create table air_oai_facts.airfare_survey_itinerary_2023Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-04-01') to ('2023-06-30');
 create table air_oai_facts.airfare_survey_itinerary_2023Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-01-01') to ('2023-03-31');
 create table air_oai_facts.airfare_survey_itinerary_2022Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-10-01') to ('2022-12-31');
 create table air_oai_facts.airfare_survey_itinerary_2022Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-07-01') to ('2022-09-30');
@@ -475,7 +474,7 @@ create index airfare_survey_itinerary_origin_airport_idx on oai.airfare_survey_i
 create index airfare_survey_itinerary_year_quarter_idx on oai.airfare_survey_itinerary (year_nbr, quarter_nbr);
 
 -- 5.2 Create partition, create primary key and index on the table airfare_survey_coupon
-
+create table air_oai_facts.airfare_survey_coupon_2023Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2023-10-01') to ('2024-12-31');
 create table air_oai_facts.airfare_survey_coupon_2023Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2023-01-01') to ('2023-03-31');
 create table air_oai_facts.airfare_survey_coupon_2022Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-10-01') to ('2022-12-31');
 create table air_oai_facts.airfare_survey_coupon_2022Q3 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-07-01') to ('2022-09-30');
