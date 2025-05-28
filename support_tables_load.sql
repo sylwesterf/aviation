@@ -265,7 +265,7 @@ create table air_oai_dims.airline_entities
 	, constraint airline_entities_nk unique (airline_oai_code, entity_oai_code, source_from_date)
 );
 
--- 3.4. ? drop identity
+-- 3.4. ? drop identity - check if needed and why?
 alter table air_oai_dims.airline_entities alter column airline_entity_id drop identity;
 
 -- 3.5.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
