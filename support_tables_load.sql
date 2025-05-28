@@ -50,7 +50,7 @@ create table air_oai_dims.aircraft_types_fdw
 	aircraft_type_oai_nbr			smallint	not null
 	, aircraft_group_oai_nbr		smallint	not null
 	, aircraft_oai_type				varchar(55)	not null
-	, manufacturer_name				varchar(55)	not null
+	, manufacturer_name				varchar(55)
 	, aircraft_type_long_name		varchar(55)	not null
 	, aircraft_type_brief_name		varchar(55)	not null
 	, aircraft_type_from_date		date		not null
@@ -58,6 +58,8 @@ create table air_oai_dims.aircraft_types_fdw
 	--, filler01_txt					varchar(10)
 )
 
+--1.2.1 Aurora data load
+SELECT aws_s3.table_import_from_s3('air_oai_dims.aircraft_types_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_AIRCRAFT_TYPES_2024-01-16.csv', 'us-west-2'));
 -- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES_2024-01-16.csv' CSV HEADER";
 
@@ -85,7 +87,8 @@ insert into air_oai_dims.aircraft_types
 ( 
 	aircraft_type_oai_nbr
 	, aircraft_group_oai_nbr
-	, aircraft_oai_type, manufacturer_name
+	, aircraft_oai_type
+	,manufacturer_name
 	, aircraft_type_long_name
 	, aircraft_type_brief_name
 	, aircraft_type_from_date
