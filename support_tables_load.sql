@@ -797,7 +797,9 @@ validation
 
 -- ### 2
 -- select * from air_oai_dims.wac_country_state_fdw limit 100;
-
+---
+--check if it was loaded once, if empty result - good
+---	
 select world_area_oai_id, effective_from_date, count(*) 
 from air_oai_dims.wac_country_state_fdw group by 1,2 having count(*) > 1 order by count(*) desc;
 
