@@ -102,8 +102,8 @@ select f.aircraft_type_oai_nbr
 	 , case when f.manufacturer_name is null then 'GENERIC' else f.manufacturer_name end as manufacturer_name
 	 , f.aircraft_type_long_name
 	 , f.aircraft_type_brief_name
-	 , f.aircraft_type_from_date
-	 , f.aircraft_type_thru_date
+	 , TO_DATE(f.aircraft_type_from_date,'MM/DD/YYYY K:m:s a') aircraft_type_from_date
+	 , TO_DATE(f.aircraft_type_thru_date,'MM/DD/YYYY K:m:s a') aircraft_type_thru_date
 	 , current_user
      , current_timestamp
 from air_oai_dims.aircraft_types_fdw f
@@ -134,6 +134,9 @@ CREATE TABLE air_oai_dims.wac_country_state_fdw
 	, world_area_latest_ind				smallint
 	--, filler01_txt						varchar(10)
 );
+
+-- 2.2.1 Aurora data load
+SELECT aws_s3.table_import_from_s3('air_oai_dims.wac_country_state_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_WAC_COUNTRY_STATE_2024-01-16.csv', 'us-west-2')); 
 
 -- 2.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.wac_country_state_fdw FROM 'T_WAC_COUNTRY_STATE.csv' CSV HEADER";
@@ -231,7 +234,10 @@ CREATE TABLE air_oai_dims.carrier_decode_fdw
 	, source_from_date				date
 	, source_thru_date				date
 	--, filler01_txt					varchar(10)
-)
+);
+
+-- 3.2.1 Aurora data load
+SELECT aws_s3.table_import_from_s3('air_oai_dims.carrier_decode_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_CARRIER_DECODE_2024-01-16.csv', 'us-west-2')); 
 
 -- 3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.carrier_decode_fdw FROM 'T_CARRIER_DECODE.csv' CSV HEADER";
@@ -265,7 +271,7 @@ create table air_oai_dims.airline_entities
 	, constraint airline_entities_nk unique (airline_oai_code, entity_oai_code, source_from_date)
 );
 
--- 3.4. ? drop identity - check if needed and why?
+-- 3.4. ? drop identity - check if needed and why? -- after identity doped, query returns error
 alter table air_oai_dims.airline_entities alter column airline_entity_id drop identity;
 
 -- 3.5.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
@@ -404,8 +410,10 @@ CREATE TABLE air_oai_dims.master_cord_fdw
 	, airport_closed_ind					smallint
 	, airport_latest_ind					smallint
 	--, filler01_txt							varchar(10)	
-)
+);
 
+-- 4.2.1 Aurora data load
+SELECT aws_s3.table_import_from_s3('air_oai_dims.master_cord_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_MASTER_CORD_2024-01-16.csv', 'us-west-2')); 
 -- 4.2. copy world areas data into air_oai_dims.master_cord_fdw
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.master_cord_fdw FROM 'T_MASTER_CORD.csv' CSV HEADER";
 
@@ -442,7 +450,7 @@ CREATE TABLE air_oai_dims.airport_history
 	, country_name 							varchar(75) NOT NULL
 	, latitude_decimal_nbr 					numeric(9,7)
 	, longitude_decimal_nbr 				numeric(10,7)
-	, point_geom 							geometry
+	--, point_geom 							geometry
 	, created_by 							varchar(32) DEFAULT 'CURRENT_USER' NOT NULL
 	, created_tmst 							timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
 	, updated_by 							varchar(32)
@@ -485,7 +493,7 @@ INSERT INTO air_oai_dims.airport_history
 	, country_name
 	, latitude_decimal_nbr
 	, longitude_decimal_nbr
-	, point_geom
+	--, point_geom
 	, created_by
 	, created_tmst
 )
@@ -514,9 +522,9 @@ SELECT md5(upper(m.airport_oai_code)||'~'||m.airport_effective_from_date::char(1
 	, m.country_name
 	, m.latitude_decimal_nbr
 	, m.longitude_decimal_nbr
-	, case when m.latitude_decimal_nbr is not null and m.longitude_decimal_nbr is not null 
-	       then ST_SetSRID(ST_MakePoint(m.longitude_decimal_nbr, m.latitude_decimal_nbr),4326)
-	       else null end as point_geom
+	--, case when m.latitude_decimal_nbr is not null and m.longitude_decimal_nbr is not null 
+	      -- then ST_SetSRID(ST_MakePoint(m.longitude_decimal_nbr, m.latitude_decimal_nbr),4326)
+	      -- else null end as point_geom
 	, current_user
 	, current_timestamp
 FROM air_oai_dims.master_cord_fdw m
