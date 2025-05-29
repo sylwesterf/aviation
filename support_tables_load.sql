@@ -586,42 +586,41 @@ insert into air_oai_dims.aircraft_type_groups
 	, created_by
 	, created_ts
 )
-select distinct coalesce(left(aircraft_group_oai_nbr, 1), -1) as aircraft_group_oai_nbr
+select distinct coalesce( aircraft_group_oai_nbr, -1) as aircraft_group_oai_nbr
   ,case 
-    when left(aircraft_group_oai_nbr, 1) = '0' then 'Piston, 1 Engine'
-    when left(aircraft_group_oai_nbr, 1) = '1' then 'Piston, 2 Engines'
-    when left(aircraft_group_oai_nbr, 1) = '2' then 'Piston, 3-4 Engine'
-    when left(aircraft_group_oai_nbr, 1) = '3' then 'Helicopter/STOL'
-    when left(aircraft_group_oai_nbr, 1) = '4' then 'Turbo-Prop, 1-2 Engines'
-    when left(aircraft_group_oai_nbr, 1) = '5' then 'Turbo-Prop, 4 Engines'
-    when left(aircraft_group_oai_nbr, 1) = '6' then 'Jet, 2 Engines'
-    when left(aircraft_group_oai_nbr, 1) = '7' then 'Jet, 3 Engines'
-    when left(aircraft_group_oai_nbr, 1) = '8' then 'Jet, 4-6 Engines'
-    when left(aircraft_group_oai_nbr, 1) = '9' then 'Expenses'
+    when aircraft_group_oai_nbr = '0' then 'Piston, 1 Engine'
+    when aircraft_group_oai_nbr = '1' then 'Piston, 2 Engines'
+    when aircraft_group_oai_nbr = '2' then 'Piston, 3-4 Engine'
+    when aircraft_group_oai_nbr = '3' then 'Helicopter/STOL'
+    when aircraft_group_oai_nbr = '4' then 'Turbo-Prop, 1-2 Engines'
+    when aircraft_group_oai_nbr = '5' then 'Turbo-Prop, 4 Engines'
+    when aircraft_group_oai_nbr = '6' then 'Jet, 2 Engines'
+    when aircraft_group_oai_nbr = '7' then 'Jet, 3 Engines'
+    when aircraft_group_oai_nbr = '8' then 'Jet, 4-6 Engines'
+    when aircraft_group_oai_nbr = '9' then 'Expenses'
     else 'UNK'
   end as descr
   ,case 
-    when left(aircraft_group_oai_nbr, 1) = '0' then 'Piston, 1-Engine/Combined Single Engine (Piston/Turbine)'
-    when left(aircraft_group_oai_nbr, 1) = '1' then 'Piston, 2-Engine'
-    when left(aircraft_group_oai_nbr, 1) = '2' then 'Piston, 3-Engine/4-Engine'
-    when left(aircraft_group_oai_nbr, 1) = '3' then 'Helicopter/Short-Take-Off-Landing'
-    when left(aircraft_group_oai_nbr, 1) = '4' then 'TTurbo-Prop, 1-Engine/2-Engine'
-    when left(aircraft_group_oai_nbr, 1) = '5' then 'Turbo-Prop, 4-Engine'
-    when left(aircraft_group_oai_nbr, 1) = '6' then 'Jet, 2-Engines'
-    when left(aircraft_group_oai_nbr, 1) = '7' then 'Jet, 3 Engines'
-    when left(aircraft_group_oai_nbr, 1) = '8' then 'Jet, 4-Engine/6-Engine'
-    when left(aircraft_group_oai_nbr, 1) = '9' then 'Used for capturing expenses not attributed to specific aircraft types'
+    when aircraft_group_oai_nbr = '0' then 'Piston, 1-Engine/Combined Single Engine (Piston/Turbine)'
+    when aircraft_group_oai_nbr = '1' then 'Piston, 2-Engine'
+    when aircraft_group_oai_nbr = '2' then 'Piston, 3-Engine/4-Engine'
+    when aircraft_group_oai_nbr = '3' then 'Helicopter/Short-Take-Off-Landing'
+    when aircraft_group_oai_nbr = '4' then 'TTurbo-Prop, 1-Engine/2-Engine'
+    when aircraft_group_oai_nbr = '5' then 'Turbo-Prop, 4-Engine'
+    when aircraft_group_oai_nbr = '6' then 'Jet, 2-Engines'
+    when aircraft_group_oai_nbr = '7' then 'Jet, 3 Engines'
+    when aircraft_group_oai_nbr = '8' then 'Jet, 4-Engine/6-Engine'
+    when aircraft_group_oai_nbr = '9' then 'Used for capturing expenses not attributed to specific aircraft types'
     else 'UNK'
   end as long_descr
   ,current_user as created_by
   ,current_timestamp as created_ts
 from air_oai_dims.aircraft_types;
-
 -- 6.1. create air_oai_dims.airline_new_group_nbr
 drop table if exists air_oai_dims.airline_new_group_nbr;
 create table air_oai_dims.airline_new_group_nbr
 (
-  airline_old_group_nbr smallint not null,
+  airline_new_group_nbr smallint not null,
   descr varchar(55) not null,
   long_descr varchar(255) not null,
   created_by varchar(32) not null,
@@ -629,7 +628,7 @@ create table air_oai_dims.airline_new_group_nbr
 );
 
 -- 6.2. load air_oai_dims.airline_new_group_nbr from air_oai_dims.airline_entities
-insert into air_oai_dims.airline_entity_new_groups
+insert into air_oai_dims.airline_new_group_nbr
 (
   airline_new_group_nbr
   , descr
@@ -637,35 +636,34 @@ insert into air_oai_dims.airline_entity_new_groups
   , created_by
   , created_ts
 )
-select distinct coalesce(left(airline_new_group_nbr, 1), -1) as airline_new_group_nbr
+select distinct coalesce(airline_new_group_nbr, -1) as airline_new_group_nbr
        ,CASE
-            WHEN LEFT(airline_new_group_nbr, 1) = '0' THEN 'Foreign'
-            WHEN LEFT(airline_new_group_nbr, 1) = '1' THEN 'Large Regional'
-            WHEN LEFT(airline_new_group_nbr, 1) = '2' THEN 'National'
-            WHEN LEFT(airline_new_group_nbr, 1) = '3' THEN 'Major'
-            WHEN LEFT(airline_new_group_nbr, 1) = '4' THEN 'Medium'
-            WHEN LEFT(airline_new_group_nbr, 1) = '5' THEN 'Small, Certified'
-            WHEN LEFT(airline_new_group_nbr, 1) = '6' THEN 'Commuter, Large'
-            WHEN LEFT(airline_new_group_nbr, 1) = '7' THEN 'All Cargo'
-            WHEN LEFT(airline_new_group_nbr, 1) = '9' THEN 'Commuter, Essential'
+            WHEN airline_new_group_nbr = '0' THEN 'Foreign'
+            WHEN airline_new_group_nbr = '1' THEN 'Large Regional'
+            WHEN airline_new_group_nbr = '2' THEN 'National'
+            WHEN airline_new_group_nbr = '3' THEN 'Major'
+            WHEN airline_new_group_nbr = '4' THEN 'Medium'
+            WHEN airline_new_group_nbr = '5' THEN 'Small, Certified'
+            WHEN airline_new_group_nbr = '6' THEN 'Commuter, Large'
+            WHEN airline_new_group_nbr = '7' THEN 'All Cargo'
+            WHEN airline_new_group_nbr = '9' THEN 'Commuter, Essential'
             ELSE 'UNK'
         END AS descr
         ,CASE
-            WHEN LEFT(airline_new_group_nbr, 1) = '0' THEN 'Foreign Carriers'
-            WHEN LEFT(airline_new_group_nbr, 1) = '1' THEN 'Large Regional Carriers (carriers with annual revenue of $20 million to $100 million))'
-            WHEN LEFT(airline_new_group_nbr, 1) = '2' THEN 'National Carriers (carriers with annual revenue over 100 milion to 1 billion)'
-            WHEN LEFT(airline_new_group_nbr, 1) = '3' THEN 'Major Carriers (carriers with annual revenue over $1 billion'
-            WHEN LEFT(airline_new_group_nbr, 1) = '4' THEN 'Medium Regional Carriers (carriers with annual revenue under $20 million)'
-            WHEN LEFT(airline_new_group_nbr, 1) = '5' THEN 'Small Certificated Carriers (carrier holding certificate issued under 49 U.S.C. section 41101 and operating aircraft designed to have a maximum seating capacity of 60 or less seat or a maximum payload of 18,000 pounds or less.)'
-            WHEN LEFT(airline_new_group_nbr, 1) = '6' THEN 'Commuter Carriers (air taxi operator which performs at least five round trips per week between two or more points and publishes flight schedules which specify the times, days of the weeks and plans between which such flights are performed.'
-            WHEN LEFT(airline_new_group_nbr, 1) = '7' THEN 'All Cargo Carriers operating under cerificates issued under 49 U.S.C. section 41103'
-            WHEN LEFT(airline_new_group_nbr, 1) = '9' THEN 'Commuter Carriers (Air Taxi providing Essential Air Service)'
+            WHEN airline_new_group_nbr = '0' THEN 'Foreign Carriers'
+            WHEN airline_new_group_nbr = '1' THEN 'Large Regional Carriers (carriers with annual revenue of $20 million to $100 million))'
+            WHEN airline_new_group_nbr = '2' THEN 'National Carriers (carriers with annual revenue over 100 milion to 1 billion)'
+            WHEN airline_new_group_nbr = '3' THEN 'Major Carriers (carriers with annual revenue over $1 billion'
+            WHEN airline_new_group_nbr = '4' THEN 'Medium Regional Carriers (carriers with annual revenue under $20 million)'
+            WHEN airline_new_group_nbr = '5' THEN 'Small Certificated Carriers (carrier holding certificate issued under 49 U.S.C. section 41101 and operating aircraft designed to have a maximum seating capacity of 60 or less seat or a maximum payload of 18,000 pounds or less.)'
+            WHEN airline_new_group_nbr = '6' THEN 'Commuter Carriers (air taxi operator which performs at least five round trips per week between two or more points and publishes flight schedules which specify the times, days of the weeks and plans between which such flights are performed.'
+            WHEN airline_new_group_nbr = '7' THEN 'All Cargo Carriers operating under cerificates issued under 49 U.S.C. section 41103'
+            WHEN airline_new_group_nbr = '9' THEN 'Commuter Carriers (Air Taxi providing Essential Air Service)'
             ELSE 'UNK'
         END AS long_descr
         ,current_user as created_by
         ,current_timestamp as created_ts
 from air_oai_dims.airline_entities;
-
 -- 7.1. create air_oai_dims.airline_entity_legacy_groups
 drop table if exists air_oai_dims.airline_entity_legacy_groups;
 create table air_oai_dims.airline_entity_legacy_groups
@@ -686,25 +684,25 @@ insert into air_oai_dims.airline_entity_legacy_groups
   , created_by
   , created_ts
 )
-select distinct coalesce(left(airline_old_group_nbr, 1), -1) as airline_old_group_nbr
+select distinct coalesce(airline_old_group_nbr, -1) as airline_old_group_nbr
       ,CASE
-          WHEN LEFT(airline_old_group_nbr, 1) = '0' THEN 'International'
-          WHEN LEFT(airline_old_group_nbr, 1) = '1' THEN 'Regional'
-          WHEN LEFT(airline_old_group_nbr, 1) = '2' THEN 'National'
-          WHEN LEFT(airline_old_group_nbr, 1) = '3' THEN 'Major'
-          WHEN LEFT(airline_old_group_nbr, 1) = '7' THEN 'All Cargo'
+          WHEN airline_old_group_nbr = '0' THEN 'International'
+          WHEN airline_old_group_nbr = '1' THEN 'Regional'
+          WHEN airline_old_group_nbr = '2' THEN 'National'
+          WHEN airline_old_group_nbr = '3' THEN 'Major'
+          WHEN airline_old_group_nbr = '7' THEN 'All Cargo'
           ELSE 'UNK'
       END AS descr
       ,CASE
-          WHEN LEFT(airline_old_group_nbr, 1) = '0' THEN 'International Carriers'
-          WHEN LEFT(airline_old_group_nbr, 1) = '1' THEN 'Regional Carriers (including Large, Medium, Commuter, Small Certified)'
-          WHEN LEFT(airline_old_group_nbr, 1) = '2' THEN 'National Carriers'
-          WHEN LEFT(airline_old_group_nbr, 1) = '3' THEN 'Major Carriers'
-          WHEN LEFT(airline_old_group_nbr, 1) = '7' THEN 'Domestic Only - All Cargo Carriers'
-          ELSE 'UNK'
+          WHEN airline_old_group_nbr = '0' THEN 'International Carriers'
+          WHEN airline_old_group_nbr = '1' THEN 'Regional Carriers (including Large, Medium, Commuter, Small Certified)'
+          WHEN airline_old_group_nbr = '2' THEN 'National Carriers'
+          WHEN airline_old_group_nbr = '3' THEN 'Major Carriers'
+          WHEN airline_old_group_nbr = '7' THEN 'Domestic Only - All Cargo Carriers'
+          ELSE 'UN'
       END AS long_descr
-      ,current_user() as created_by
-      ,current_timestamp() as created_ts
+      ,current_user as created_by
+      ,current_timestamp as created_ts
 from air_oai_dims.airline_entities;
 
 -- 8. define column comments
