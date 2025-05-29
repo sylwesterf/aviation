@@ -418,6 +418,8 @@ SELECT aws_s3.table_import_from_s3('air_oai_dims.master_cord_fdw','', '(FORMAT C
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.master_cord_fdw FROM 'T_MASTER_CORD.csv' CSV HEADER";
 
 -- 4.3. create air_oai_dims.airport_history table in postgre
+--extension needed for gemetry data type
+CREATE EXTENSION POSTGIS
 drop table if exists air_oai_dims.airport_history;
 CREATE TABLE air_oai_dims.airport_history 
 ( 
@@ -450,7 +452,7 @@ CREATE TABLE air_oai_dims.airport_history
 	, country_name 							varchar(75) NOT NULL
 	, latitude_decimal_nbr 					numeric(9,7)
 	, longitude_decimal_nbr 				numeric(10,7)
-	--, point_geom 							geometry
+	, point_geom 							geometry
 	, created_by 							varchar(32) DEFAULT 'CURRENT_USER' NOT NULL
 	, created_tmst 							timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
 	, updated_by 							varchar(32)
