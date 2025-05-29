@@ -217,7 +217,7 @@ FROM air_oai_dims.wac_country_state_fdw;
 
 
 -- 3.1. create air_oai_dims.carrier_decode_fdw table in postgre
-drop table if exists air_oai_dims.;
+drop table if exists air_oai_dims.carrier_decode_fdw;
 CREATE TABLE air_oai_dims.carrier_decode_fdw
 ( 
 	airline_usdot_id				smallint
