@@ -495,7 +495,7 @@ INSERT INTO air_oai_dims.airport_history
 	, country_name
 	, latitude_decimal_nbr
 	, longitude_decimal_nbr
-	--, point_geom
+	, point_geom
 	, created_by
 	, created_tmst
 )
@@ -524,9 +524,9 @@ SELECT md5(upper(m.airport_oai_code)||'~'||m.airport_effective_from_date::char(1
 	, m.country_name
 	, m.latitude_decimal_nbr
 	, m.longitude_decimal_nbr
-	--, case when m.latitude_decimal_nbr is not null and m.longitude_decimal_nbr is not null 
-	      -- then ST_SetSRID(ST_MakePoint(m.longitude_decimal_nbr, m.latitude_decimal_nbr),4326)
-	      -- else null end as point_geom
+	, case when m.latitude_decimal_nbr is not null and m.longitude_decimal_nbr is not null 
+	      then ST_SetSRID(ST_MakePoint(m.longitude_decimal_nbr, m.latitude_decimal_nbr),4326)
+	      else null end as point_geom
 	, current_user
 	, current_timestamp
 FROM air_oai_dims.master_cord_fdw m
