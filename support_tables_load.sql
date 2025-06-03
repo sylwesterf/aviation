@@ -6,37 +6,37 @@
 -- -1. download and unzip individual pre-zipped data files: AircraftTypes, Carrier Decode, Master Coordinate, World Area Codes
 -- 0. install pgsql extensions
 -- 1. create aircraft types lookup 
--- 1.1. create air_oai_dims.aircraft_types_fdw table in postgre
--- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
--- 1.3. create air_oai_dims.aircraft_types table in postgre
--- 1.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
+--  1.1. create air_oai_dims.aircraft_types_fdw table in postgre
+--  1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
+--  1.3. create air_oai_dims.aircraft_types table in postgre
+--  1.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
 -- 2. create world areas lookup 
--- 2.1. create air_oai_dims.wac_country_state_fdw table in postgre
--- 2.2. copy world areas data into air_oai_dims.wac_country_state_fdw
--- 2.3. create air_oai_dims.world_areas table in postgre
--- 2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
+--  2.1. create air_oai_dims.wac_country_state_fdw table in postgre
+--  2.2. copy world areas data into air_oai_dims.wac_country_state_fdw
+--  2.3. create air_oai_dims.world_areas table in postgre
+--  2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
 -- 3. create airline entities lookup 
--- 3.1. create air_oai_dims.carrier_decode_fdw table in postgre
--- 3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
--- 3.3. create air_oai_dims.world_areas table in postgre
--- 3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
--- 3.4.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
--- 3.4.2 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
+--  3.1. create air_oai_dims.carrier_decode_fdw table in postgre
+--  3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
+--  3.3. create air_oai_dims.world_areas table in postgre
+--  3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
+--  3.4.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
+--  3.4.2 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
 -- 4. create airport history lookup 
--- 4.1. create air_oai_dims.master_cord_fdw table in postgre  
--- 4.2. copy world areas data into air_oai_dims.master_cord_fdw
--- 4.3. create air_oai_dims.airport_history table in postgre
--- 4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
+--  4.1. create air_oai_dims.master_cord_fdw table in postgre  
+--  4.2. copy world areas data into air_oai_dims.master_cord_fdw
+--  4.3. create air_oai_dims.airport_history table in postgre
+--  4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
 -- 4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas  
 -- 5. create aircraft types group lookup 
--- 5.1. create air_oai_dims.aircraft_type_groups
--- 5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
+--  5.1. create air_oai_dims.aircraft_type_groups
+--  5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
 -- 6. create airline entity group (new) lookup 
--- 6.1. create air_oai_dims.airline_entity_new_groups
--- 6.2. load air_oai_dims.airline_entity_new_groups from air_oai_dims.airline_entities
+--  6.1. create air_oai_dims.airline_entity_new_groups
+--  6.2. load air_oai_dims.airline_entity_new_groups from air_oai_dims.airline_entities
 -- 7. create airport types group (legacy) lookup 
--- 7.1. create air_oai_dims.airline_entity_legacy_groups
--- 7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_entities
+--  7.1. create air_oai_dims.airline_entity_legacy_groups
+--  7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_entities
 -- 8. define column comments
 -- 9. vacuum the tables
 -- 10. test/validation queries
@@ -776,7 +776,12 @@ comment on column air_oai_dims.airport_history.airport_latest_ind is 'AIRPORT_IS
 
 
 -- 9. vacuum the tables
--- TODO
+vacuum analyze  air_oai_dims.aircraft_types;
+vacuum analyze  air_oai_dims.world_areas;
+vacuum analyze  air_oai_dims.airport_history;
+vacuum analyze  air_oai_dims.aircraft_type_groups;
+vacuum analyze  air_oai_dims.airline_entity_new_groups;
+vacuum analyze  air_oai_dims.airline_entity_legacy_groups;
 
 -- 10. test/validation queries
 -- TODO
