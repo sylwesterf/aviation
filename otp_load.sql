@@ -5,7 +5,7 @@
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 -- 1. create air_oai_facts.airline_flight_performance_fdw table in postgre
--- 2. ingest OTP csv data using copy command (loop over every file)
+-- 2. ingest OTP csv data using copy command 
 -- 3. define materialized views to transform the data:
 --  3.1. air_oai_facts.airline_flight_performance_mv 
 --  3.2. air_oai_facts.airline_flight_performance_integrated_mv (timezone, keys, data types)
@@ -15,7 +15,7 @@
 --  4.3. air_oai_facts.airline_flights_cancelled (cancelled_ind = 1)
 --  4.4. air_oai_facts.airline_flights_diverted (diverted_ind = 1)
 --  4.5. air_oai_facts.airline_flights_diverted_legs (union different number of flight diversions, diverted_ind = 1 AND diverted<1-5>_airport_history_id is not null)
--- 5. define keys and indexes
+-- 5. add keys and indexes
 -- 6. vacuum the tables
 -- 7. test/validation queries
 
@@ -137,8 +137,10 @@ CREATE TABLE air_oai_facts.airline_flight_performance_fdw
 );
 
 -- 2. copy OTP data into air_oai_facts.airline_flight_performance_fdw
---for x in $(ls /tmp/otp/*.csv);
---do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_facts.airline_flight_performance_fdw FROM '$x' CSV HEADER"; done;
+-- 2.1. mstr psql version of the data load
+-- for x in $(ls /tmp/otp/*.csv); do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_facts.airline_flight_performance_fdw FROM '$x' CSV HEADER"; done;
+-- 2.2. AWS Aurora data load
+SELECT aws_s3.table_import_from_s3('air_oai_facts.airline_flight_performance_fdw', '', '(FORMAT CSV, HEADER true)', aws_commons.create_s3_uri('src-aviation', '/OTP/CSV/', 'us-west-2'));
 
 -- 3.1. define materialized view for initial data quality work (removed spaces)
 drop materialized view if exists air_oai_facts.airline_flight_performance_mv;
@@ -891,7 +893,7 @@ where diverted_ind = 1
 and diverted5_airport_history_id is not null;
 
 
--- 5. Keys and Indexes
+-- 5. add keys and indexes
 -- air_oai_facts.airline_flights_scheduled
 alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_pk primary key (flight_key);
 create unique index airline_flights_scheduled_ak on air_oai_facts.airline_flights_scheduled(airline_oai_code, flight_nbr, flight_date, depart_airport_oai_code);
@@ -1025,3 +1027,4 @@ vacuum analyze air_oai_facts.airline_flights_diverted;
 vacuum analyze air_oai_facts.airline_flights_diverted_legs;
 
 -- 7. validation
+-- TODO

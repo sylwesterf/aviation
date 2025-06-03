@@ -48,7 +48,7 @@
 CREATE EXTENSION IF NOT EXISTS POSTGIS; -- extension needed for gemetry data type
 CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing data from an Amazon S3 (in Aurora)
 
--- 1.1 define a table we'll be copying the data to (alternatively use one of the FDW extension)
+-- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
 drop table if exists air_oai_dims.aircraft_types_fdw;
 create table air_oai_dims.aircraft_types_fdw
 ( 
@@ -63,9 +63,9 @@ create table air_oai_dims.aircraft_types_fdw
 )
 
 -- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
--- 1.2.1 mstr psql version of the data load
+-- 1.2.1. mstr psql version of the data load
 -- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES_2024-01-16.csv' CSV HEADER";
--- 1.2.2 AWS Aurora data load
+-- 1.2.2. AWS Aurora data load
 SELECT aws_s3.table_import_from_s3('air_oai_dims.aircraft_types_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_AIRCRAFT_TYPES_2024-01-16.csv', 'us-west-2'));
 
 -- 1.3. define final dimensional table air_oai_dims.aircraft_types
