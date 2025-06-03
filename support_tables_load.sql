@@ -38,9 +38,8 @@
 -- 7.1. create air_oai_dims.airline_entity_legacy_groups
 -- 7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_entities
 -- 8. define column comments
--- 9. create extra indexes
--- 10. vacuum the tables
--- 11. test/validation queries
+-- 9. vacuum the tables
+-- 10. test/validation queries
 
 
 -- SCRIPT STARTS HERE
@@ -775,16 +774,11 @@ comment on column air_oai_dims.airport_history.effective_thru_date is 'AIRPORT_T
 comment on column air_oai_dims.airport_history.airport_closed_ind is 'AIRPORT_IS_CLOSED = Indicates if the airport is closed (1 = Yes).  If yes, the airport is closed is on the AirportEndDate.';
 comment on column air_oai_dims.airport_history.airport_latest_ind is 'AIRPORT_IS_LATEST = Indicates if this row contains the latest attributes for the Airport (1 = Yes)';
 
--- 9. create extra indexes
--- TOOD
---CREATE UNIQUE INDEX airport_history_ak ON air_oai_dims.airport_history USING btree (airport_history_key);
---CREATE UNIQUE INDEX airport_history_nk ON air_oai_dims.airport_history USING btree (airport_oai_code, effective_from_date);
---CREATE UNIQUE INDEX airport_history_pk ON air_oai_dims.airport_history USING btree (airport_history_id);
 
--- 10. vacuum the tables
+-- 9. vacuum the tables
 -- TODO
 
--- 11. test/validation queries
+-- 10. test/validation queries
 -- TODO
 
 -- ### 1
