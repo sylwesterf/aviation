@@ -175,7 +175,7 @@ create table air_oai_dims.world_areas
 	);
 
 
--- 2.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
+-- 2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
 INSERT INTO air_oai_dims.world_areas
 ( 
 	world_area_oai_seq_id
@@ -195,9 +195,11 @@ INSERT INTO air_oai_dims.world_areas
 	, sovereign_country_name
 	, capital_city_name
 	, world_area_comments_text
-	, created_by, created_tmst
+	, created_by
+	, created_tmst
 )
-SELECT world_area_oai_seq_id
+SELECT 
+       world_area_oai_seq_id
      , md5(world_area_oai_id ||'~'||(effective_from_date::text)) as world_area_key
      , world_area_oai_id
 	 , effective_from_date
@@ -276,8 +278,8 @@ create table air_oai_dims.airline_entities
 -- TODO - drop identity - check if needed and why, was starting at 4000 before? - identity dropped before data load - throws error on data insert (step 3.5.1)
 -- alter table air_oai_dims.airline_entities alter column airline_entity_id drop identity;
 
--- 3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
--- 3.4.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
+-- 3.4. copy data into air_oai_dims.airline_entities from air_oai_dims.carrier_decode_fdw
+-- 3.4.1 copy data into air_oai_dims.airline_entities from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
 insert into air_oai_dims.airline_entities
 ( 
 	airline_entity_key
@@ -319,7 +321,7 @@ where e.airline_oai_code is null
 and f.airline_oai_code != '3KQ' -- this code or set of codes was found to be non-unique
 order by f.airline_usdot_id, f.airline_oai_code, f.entity_oai_code, f.source_from_date;
 
--- 3.4.2 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
+-- 3.4.2 copy data into air_oai_dims.airline_entities from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
 insert into air_oai_dims.airline_entities
 ( 
 	airline_entity_key
@@ -615,8 +617,8 @@ select distinct coalesce( aircraft_group_oai_nbr, -1) as aircraft_group_oai_nbr
 from air_oai_dims.aircraft_types;
 
 -- 6.1. create air_oai_dims.airline_new_group_nbr
-drop table if exists air_oai_dims.airline_new_group_nbr;
-create table air_oai_dims.airline_new_group_nbr
+drop table if exists air_oai_dims.airline_entity_new_groups;
+create table air_oai_dims.airline_entity_new_groups
 (
   airline_new_group_nbr smallint not null,
   descr varchar(55) not null,
@@ -625,8 +627,8 @@ create table air_oai_dims.airline_new_group_nbr
   created_ts timestamp not null
 );
 
--- 6.2. load air_oai_dims.airline_new_group_nbr from air_oai_dims.airline_entities
-insert into air_oai_dims.airline_new_group_nbr
+-- 6.2. load air_oai_dims.airline_entity_new_groups from air_oai_dims.airline_entities
+insert into air_oai_dims.airline_entity_new_groups
 (
   airline_new_group_nbr
   , descr
@@ -785,13 +787,40 @@ vacuum analyze  air_oai_dims.airline_entity_legacy_groups;
 
 -- 10. test/validation queries
 -- TODO
+-- ROW COUNT
 
+select 'aircraft_types', case when count(distinct aircraft_type_oai_nbr) = 437 then 'passed' else 'error' end
+from air_oai_dims.aircraft_types
+union all 
+select 'world_areas', case when count(distinct world_area_oai_seq_id) = 344 then 'passed' else 'error' end
+from air_oai_dims.world_areas
+union all 
+select 'airport_history', case when count(distinct airport_history_id) = 19150 then 'passed' else 'error' end
+from air_oai_dims.airport_history
+union all
+--in Geof script is 10
+-- changed aircraft_configuration_ref for  aircraft_group_oai_nbr
+select 'aircraft_type_groups', case when count(distinct aircraft_group_oai_nbr) = 9 then 'passed' else 'error' end  
+from air_oai_dims.aircraft_type_groups
+union all 
+--changed airline_entity_id for airline_new_group_nbr
+select 'airline_entity_new_groups', case when count(distinct airline_new_group_nbr) = 9 then 'passed' else 'error' end
+from air_oai_dims.airline_entity_new_groups
+union all
+--changed airline_entity_id for airline_old_group_nbr
+select 'airline_entity_legacy_groups', case when count(distinct airline_old_group_nbr) = 5 then 'passed' else 'error' end
+from air_oai_dims.airline_entity_legacy_groups 
+union all
+select 'airline_entities', case when count(distinct airline_entity_id) = 2791 then 'passed' else 'error' end
+from air_oai_dims.airline_entities
+
+	
 -- ### 1
---select aircraft_type_oai_nbr, count(*) from air_oai_dims.aircraft_types_fdw group by 1 having count(*) > 1 order by count(*) desc; -- unique!
+select aircraft_type_oai_nbr, count(*) from air_oai_dims.aircraft_types_fdw group by 1 having count(*) > 1 order by count(*) desc; -- unique! One aircraft one lane
 
--- select * from air_oai_dims.aircraft_types; -- 433
--- select * from air_oai_dims.aircraft_types_fdw; -- 433
--- drop foreign table if exists air_oai_dims.aircraft_types_fdw;
+select * from air_oai_dims.aircraft_types; 
+select * from air_oai_dims.aircraft_types_fdw; -- 433
+drop foreign table if exists air_oai_dims.aircraft_types_fdw;
 
 
 -- ### 2
@@ -878,8 +907,8 @@ group by 1,2,3 having count(*) > 1 order by count(*) desc;
 
 
 
--- select count(*) from air_oai_dims.airline_entities; -- 2785
--- select count(*) from air_oai_dims.carrier_decode_fdw; -- 2786
+ select count(*) from air_oai_dims.airline_entities; -- 2785
+select count(*) from air_oai_dims.carrier_decode_fdw; -- 2786
 -- drop foreign table if exists air_oai_dims.carrier_decode_fdw;
 
 
@@ -918,8 +947,8 @@ select distinct utc_local_time_variation from air_oai_dims.master_cord_fdw;
 
 
 -- select * from air_oai_dims.airport_history;
--- select count(*) from air_oai_dims.airport_history; -- 19132
--- select count(*) from air_oai_dims.master_cord_fdw; -- 19132
+select count(*) from air_oai_dims.airport_history; -- 19132
+select count(*) from air_oai_dims.master_cord_fdw; -- 19132
 -- drop foreign table if exists air_oai_dims.master_cord_fdw;
 
 select case when airport_world_area_oai_id is null then 'null'::char(4) else 'data'::char(4) end as airport_wac_oai_id_data
