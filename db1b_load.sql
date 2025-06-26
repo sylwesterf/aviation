@@ -8,31 +8,27 @@
 --STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 
---0.1 Create extensions
+-- 1 Create extensions
 
--- 1.1 Create table air_oai_facts.airfare_survey_ticket_load 
--- 1.2 Copy DB1B data into
--- 1.3 Create air_oai_facts.airfare_survey_itinerary
--- 1.4 Insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
--- 2.1 Create table a air_oai_facts.airfare_survey_coupon_load
--- 2.2 Copy DB1B data into airfare_survey_coupon_load
--- 2.3 Create air_oai_facts.airfare_survey_coupon
--- 2.4 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
--- 3.1 Create table air_oai_facts.airfare_survey_market_load
--- 3.2 copy DB1B data into air_oai_facts.airfare_survey_market_load
--- 3.3 Create table airfare_survey_market
--- 3.4 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
--- 5 create primary key and index on the tables
--- 6 Vacuum on the table
--- 7 Validation
+-- 1 Create table air_oai_facts.airfare_survey_ticket_load 
+--   1.1 Copy DB1B data into
+--   1.2 Create air_oai_facts.airfare_survey_itinerary
+--   1.3 Insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
+-- 2 Create table a air_oai_facts.airfare_survey_coupon_load
+--   2.1 Copy DB1B data into airfare_survey_coupon_load
+--   2.2 Create air_oai_facts.airfare_survey_coupon
+--   2.3 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
+-- 3 Create table air_oai_facts.airfare_survey_market_load
+--   3.1 copy DB1B data into air_oai_facts.airfare_survey_market_load
+--   3.2 Create table airfare_survey_market
+--   3.3 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
+-- 4 Create partition, create primary key and index on the tables
+-- 5 Vacuum on the table
+-- 6 Validation
 
 -- SCRIPT STARTS HERE
---0.1
-CREATE EXTENSION file_fdw;
-CREATE EXTENSION citus;
-CREATE EXTENSION PostGIS;
 
--- 1.1 Create table air_oai_facts.airfare_survey_ticket_load 
+-- 1 Create table air_oai_facts.airfare_survey_ticket_load 
 
 create table air_oai_facts.airfare_survey_ticket_load
 ( itinerary_oai_id								bigint null
@@ -62,11 +58,22 @@ create table air_oai_facts.airfare_survey_ticket_load
 	, geographic_type_oai_id						integer null
 	, filler										varchar(10) null
 	);
--- 1.2 copy DB1B data into air_oai_facts.airfare_survey_ticket_load
---for x in $(ls /tmp/DB1B/_ticket/*.csv);
+-- 1.1 copy DB1B data into air_oai_facts.airfare_survey_ticket_load
+-- for x in $(ls /tmp/DB1B/_ticket/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
 
---1.3 CREATE air_oai_facts.airfare_survey_itinerary
+---AWS Aurora SQL
+SELECT aws_s3.table_import_from_s3(
+    'air_oai_facts.airfare_survey_ticket_load', 
+    '', 
+    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
+    aws_commons.create_s3_uri(
+        'src-aviation', 
+        'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BMTicket_2023_1.csv.gz', 
+        'us-west-2'
+    )
+);
+--1.2 CREATE air_oai_facts.airfare_survey_itinerary
 
 create table air_oai_facts.airfare_survey_itinerary
 	 ( itinerary_oai_id								bigint  not null
@@ -94,8 +101,29 @@ create table air_oai_facts.airfare_survey_itinerary
 	 , constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
 	 ) partition by range (year_quarter_start_date)
 	 ;
+
+--5 Create partition on the table airfare_survey_itinerary
+create table air_oai_facts.airfare_survey_itinerary_2023Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-10-01') to ('2024-12-31');
+create table air_oai_facts.airfare_survey_itinerary_2023Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-07-01') to ('2023-09-30');
+create table air_oai_facts.airfare_survey_itinerary_2023Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-04-01') to ('2023-06-30');
+create table air_oai_facts.airfare_survey_itinerary_2023Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-01-01') to ('2023-03-31');
+create table air_oai_facts.airfare_survey_itinerary_2022Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-10-01') to ('2022-12-31');
+create table air_oai_facts.airfare_survey_itinerary_2022Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-07-01') to ('2022-09-30');
+create table air_oai_facts.airfare_survey_itinerary_2022Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-04-01') to ('2022-06-30');
+create table air_oai_facts.airfare_survey_itinerary_2022Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-01-01') to ('2022-03-31');
+
+create table air_oai_facts.airfare_survey_itinerary_2021Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-10-01') to ('2021-12-31');
+create table air_oai_facts.airfare_survey_itinerary_2021Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-07-01') to ('2021-09-30');
+create table air_oai_facts.airfare_survey_itinerary_2021Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-04-01') to ('2021-06-30');
+create table air_oai_facts.airfare_survey_itinerary_2021Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-01-01') to ('2021-03-31');
+
+create table air_oai_facts.airfare_survey_itinerary_2020Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-10-01') to ('2020-12-31');
+create table air_oai_facts.airfare_survey_itinerary_2020Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-07-01') to ('2020-09-30');
+create table air_oai_facts.airfare_survey_itinerary_2020Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-04-01') to ('2020-06-30');
+create table air_oai_facts.airfare_survey_itinerary_2020Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-01-01') to ('2020-03-31');
+
 	 
--- 1.4INSERT INTO airfare_survey_itinerary FROM airfare_survey_ticket_load; JOIN with airline_entities; airport_history 
+-- 1.3 INSERT INTO airfare_survey_itinerary FROM airfare_survey_ticket_load; JOIN with airline_entities; airport_history 
 
 INSERT INTO air_oai_facts.airfare_survey_itinerary
 	( itinerary_oai_id, year_quarter_start_date
@@ -119,7 +147,7 @@ SELECT asf.itinerary_oai_id
 	 , fare_per_person_amount_usd, fare_per_smi
 	 , current_user, now()
 FROM air_oai_facts.airfare_survey_ticket_load asf
--- air_oai_facts.airfare_survey_ticket_load asf
+-- air_oai_facts.airfare_survey_ticket_fdw asf
 left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
 left join air_oai_dims.airport_history ah
@@ -130,11 +158,7 @@ where (asf.year_nbr::text ||
       between ae.source_from_date and coalesce(ae.source_thru_date, current_date)
 	  
 
-
--------------------------
---airline_survey_coupon--
--------------------------
--- 2.1 Create table a air_oai_facts.airfare_survey_coupon_load
+-- 2 Create table a air_oai_facts.airfare_survey_coupon_load
 
 create table air_oai_facts.airfare_survey_coupon_load
 	( itinerary_oai_id             		bigint null
@@ -176,11 +200,24 @@ create table air_oai_facts.airfare_survey_coupon_load
 	, filler							varchar(10) null
 	)
 
--- 2.2 Copy DB1B data into airfare_survey_coupon_load
---for x in $(ls /tmp/DB1B/_market/*.csv);
+-- 2.1 Copy DB1B data into airfare_survey_coupon_load
+--for x in $(ls /tmp/DB1B/_coupon/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_load FROM '$x' CSV HEADER"; done ;
 
--- 2.3 Create air_oai_facts.airfare_survey_coupon
+---AWS Aurora
+
+SELECT aws_s3.table_import_from_s3(
+    'air_oai_facts.airfare_survey_coupon_load', 
+    '', 
+    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
+    aws_commons.create_s3_uri(
+        'src-aviation', 
+        'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 
+        'us-west-2'
+    )
+);
+
+-- 2.2 Create air_oai_facts.airfare_survey_coupon
 
 create table air_oai_facts.airfare_survey_coupon
 	( itinerary_oai_id             		bigint 		not null
@@ -214,7 +251,27 @@ create table air_oai_facts.airfare_survey_coupon
 	, constraint airfare_survey_coupon_pk primary key (itinerary_oai_id, flight_pass_seq, year_quarter_start_date)
 	) partition by range (year_quarter_start_date)
 	;
--- 2.4 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
+
+-- 5.2 Create partition, create primary key and index on the table airfare_survey_coupon
+create table air_oai_facts.airfare_survey_coupon_2023Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2023-10-01') to ('2024-12-31');
+create table air_oai_facts.airfare_survey_coupon_2023Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2023-01-01') to ('2023-03-31');
+create table air_oai_facts.airfare_survey_coupon_2022Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-10-01') to ('2022-12-31');
+create table air_oai_facts.airfare_survey_coupon_2022Q3 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-07-01') to ('2022-09-30');
+create table air_oai_facts.airfare_survey_coupon_2022Q2 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-04-01') to ('2022-06-30');
+create table air_oai_facts.airfare_survey_coupon_2022Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-01-01') to ('2022-03-31');
+
+create table air_oai_facts.airfare_survey_coupon_2021Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-10-01') to ('2021-12-31');
+create table air_oai_facts.airfare_survey_coupon_2021Q3 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-07-01') to ('2021-09-30');
+create table air_oai_facts.airfare_survey_coupon_2021Q2 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-04-01') to ('2021-06-30');
+create table air_oai_facts.airfare_survey_coupon_2021Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-01-01') to ('2021-03-31');
+
+create table air_oai_facts.airfare_survey_coupon_2020Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-10-01') to ('2020-12-31');
+create table air_oai_facts.airfare_survey_coupon_2020Q3 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-07-01') to ('2020-09-30');
+create table air_oai_facts.airfare_survey_coupon_2020Q2 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-04-01') to ('2020-06-30');
+create table air_oai_facts.airfare_survey_coupon_2020Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-01-01') to ('2020-03-31');
+
+
+-- 2.3 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
 INSERT INTO air_oai_facts.airfare_survey_coupon
 	(itinerary_oai_id, flight_pass_seq, year_quarter_start_date, market_oai_id
 	, ticketing_airline_entity_id, ticketing_airline_entity_key
@@ -279,11 +336,7 @@ and   (ac.year_nbr::text ||
 ;
 
 
-
--------------------------
---airfare_survey_market--
--------------------------
--- 3.1 Create table air_oai_facts.airfare_survey_market_load
+-- 3 Create table air_oai_facts.airfare_survey_market_load
 create table air_oai_facts.airfare_survey_market_load
 	( itinerary_oai_id              	bigint null
 	, market_oai_id                		bigint null
@@ -329,11 +382,25 @@ create table air_oai_facts.airfare_survey_market_load
 	, filler							varchar(10) null
 	)
 	
--- 3.2 copy DB1B data into air_oai_facts.airfare_survey_market_load
+-- 3.1 copy DB1B data into air_oai_facts.airfare_survey_market_load
 --for x in $(ls /tmp/DB1B/_market/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_load FROM '$x' CSV HEADER"; done ;
 
--- 3.3 Create table airfare_survey_market
+--- AWS Aurora SQL
+SELECT aws_s3.table_import_from_s3(
+    'air_oai_facts.airfare_survey_market_load', 
+    '', 
+    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
+    aws_commons.create_s3_uri(
+        'src-aviation', 
+        'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 
+        'us-west-2'
+    )
+);
+
+
+	
+-- 3.2 Create table airfare_survey_market
 
 create table air_oai_facts.airfare_survey_market
 	( itinerary_oai_id             		bigint 		not null
@@ -373,7 +440,27 @@ create table air_oai_facts.airfare_survey_market
 	) partition by range (year_quarter_start_date)
 	;
 
--- 3.4 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
+
+-- 5.3 Create partition, create primary key and index on the table airfare_survey_market
+create table air_oai_facts.airfare_survey_market_2023Q1 partition of air_oai_facts.airfare_survey_market for values from ('2023-10-01') to ('2024-01-31');
+create table air_oai_facts.airfare_survey_market_2023Q1 partition of air_oai_facts.airfare_survey_market for values from ('2023-01-01') to ('2023-03-31');
+create table air_oai_facts.airfare_survey_market_2022Q4 partition of air_oai_facts.airfare_survey_market for values from ('2022-10-01') to ('2022-12-31');
+create table air_oai_facts.airfare_survey_market_2022Q3 partition of air_oai_facts.airfare_survey_market for values from ('2022-07-01') to ('2022-09-30');
+create table air_oai_facts.airfare_survey_market_2022Q2 partition of air_oai_facts.airfare_survey_market for values from ('2022-04-01') to ('2022-06-30');
+create table air_oai_facts.airfare_survey_market_2022Q1 partition of air_oai_facts.airfare_survey_market for values from ('2022-01-01') to ('2022-03-31');
+
+create table air_oai_facts.airfare_survey_market_2021Q4 partition of air_oai_facts.airfare_survey_market for values from ('2021-10-01') to ('2021-12-31');
+create table air_oai_facts.airfare_survey_market_2021Q3 partition of air_oai_facts.airfare_survey_market for values from ('2021-07-01') to ('2021-09-30');
+create table air_oai_facts.airfare_survey_market_2021Q2 partition of air_oai_facts.airfare_survey_market for values from ('2021-04-01') to ('2021-06-30');
+create table air_oai_facts.airfare_survey_market_2021Q1 partition of air_oai_facts.airfare_survey_market for values from ('2021-01-01') to ('2021-03-31');
+
+create table air_oai_facts.airfare_survey_market_2020Q4 partition of air_oai_facts.airfare_survey_market for values from ('2020-10-01') to ('2020-12-31');
+create table air_oai_facts.airfare_survey_market_2020Q3 partition of air_oai_facts.airfare_survey_market for values from ('2020-07-01') to ('2020-09-30');
+create table air_oai_facts.airfare_survey_market_2020Q2 partition of air_oai_facts.airfare_survey_market for values from ('2020-04-01') to ('2020-06-30');
+create table air_oai_facts.airfare_survey_market_2020Q1 partition of air_oai_facts.airfare_survey_market for values from ('2020-01-01') to ('2020-03-31');
+
+
+-- 3.3 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
 
 INSERT INTO air_oai_facts.airfare_survey_market
 	( itinerary_oai_id, market_oai_id, year_quarter_start_date
@@ -443,13 +530,13 @@ and   (am.year_nbr::text ||
        when am.quarter_nbr = 3 then '-07-01' when am.quarter_nbr = 4 then '-10-01' else null end::text)::date
        between aer.source_from_date and coalesce(aer.source_thru_date, current_date)
 ;
--- 5. create an primary key and index
+
+
+-- 5 create an primary key and index
 alter table oai.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
 create index airfare_survey_itinerary_reporting_carrier_idx on oai.airfare_survey_itinerary (reporting_carrier_iata_cd);
 create index airfare_survey_itinerary_origin_airport_idx on oai.airfare_survey_itinerary (orig_airport_iata_cd);
 create index airfare_survey_itinerary_year_quarter_idx on oai.airfare_survey_itinerary (year_nbr, quarter_nbr);
-
-
 
 -- 6. Vacuum on the tables
 
