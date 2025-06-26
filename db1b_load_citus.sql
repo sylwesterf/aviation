@@ -184,8 +184,21 @@ create table air_oai_facts.airfare_survey_coupon_load
 	)
 
 -- 2.1 Copy DB1B data into airfare_survey_coupon_load
---for x in $(ls /tmp/DB1B/_market/*.csv);
+--for x in $(ls /tmp/DB1B/_coupon/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_load FROM '$x' CSV HEADER"; done ;
+
+---AWS Aurora
+
+SELECT aws_s3.table_import_from_s3(
+    'air_oai_facts.airfare_survey_coupon_load', 
+    '', 
+    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
+    aws_commons.create_s3_uri(
+        'src-aviation', 
+        'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 
+        'us-west-2'
+    )
+);
 
 -- 2.2 Create air_oai_facts.airfare_survey_coupon
 
