@@ -66,6 +66,17 @@ create table air_oai_facts.airfare_survey_ticket_load
 -- for x in $(ls /tmp/DB1B/_ticket/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
 
+---AWS Aurora SQL
+SELECT aws_s3.table_import_from_s3(
+    'air_oai_facts.airfare_survey_market_load', 
+    '', 
+    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
+    aws_commons.create_s3_uri(
+        'src-aviation', 
+        'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BMTicket_2023_1.csv.gz', 
+        'us-west-2'
+    )
+);
 --1.2 CREATE air_oai_facts.airfare_survey_itinerary
 
 create table air_oai_facts.airfare_survey_itinerary
@@ -326,6 +337,20 @@ create table air_oai_facts.airfare_survey_market_load
 --for x in $(ls /tmp/DB1B/_market/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_load FROM '$x' CSV HEADER"; done ;
 
+--- AWS Aurora SQL
+SELECT aws_s3.table_import_from_s3(
+    'air_oai_facts.airfare_survey_market_load', 
+    '', 
+    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
+    aws_commons.create_s3_uri(
+        'src-aviation', 
+        'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 
+        'us-west-2'
+    )
+);
+
+
+	
 -- 3.2 Create table airfare_survey_market
 
 create table air_oai_facts.airfare_survey_market
