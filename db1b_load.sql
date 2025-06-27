@@ -103,24 +103,45 @@ create table air_oai_facts.airfare_survey_itinerary
 	 ;
 
 --5 Create partition on the table airfare_survey_itinerary
-create table air_oai_facts.airfare_survey_itinerary_2023Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-10-01') to ('2024-12-31');
-create table air_oai_facts.airfare_survey_itinerary_2023Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-07-01') to ('2023-09-30');
-create table air_oai_facts.airfare_survey_itinerary_2023Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-04-01') to ('2023-06-30');
-create table air_oai_facts.airfare_survey_itinerary_2023Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2023-01-01') to ('2023-03-31');
-create table air_oai_facts.airfare_survey_itinerary_2022Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-10-01') to ('2022-12-31');
-create table air_oai_facts.airfare_survey_itinerary_2022Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-07-01') to ('2022-09-30');
-create table air_oai_facts.airfare_survey_itinerary_2022Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-04-01') to ('2022-06-30');
-create table air_oai_facts.airfare_survey_itinerary_2022Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2022-01-01') to ('2022-03-31');
-
-create table air_oai_facts.airfare_survey_itinerary_2021Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-10-01') to ('2021-12-31');
-create table air_oai_facts.airfare_survey_itinerary_2021Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-07-01') to ('2021-09-30');
-create table air_oai_facts.airfare_survey_itinerary_2021Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-04-01') to ('2021-06-30');
-create table air_oai_facts.airfare_survey_itinerary_2021Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2021-01-01') to ('2021-03-31');
-
-create table air_oai_facts.airfare_survey_itinerary_2020Q4 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-10-01') to ('2020-12-31');
-create table air_oai_facts.airfare_survey_itinerary_2020Q3 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-07-01') to ('2020-09-30');
-create table air_oai_facts.airfare_survey_itinerary_2020Q2 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-04-01') to ('2020-06-30');
-create table air_oai_facts.airfare_survey_itinerary_2020Q1 partition of air_oai_facts.airfare_survey_itinerary for values from ('2020-01-01') to ('2020-03-31');
+DO $$
+DECLARE
+    year_val INT;
+    quarter_val INT;
+    start_date DATE;
+    end_date DATE;
+    table_name TEXT;
+    sql_stmt TEXT;
+BEGIN
+    FOR year_val IN 1993..2024 LOOP
+        FOR quarter_val IN 1..4 LOOP
+            -- Skip future quarters in 2024
+            IF (year_val = 2024 AND quarter_val > 1) THEN
+                CONTINUE;
+            END IF;
+            
+            -- Calculate start and end dates for the quarter
+            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
+            
+            -- Calculate end date (first day of next quarter minus 1 day)
+            IF quarter_val = 4 THEN
+                end_date := make_date(year_val + 1, 1, 1);
+            ELSE
+                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
+            END IF;
+            
+            -- Create table name
+            table_name := 'air_oai_facts.airfare_survey_itinerary_' || year_val || 'Q' || quarter_val;
+            
+            -- Build and execute SQL statement
+            sql_stmt := 'CREATE TABLE ' || table_name || 
+                       ' PARTITION OF air_oai_facts.airfare_survey_coupon FOR VALUES FROM (''' || 
+                       start_date || ''') TO (''' || end_date || ''');';
+            
+            RAISE NOTICE '%', sql_stmt;
+            EXECUTE sql_stmt;
+        END LOOP;
+    END LOOP;
+END $$;
 
 	 
 -- 1.3 INSERT INTO airfare_survey_itinerary FROM airfare_survey_ticket_load; JOIN with airline_entities; airport_history 
@@ -253,23 +274,45 @@ create table air_oai_facts.airfare_survey_coupon
 	;
 
 -- 5.2 Create partition, create primary key and index on the table airfare_survey_coupon
-create table air_oai_facts.airfare_survey_coupon_2023Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2023-10-01') to ('2024-12-31');
-create table air_oai_facts.airfare_survey_coupon_2023Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2023-01-01') to ('2023-03-31');
-create table air_oai_facts.airfare_survey_coupon_2022Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-10-01') to ('2022-12-31');
-create table air_oai_facts.airfare_survey_coupon_2022Q3 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-07-01') to ('2022-09-30');
-create table air_oai_facts.airfare_survey_coupon_2022Q2 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-04-01') to ('2022-06-30');
-create table air_oai_facts.airfare_survey_coupon_2022Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2022-01-01') to ('2022-03-31');
-
-create table air_oai_facts.airfare_survey_coupon_2021Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-10-01') to ('2021-12-31');
-create table air_oai_facts.airfare_survey_coupon_2021Q3 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-07-01') to ('2021-09-30');
-create table air_oai_facts.airfare_survey_coupon_2021Q2 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-04-01') to ('2021-06-30');
-create table air_oai_facts.airfare_survey_coupon_2021Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2021-01-01') to ('2021-03-31');
-
-create table air_oai_facts.airfare_survey_coupon_2020Q4 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-10-01') to ('2020-12-31');
-create table air_oai_facts.airfare_survey_coupon_2020Q3 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-07-01') to ('2020-09-30');
-create table air_oai_facts.airfare_survey_coupon_2020Q2 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-04-01') to ('2020-06-30');
-create table air_oai_facts.airfare_survey_coupon_2020Q1 partition of air_oai_facts.airfare_survey_coupon for values from ('2020-01-01') to ('2020-03-31');
-
+DO $$
+DECLARE
+    year_val INT;
+    quarter_val INT;
+    start_date DATE;
+    end_date DATE;
+    table_name TEXT;
+    sql_stmt TEXT;
+BEGIN
+    FOR year_val IN 1993..2024 LOOP
+        FOR quarter_val IN 1..4 LOOP
+            -- Skip future quarters in 2024
+            IF (year_val = 2024 AND quarter_val > 1) THEN
+                CONTINUE;
+            END IF;
+            
+            -- Calculate start and end dates for the quarter
+            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
+            
+            -- Calculate end date (first day of next quarter minus 1 day)
+            IF quarter_val = 4 THEN
+                end_date := make_date(year_val + 1, 1, 1);
+            ELSE
+                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
+            END IF;
+            
+            -- Create table name
+            table_name := 'air_oai_facts.airfare_survey_coupon_' || year_val || 'Q' || quarter_val;
+            
+            -- Build and execute SQL statement
+            sql_stmt := 'CREATE TABLE ' || table_name || 
+                       ' PARTITION OF air_oai_facts.airfare_survey_coupon FOR VALUES FROM (''' || 
+                       start_date || ''') TO (''' || end_date || ''');';
+            
+            RAISE NOTICE '%', sql_stmt;
+            EXECUTE sql_stmt;
+        END LOOP;
+    END LOOP;
+END $$;
 
 -- 2.3 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
 INSERT INTO air_oai_facts.airfare_survey_coupon
@@ -442,24 +485,45 @@ create table air_oai_facts.airfare_survey_market
 
 
 -- 5.3 Create partition, create primary key and index on the table airfare_survey_market
-create table air_oai_facts.airfare_survey_market_2023Q1 partition of air_oai_facts.airfare_survey_market for values from ('2023-10-01') to ('2024-01-31');
-create table air_oai_facts.airfare_survey_market_2023Q1 partition of air_oai_facts.airfare_survey_market for values from ('2023-01-01') to ('2023-03-31');
-create table air_oai_facts.airfare_survey_market_2022Q4 partition of air_oai_facts.airfare_survey_market for values from ('2022-10-01') to ('2022-12-31');
-create table air_oai_facts.airfare_survey_market_2022Q3 partition of air_oai_facts.airfare_survey_market for values from ('2022-07-01') to ('2022-09-30');
-create table air_oai_facts.airfare_survey_market_2022Q2 partition of air_oai_facts.airfare_survey_market for values from ('2022-04-01') to ('2022-06-30');
-create table air_oai_facts.airfare_survey_market_2022Q1 partition of air_oai_facts.airfare_survey_market for values from ('2022-01-01') to ('2022-03-31');
-
-create table air_oai_facts.airfare_survey_market_2021Q4 partition of air_oai_facts.airfare_survey_market for values from ('2021-10-01') to ('2021-12-31');
-create table air_oai_facts.airfare_survey_market_2021Q3 partition of air_oai_facts.airfare_survey_market for values from ('2021-07-01') to ('2021-09-30');
-create table air_oai_facts.airfare_survey_market_2021Q2 partition of air_oai_facts.airfare_survey_market for values from ('2021-04-01') to ('2021-06-30');
-create table air_oai_facts.airfare_survey_market_2021Q1 partition of air_oai_facts.airfare_survey_market for values from ('2021-01-01') to ('2021-03-31');
-
-create table air_oai_facts.airfare_survey_market_2020Q4 partition of air_oai_facts.airfare_survey_market for values from ('2020-10-01') to ('2020-12-31');
-create table air_oai_facts.airfare_survey_market_2020Q3 partition of air_oai_facts.airfare_survey_market for values from ('2020-07-01') to ('2020-09-30');
-create table air_oai_facts.airfare_survey_market_2020Q2 partition of air_oai_facts.airfare_survey_market for values from ('2020-04-01') to ('2020-06-30');
-create table air_oai_facts.airfare_survey_market_2020Q1 partition of air_oai_facts.airfare_survey_market for values from ('2020-01-01') to ('2020-03-31');
-
-
+DO $$
+DECLARE
+    year_val INT;
+    quarter_val INT;
+    start_date DATE;
+    end_date DATE;
+    table_name TEXT;
+    sql_stmt TEXT;
+BEGIN
+    FOR year_val IN 1993..2024 LOOP
+        FOR quarter_val IN 1..4 LOOP
+            -- Skip future quarters in 2024
+            IF (year_val = 2024 AND quarter_val > 1) THEN
+                CONTINUE;
+            END IF;
+            
+            -- Calculate start and end dates for the quarter
+            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
+            
+            -- Calculate end date (first day of next quarter minus 1 day)
+            IF quarter_val = 4 THEN
+                end_date := make_date(year_val + 1, 1, 1);
+            ELSE
+                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
+            END IF;
+            
+            -- Create table name
+            table_name := 'air_oai_facts.airfare_survey_market_' || year_val || 'Q' || quarter_val;
+            
+            -- Build and execute SQL statement
+            sql_stmt := 'CREATE TABLE ' || table_name || 
+                       ' PARTITION OF air_oai_facts.airfare_survey_coupon FOR VALUES FROM (''' || 
+                       start_date || ''') TO (''' || end_date || ''');';
+            
+            RAISE NOTICE '%', sql_stmt;
+            EXECUTE sql_stmt;
+        END LOOP;
+    END LOOP;
+END $$;
 -- 3.3 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
 
 INSERT INTO air_oai_facts.airfare_survey_market
