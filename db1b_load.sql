@@ -140,7 +140,7 @@ BEGIN
             
             -- Build and execute SQL statement
             sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_coupon FOR VALUES FROM (''' || 
+                       ' PARTITION OF air_oai_facts.airfare_survey_itinerary FOR VALUES FROM (''' || 
                        start_date || ''') TO (''' || end_date || ''');';
             
             RAISE NOTICE '%', sql_stmt;
@@ -524,7 +524,7 @@ BEGIN
             
             -- Build and execute SQL statement
             sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_coupon FOR VALUES FROM (''' || 
+                       ' PARTITION OF air_oai_facts.airfare_survey_market FOR VALUES FROM (''' || 
                        start_date || ''') TO (''' || end_date || ''');';
             
             RAISE NOTICE '%', sql_stmt;
