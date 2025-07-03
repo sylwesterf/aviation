@@ -605,10 +605,10 @@ and   (am.year_nbr::text ||
 
 
 -- 5 create an primary key and index
-alter table oai.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
-create index airfare_survey_itinerary_reporting_carrier_idx on oai.airfare_survey_itinerary (reporting_carrier_iata_cd);
-create index airfare_survey_itinerary_origin_airport_idx on oai.airfare_survey_itinerary (orig_airport_iata_cd);
-create index airfare_survey_itinerary_year_quarter_idx on oai.airfare_survey_itinerary (year_nbr, quarter_nbr);
+alter table air_oai_facts.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
+create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_carrier_iata_cd);
+create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (orig_airport_iata_cd);
+create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_nbr, quarter_nbr);
 
 -- 6. Vacuum on the tables
 
