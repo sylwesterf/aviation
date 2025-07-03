@@ -120,7 +120,10 @@ BEGIN
     
     -- Drop the temporary table
     EXECUTE format('DROP TABLE IF EXISTS %s', quote_ident(temp_table_name));
-    
+
+    -- Vacuum target table
+    EXECUTE format('VACUUM VERBOSE %s', quote_ident(target_table));
+
     end_time := clock_timestamp();
     
     -- Print summary information
