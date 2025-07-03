@@ -162,8 +162,7 @@ INSERT INTO air_oai_facts.airfare_survey_itinerary
 	, fare_per_person_usd, fare_per_mile_usd
 	, created_by, created_tmst)
 SELECT asf.itinerary_oai_id
-	 , (asf.year_nbr::text || case when asf.quarter_nbr = 1 then '-01-01' when asf.quarter_nbr = 2 then '-04-01' 
-            when asf.quarter_nbr = 3 then '-07-01' when asf.quarter_nbr = 4 then '-10-01' else null end::text)::date as year_quarter_start_date
+	 , ac.year_quarter_from_date  as year_quarter_start_date
      , ae.airline_entity_id as reporting_airline_entity_id
      , ae.airline_entity_key as reporting_airline_entity_key
      , ah.airport_history_id as depart_airport_history_id
@@ -175,14 +174,16 @@ SELECT asf.itinerary_oai_id
 	 , current_user, now()
 FROM air_oai_facts.airfare_survey_ticket_load asf
 -- air_oai_facts.airfare_survey_ticket_fdw asf
+Join calendar_pg.gregorian_year_quarter  ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
 left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
 left join air_oai_dims.airport_history ah
   on asf.depart_airport_oai_seq_id = ah.airport_oai_seq_id
-where (asf.year_nbr::text || 
-      case when asf.quarter_nbr = 1 then '-01-01' when asf.quarter_nbr = 2 then '-04-01' 
-           when asf.quarter_nbr = 3 then '-07-01' when asf.quarter_nbr = 4 then '-10-01' else null end::text)::date
+where ac.year_quarter_from_date
       between ae.source_from_date and coalesce(ae.source_thru_date, current_date)
+	  
+	  
+
 	  
 
 --   2.1 Create table a air_oai_facts.airfare_survey_coupon_load
@@ -617,3 +618,6 @@ vacuum verbose air_oai_facts.airfare_survey_coupon;
 VACUUM VERBOSE air_oai_facts.airfare_survey_market;
 
 -- 7 Validation
+
+select year_nbr, quarter_nbr, count(*) from air_oai_facts.airfare_survey_ticket_load group by 1,2;
+select year_quarter_start_date, count(*) from air_oai_facts.airfare_survey_itinerary group by 1 order by 1 desc;
