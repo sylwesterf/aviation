@@ -68,7 +68,7 @@ create table air_oai_facts.airfare_survey_ticket_load
 -- for x in $(ls /tmp/DB1B/_ticket/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
 
----AWS Aurora SQL
+---AWS Aurora SQL - one file
 SELECT aws_s3.table_import_from_s3(
     'air_oai_facts.airfare_survey_ticket_load', 
     '', 
@@ -78,6 +78,15 @@ SELECT aws_s3.table_import_from_s3(
         'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BMTicket_2023_1.csv.gz', 
         'us-west-2'
     )
+);
+-- AWS Aurora SQL - all files in folder
+CALL import_data_from_manifest(
+    0, 
+    'air_oai_facts.airfare_survey_ticket_load',  -- target_table
+    'DB1B/ticket/manifest_ticket_csv.csv',      -- manifest_file
+    'src-aviation',                              -- source_bucket
+    'us-west-2',                                 -- region
+    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
 --   1.3 Create air_oai_facts.airfare_survey_itinerary
 
@@ -243,6 +252,15 @@ SELECT aws_s3.table_import_from_s3(
         'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 
         'us-west-2'
     )
+);
+-- AWS Aurora SQL - all files in folder
+CALL import_data_from_manifest(
+    0, 
+    'air_oai_facts.airfare_survey_coupon_load',  -- target_table
+    'DB1B/coupon/manifest_coupon_csv.csv',      -- manifest_file
+    'src-aviation',                              -- source_bucket
+    'us-west-2',                                 -- region
+    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
 
 --   2.3 Create air_oai_facts.airfare_survey_coupon
@@ -447,6 +465,15 @@ SELECT aws_s3.table_import_from_s3(
         'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 
         'us-west-2'
     )
+);
+-- AWS Aurora SQL - all files in folder
+CALL import_data_from_manifest(
+    0, 
+    'air_oai_facts.airfare_survey_market_load',  -- target_table
+    'DB1B/market/manifest_market_csv.csv',      -- manifest_file
+    'src-aviation',                              -- source_bucket
+    'us-west-2',                                 -- region
+    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
 
 
