@@ -160,6 +160,11 @@ END $$;
 
 	 
 --   1.5 Insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
+WITH filtered_airline_entities AS (
+    SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
+    FROM air_oai_dims.airline_entities
+    WHERE operating_region_code = 'Domestic'
+)
 
 INSERT INTO air_oai_facts.airfare_survey_itinerary
 	( itinerary_oai_id, year_quarter_start_date
@@ -184,15 +189,12 @@ SELECT asf.itinerary_oai_id
 FROM air_oai_facts.airfare_survey_ticket_load asf
 -- air_oai_facts.airfare_survey_ticket_fdw asf
 Join calendar_pg.gregorian_year_quarter  ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') ae 
+left join filtered_airline_entities ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
 left join air_oai_dims.airport_history ah
   on asf.depart_airport_oai_seq_id = ah.airport_oai_seq_id
-where ac.year_quarter_from_date
+WHERE ac.year_quarter_from_date
       between ae.source_from_date and coalesce(ae.source_thru_date, current_date)
-	  
-	  
-
 	  
 
 --   2.1 Create table a air_oai_facts.airfare_survey_coupon_load
@@ -340,6 +342,12 @@ BEGIN
 END $$;
 
 --   2.5 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
+WITH filtered_airline_entities AS (
+    SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
+    FROM air_oai_dims.airline_entities
+    WHERE operating_region_code = 'Domestic'
+)
+
 INSERT INTO air_oai_facts.airfare_survey_coupon
 	(itinerary_oai_id, flight_pass_seq, year_quarter_start_date, market_oai_id
 	, ticketing_airline_entity_id, ticketing_airline_entity_key
@@ -353,8 +361,7 @@ INSERT INTO air_oai_facts.airfare_survey_coupon
 	, created_by, created_tmst)
 SELECT ac.itinerary_oai_id
      , ac.flight_pass_seq
-     , (ac.year_nbr::text || case when ac.quarter_nbr = 1 then '-01-01' when ac.quarter_nbr = 2 then '-04-01' 
-            when ac.quarter_nbr = 3 then '-07-01' when ac.quarter_nbr = 4 then '-10-01' else null end::text)::date as year_quarter_start_date
+     , aq.year_quarter_from_date as year_quarter_start_date
 	 , ac.market_oai_id
 	 , aet.airline_entity_id as ticketing_airline_entity_id
 	 , aet.airline_entity_key as ticketing_airline_entity_key
@@ -379,29 +386,21 @@ SELECT ac.itinerary_oai_id
 	 , current_user
 	 , current_timestamp
 FROM air_oai_facts.airfare_survey_coupon_load ac
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aet
+Join calendar_pg.gregorian_year_quarter aq ON asf.year_nbr = aq.year_nbr AND asf.quarter_nbr = aq.quarter_of_year_nbr
+left join filtered_airline_entities aet
   on ac.ticketing_airline_oai_code = aet.airline_oai_code
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aeo
+left join filtered_airline_entities aeo
   on ac.operating_airline_oai_code = aeo.airline_oai_code
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aer
+left join filtered_airline_entities aer
   on ac.reporting_airline_oai_code = aer.airline_oai_code
 left join air_oai_dims.airport_history ahd
   on ac.depart_airport_oai_seq_id = ahd.airport_oai_seq_id
 left join air_oai_dims.airport_history aha
   on ac.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
-where (ac.year_nbr::text || 
-       case when ac.quarter_nbr = 1 then '-01-01' when ac.quarter_nbr = 2 then '-04-01' 
-       when ac.quarter_nbr = 3 then '-07-01' when ac.quarter_nbr = 4 then '-10-01' else null end::text)::date
+where aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
+	AND aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
+	AND aq.year_quarter_from_date
        between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
-and   (ac.year_nbr::text || 
-       case when ac.quarter_nbr = 1 then '-01-01' when ac.quarter_nbr = 2 then '-04-01' 
-       when ac.quarter_nbr = 3 then '-07-01' when ac.quarter_nbr = 4 then '-10-01' else null end::text)::date
-       between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
-and   (ac.year_nbr::text || 
-       case when ac.quarter_nbr = 1 then '-01-01' when ac.quarter_nbr = 2 then '-04-01' 
-       when ac.quarter_nbr = 3 then '-07-01' when ac.quarter_nbr = 4 then '-10-01' else null end::text)::date
-       between aer.source_from_date and coalesce(aer.source_thru_date, current_date)
-;
 
 
 -- 3.1 Create table air_oai_facts.airfare_survey_market_load
@@ -561,6 +560,11 @@ BEGIN
     END LOOP;
 END $$;
 --   3.5 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
+WITH filtered_airline_entities AS (
+    SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
+    FROM air_oai_dims.airline_entities
+    WHERE operating_region_code = 'Domestic'
+)
 
 INSERT INTO air_oai_facts.airfare_survey_market
 	( itinerary_oai_id, market_oai_id, year_quarter_start_date
@@ -576,8 +580,7 @@ INSERT INTO air_oai_facts.airfare_survey_market
 	, created_by, created_tmst)
 SELECT am.itinerary_oai_id
 	 , am.market_oai_id
-	 , (am.year_nbr::text || case when am.quarter_nbr = 1 then '-01-01' when am.quarter_nbr = 2 then '-04-01' 
-            when am.quarter_nbr = 3 then '-07-01' when am.quarter_nbr = 4 then '-10-01' else null end::text)::date as year_quarter_start_date
+	 , agq.year_quarter_from_date as year_quarter_start_date as year_quarter_start_date
      , aet.airline_entity_id as ticketing_airline_entity_id
      , aet.airline_entity_key as ticketing_airline_entity_key
 	 , am.ticketing_airline_change_ind
@@ -607,29 +610,22 @@ SELECT am.itinerary_oai_id
 	 , current_user
 	 , current_timestamp
 FROM air_oai_facts.airfare_survey_market_load am
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aet
+Join calendar_pg.gregorian_year_quarter agq ON am.year_nbr = agq.year_nbr AND am.quarter_nbr = agq.quarter_of_year_nbr
+left join filtered_airline_entities aet
   on am.ticketing_airline_oai_code = aet.airline_oai_code
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aeo
+left join filtered_airline_entities aeo
   on am.operating_airline_oai_code = aeo.airline_oai_code
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') aer
+left join filtered_airline_entities aer
   on am.reporting_airline_oai_code = aer.airline_oai_code
 left join air_oai_dims.airport_history ahd
   on am.depart_airport_oai_seq_id = ahd.airport_oai_seq_id
 left join air_oai_dims.airport_history aha
   on am.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
-where (am.year_nbr::text || 
-       case when am.quarter_nbr = 1 then '-01-01' when am.quarter_nbr = 2 then '-04-01' 
-       when am.quarter_nbr = 3 then '-07-01' when am.quarter_nbr = 4 then '-10-01' else null end::text)::date
-       between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
-and   (am.year_nbr::text || 
-       case when am.quarter_nbr = 1 then '-01-01' when am.quarter_nbr = 2 then '-04-01' 
-       when am.quarter_nbr = 3 then '-07-01' when am.quarter_nbr = 4 then '-10-01' else null end::text)::date
+where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date) 
+	AND agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
+	ANDagq.year_quarter_from_date
        between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
-and   (am.year_nbr::text || 
-       case when am.quarter_nbr = 1 then '-01-01' when am.quarter_nbr = 2 then '-04-01' 
-       when am.quarter_nbr = 3 then '-07-01' when am.quarter_nbr = 4 then '-10-01' else null end::text)::date
-       between aer.source_from_date and coalesce(aer.source_thru_date, current_date)
-;
+
 
 
 -- 5 create an primary key and index
