@@ -1,41 +1,36 @@
---The Airline Origin and Destination Survey (DB1B) is a 10% sample of airline tickets from reporting carriers collected by the Office of Airline Information of the Bureau of Transportation Statistics. Data includes origin, destination and other itinerary details of passengers transported. This database is used to determine air traffic patterns, air carrier market shares and passenger flows.
+-- DB1B (US DoT data)
+-- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Airline Origin and Destination Survey (DB1B) > DB1BTicket
+-- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Airline Origin and Destination Survey (DB1B) > DB1BCoupon
+-- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Airline Origin and Destination Survey (DB1B) > DB1BMarket
+-- https://www.transtats.bts.gov/DatabaseInfo.asp?QO_VQ=EFI&Yv0x=D
 
---Quarterly data 
-
---Details
---https://www.transtats.bts.gov/DatabaseInfo.asp?QO_VQ=EFI&Yv0x=D
-
+----------------------------------------------------
 --STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
-
--- 1 Create extensions
-
--- 1 
---   1.3 Create table air_oai_facts.airfare_survey_ticket_load 
---   1.2 Copy DB1B data into
---   1.3 Create air_oai_facts.airfare_survey_itinerary
---   1.4 Create partioning airfare_survey_itinerary
---   1.5 Insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
--- 2
---   2.1 Create table a air_oai_facts.airfare_survey_coupon_load
---   2.2 Copy DB1B data into airfare_survey_coupon_load
---   2.3 Create air_oai_facts.airfare_survey_coupon
---   2.4 Create partioning air_oai_facts.airfare_survey_coupon
---   2.5 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
--- 3 
---   3.1 Create table air_oai_facts.airfare_survey_market_load
---   3.1 Copy DB1B data into air_oai_facts.airfare_survey_market_load
---   3.2 Create table airfare_survey_market
---   3.4 Create partioning table airfare_survey_market
---   3.5 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
--- 4 Create create primary key and index on the tables
--- 5 Vacuum on the table
--- 6 Validation
-
--- SCRIPT STARTS HERE
+-- 1. process DB1B Ticket data
+--  1.3. Create table air_oai_facts.airfare_survey_ticket_load 
+--  1.2. Copy DB1B data into
+--  1.3. Create air_oai_facts.airfare_survey_itinerary
+--  1.4. Create partioning airfare_survey_itinerary
+--  1.5. Insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
+-- 2. process DB1B Coupon data
+--  2.1. Create table a air_oai_facts.airfare_survey_coupon_load
+--  2.2. Copy DB1B data into airfare_survey_coupon_load
+--  2.3. Create air_oai_facts.airfare_survey_coupon
+--  2.4. Create partioning air_oai_facts.airfare_survey_coupon
+--  2.5. Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
+-- 3. process DB1B Market data
+--  3.1. Create table air_oai_facts.airfare_survey_market_load
+--  3.1. Copy DB1B data into air_oai_facts.airfare_survey_market_load
+--  3.2. Create table airfare_survey_market
+--  3.4. Create partioning table airfare_survey_market
+--  3.5. Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
+-- 4. Create create primary key and index on the tables
+-- 5. Vacuum on the table
+-- 6. Validation
+----------------------------------------------------
 
 -- 1.1 Create table air_oai_facts.airfare_survey_ticket_load  
-
 create table air_oai_facts.airfare_survey_ticket_load
 ( itinerary_oai_id								bigint null
 	, coupon_qty									float4 null
@@ -64,6 +59,7 @@ create table air_oai_facts.airfare_survey_ticket_load
 	, geographic_type_oai_id						integer null
 	, filler										varchar(10) null
 	);
+
 -- 1.2 Copy DB1B data into airfare_survey_ticket_load
 -- for x in $(ls /tmp/DB1B/_ticket/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;

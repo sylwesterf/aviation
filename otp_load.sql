@@ -2,6 +2,7 @@
 -- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Airline On-Time Performance Data Database > Reporting Carrier On-Time Performance (1987-present)
 -- https://transtats.bts.gov/Tables.asp?QO_VQ=EFD&QO_anzr=Nv4yv0r%FDb0-gvzr%FDcr4s14zn0pr%FDQn6n&QO_fu146_anzr=b0-gvzr
 
+----------------------------------------------------
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 -- 1. create air_oai_facts.airline_flight_performance_fdw table in postgre
@@ -18,8 +19,8 @@
 -- 5. add keys and indexes
 -- 6. vacuum the tables
 -- 7. test/validation queries
+----------------------------------------------------
 
--- SCRIPT STARTS HERE
 
 -- 1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
 CREATE TABLE air_oai_facts.airline_flight_performance_fdw

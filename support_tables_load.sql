@@ -2,9 +2,9 @@
 -- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Aviation Support Tables
 -- https://transtats.bts.gov/Tables.asp?QO_VQ=IMI&QO_anzr=N8vn6v10%FDf722146%FDgnoyr5&QO_fu146_anzr=N8vn6v10%FDf722146%FDgnoyr5
 
+----------------------------------------------------
 -- STEPS:
--- -1. download and unzip individual pre-zipped data files: AircraftTypes, Carrier Decode, Master Coordinate, World Area Codes
--- 0. install pgsql extensions
+-- 0. download and unzip individual pre-zipped data files: AircraftTypes, Carrier Decode, Master Coordinate, World Area Codes
 -- 1. create aircraft types lookup 
 --  1.1. create air_oai_dims.aircraft_types_fdw table in postgre
 --  1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
@@ -27,7 +27,8 @@
 --  4.2. copy world areas data into air_oai_dims.master_cord_fdw
 --  4.3. create air_oai_dims.airport_history table in postgre
 --  4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
--- 4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas  
+--  4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
+--  (4.6) update the time zone boundaries in air_oai_dims.airport_history 
 -- 5. create aircraft types group lookup 
 --  5.1. create air_oai_dims.aircraft_type_groups
 --  5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
@@ -40,13 +41,7 @@
 -- 8. define column comments
 -- 9. vacuum the tables
 -- 10. test/validation queries
-
-
--- SCRIPT STARTS HERE
-
--- 0. install pgsql extensions
-CREATE EXTENSION IF NOT EXISTS POSTGIS; -- extension needed for gemetry data type
-CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing data from an Amazon S3 (in Aurora)
+----------------------------------------------------
 
 -- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
 drop table if exists air_oai_dims.aircraft_types_fdw;
@@ -565,6 +560,24 @@ where air_oai_dims.airport_history.airport_history_id = abc.airport_history_id
 and air_oai_dims.airport_history.airport_history_key = abc.airport_history_key;
 
 
+-- (4.6) update the time zone boundaries in air_oai_dims.airport_history 
+/*
+update air_oai_dims.airport_history
+set	
+	time_zone_name = c.time_zone_name
+	, updated_by = current_user
+	, updated_tsmt = current_timestamp
+from (
+select a.airport_history_id, a.airport_oai_code, a.effective_from_date, b.time_zone_name 
+from (select airport_history_id, airport_oai_code, effective_from_date, point_geom 
+      from air_oai_dims.airport_history where time_zone_name is null /*limit 10000*/) a
+cross join (select gid, tzid as time_zone_name, geom as time_zone_geom from public.timezone_boundaries) b
+where ST_Contains(b.time_zone_geom, a.point_geom) is true
+) c
+where air_oai_dims.airport_history.airport_history_id = c.airport_history_id
+and air_oai_dims.airport_history.time_zone_name is null;
+*/
+
 -- 5.1. create air_oai_dims.aircraft_type_groups
 drop table if exists air_oai_dims.aircraft_type_groups;
 create table air_oai_dims.aircraft_type_groups
@@ -778,12 +791,12 @@ comment on column air_oai_dims.airport_history.airport_latest_ind is 'AIRPORT_IS
 
 
 -- 9. vacuum the tables
-vacuum analyze  air_oai_dims.aircraft_types;
-vacuum analyze  air_oai_dims.world_areas;
-vacuum analyze  air_oai_dims.airport_history;
-vacuum analyze  air_oai_dims.aircraft_type_groups;
-vacuum analyze  air_oai_dims.airline_entity_new_groups;
-vacuum analyze  air_oai_dims.airline_entity_legacy_groups;
+vacuum analyze air_oai_dims.aircraft_types;
+vacuum analyze air_oai_dims.world_areas;
+vacuum analyze air_oai_dims.airport_history;
+vacuum analyze air_oai_dims.aircraft_type_groups;
+vacuum analyze air_oai_dims.airline_entity_new_groups;
+vacuum analyze air_oai_dims.airline_entity_legacy_groups;
 
 -- 10. test/validation queries
 -- TODO

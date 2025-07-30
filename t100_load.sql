@@ -1,12 +1,36 @@
--- TODO (merge part 2)
+-- T100 (Market and Segment) (US DoT data)
+-- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Air Carrier Statistics (Form 41 Traffic)- All Carriers Database > T-100 Market (All Carriers)
+-- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Air Carrier Statistics (Form 41 Traffic)- All Carriers Database > T-100 Segment (All Carriers)	
+-- https://www.transtats.bts.gov/Tables.asp?QO_VQ=EEE&QO_anzr=Nv4%FDPn44vr4%FDf6n6v56vp5%FD%FLS14z%FDHE%FDg4nssvp%FM-%FDNyy%FDPn44vr45&QO_fu146_anzr=Nv4%FDPn44vr45
 
-----------------------------
--- Airline Traffic Market --
-----------------------------
+----------------------------------------------------
+-- STEPS:
+-- 0. download and unzip individual pre-zipped data files (stored by year and month)
+-- 1. process Airline Traffic Market data
+--  1.1. create air_oai_facts.f41_traffic_t100_market_archive staging table
+--  1.2. stage t100_market csv data
+-- 	1.3. create a materialized view to transform the data (air_oai_facts.airline_traffic_market_integrate_mv)
+-- 	1.4. create final fact table (air_oai_facts.airline_traffic_market) 
+--	1.5. pull the data from the materialized view into the fact table
+-- 2. process Airline Traffic Market data
+--  2.1. create air_oai_facts.f41_traffic_t100_segment_archive staging table
+--  2.2. stage t100_segment csv data
+-- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
+--  2.4. create another materialized view (airline_traffic_segment_integrate_mv)
+-- 	2.5. create final fact table (air_oai_facts.airline_traffic_segment) 
+--	2.6. pull the data from the materialized view into the fact table
+-- 3. create dimensional tables by extracting data from the fact tables
+--  3.1. air_oai_dims.aircraft_configurations (aircraft_configuration_ref)
+-- 	3.2. air_oai_dims.airline_service_classes (service_class_code)
+-- 4. add keys and indexes
+-- 5. vacuum the tables
+-- 6. test/validation queries
+-- 7. clean-up
+----------------------------------------------------
 
--- alter table air_oai_facts.f41_traffic_t100_market_archive rename column unique_airline_oai_code to airline_unique_oai_code;
-
--- DROP TABLE if exists air_oai_facts.f41_traffic_t100_market_archive;
+-- 1. process Airline Traffic Market data
+-- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
+DROP TABLE if exists air_oai_facts.f41_traffic_t100_market_archive;
 CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	( passengers_qty 				float4
 	, freight_lbr 					float4
@@ -27,7 +51,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, depart_airport_oai_code 		varchar(5)
 	, depart_city_name 				varchar(75)
 	, depart_subdivision_iso_code 	varchar(5)
-	, depart_subdivision_fips_code 	varchar(5)
+	, depart_subdivision_fips_code 	int4
 	, depart_subdivision_name 		varchar(75)
 	, depart_country_iso_code 		varchar(5)
 	, depart_country_name 			varchar(75)
@@ -38,7 +62,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, arrive_airport_oai_code 		varchar(5)
 	, arrive_city_name 				varchar(75)
 	, arrive_subdivision_iso_code 	varchar(5)
-	, arrive_subdivision_fips_code 	varchar(5)
+	, arrive_subdivision_fips_code 	int4
 	, arrive_subdivision_name 		varchar(75)
 	, arrive_country_iso_code 		varchar(5)
 	, arrive_country_name 			varchar(75)
@@ -49,23 +73,17 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, distance_group_id 			int4
 	, service_class_code 			varchar(5)
 	, data_source_code 				varchar(5)
-	--, filler_txt 					varchar(10)
 	);
-	
+
+-- 1.2. ingest t100_market csv data using copy command 
 copy air_oai_facts.f41_traffic_t100_market_archive
 from '/opt/_data/_air/_oai/_t100/T_T100_MARKET_ALL_CARRIER_2022.csv'
--- '/Volumes/ssd8tbRaid0/opt/_data/_air/_oai/_t100/_data-market/T100_MARKET_ALL_CARRIER_ALL_2019.csv'
 delimiter ',' header csv;
 
-select count(*) from air_oai_facts.f41_traffic_t100_market_archive;
-select * from air_oai_facts.f41_traffic_t100_market_archive limit 100;
-select * from air_oai_dims.airline_entities;
-select * from air_oai_dims.airport_history;
-
--- select * from air_oai_facts.airline_traffic_market_integrate_mv limit 1000;
--- drop materialized view if exists air_oai_facts.airline_traffic_market_integrate_mv;
--- refresh 
--- CREATE materialized view air_oai_facts.airline_traffic_market_integrate_mv as
+-- 1.3. create a materialized view to transform the data
+drop materialized view if EXISTS air_oai_facts.airline_traffic_market_integrate_mv;
+CREATE MATERIALIZED VIEW air_oai_facts.airline_traffic_market_integrate_mv 
+AS
 SELECT (f.year_nbr::char(4) || lpad(f.month_nbr::varchar(2),2,'0'))::integer as year_month_nbr
      , f.service_class_code
      , f.airline_usdot_id
@@ -88,8 +106,8 @@ SELECT (f.year_nbr::char(4) || lpad(f.month_nbr::varchar(2),2,'0'))::integer as 
      , f.passengers_qty
      , f.freight_lbr
      , f.mail_lbr
-     , 'gxclark' as created_by
-     , now() as created_tmst
+     , current_user::varchar(32) as created_by
+     , current_timestamp::timestamp(0) as created_tmst
 from air_oai_facts.f41_traffic_t100_market_archive f
 --left outer join calendar.year_month_v c on f.year_nbr = c.year_nbr and f.month_nbr = c.month_of_year_nbr
 left outer join air_oai_dims.airline_entities ae
@@ -109,11 +127,10 @@ left outer join air_oai_dims.airport_history h2
  and (f.year_nbr::char(4) ||'-'|| lpad(f.month_nbr::varchar(2),2,'0') || '-01')::date >= h2.effective_from_date
  and (f.year_nbr::char(4) ||'-'|| lpad(f.month_nbr::varchar(2),2,'0') || '-01')::date 
    < case when h2.effective_thru_date is null then current_date else h2.effective_thru_date end
-order by f.airline_oai_code, f.depart_airport_oai_code, f.arrive_airport_oai_code
---limit 1000
-;
+order by f.airline_oai_code, f.depart_airport_oai_code, f.arrive_airport_oai_code;
 
---drop table if exists air_oai_facts.airline_traffic_market;
+-- 1.4. create final fact table (air_oai_facts.airline_traffic_market) 
+drop table if exists air_oai_facts.airline_traffic_market;
 CREATE TABLE air_oai_facts.airline_traffic_market 
 	( airline_traffic_market_key				char(32)		not null
 	, year_month_nbr							integer			not null
@@ -132,7 +149,7 @@ CREATE TABLE air_oai_facts.airline_traffic_market
 	, service_class_code 						char(1) 		not null
 	, data_source_code							varchar(5)		not null
 	, passengers_qty 							integer			not null
-	, freight_kgm 								numeric(10,1)	not null
+	, freight_kgm 								numeric(10,1)	
 	, mail_kgm 									numeric(10,1)	not null
 	, t100_records_qty 							smallint		not null
 	, metadata_key								varchar(32)
@@ -143,6 +160,7 @@ CREATE TABLE air_oai_facts.airline_traffic_market
 	, constraint airline_traffic_market_pk PRIMARY KEY (airline_traffic_market_key) 
 	);
 
+-- 1.5. insert values into air_oai_facts.airline_traffic_market from the materialized view air_oai_facts.airline_traffic_market_integrate_mv
 INSERT INTO air_oai_facts.airline_traffic_market
 ( airline_traffic_market_key, year_month_nbr, service_class_code
 , airline_oai_code, airline_effective_date, airline_entity_id, airline_entity_key
@@ -155,7 +173,7 @@ SELECT md5(year_month_nbr::char(6)
     ||'|'||airline_entity_key
     ||'|'||depart_airport_history_key
     ||'|'||arrive_airport_history_key
-    ) as airline_traffic_market_key
+    ) as airline_traffic_market_key2
 	 , year_month_nbr
 	 , service_class_code
 	 , max(airline_oai_code) as airline_oai_code
@@ -175,10 +193,10 @@ SELECT md5(year_month_nbr::char(6)
 	 , (sum(freight_lbr)*0.45359237)::numeric(10,1) as freight_kgm
 	 , (sum(mail_lbr)*0.45359237)::numeric(10,1) as mail_kgm
 	 , count(*) as t100_records_qty
-	 , 'gxclark' as created_by
-	 , now() as created_tmst
+     , current_user::varchar(32) as created_by
+     , current_timestamp::timestamp(0) as created_tmst
 FROM air_oai_facts.airline_traffic_market_integrate_mv
-WHERE year_month_nbr is not null 
+WHERE year_month_nbr is not null -- NOT NULL conditions exclude ~400 rows of market data
 and service_class_code is not null 
 and airline_entity_key is not null 
 and depart_airport_history_key is not null 
@@ -192,17 +210,9 @@ GROUP BY year_month_nbr
 	 , arrive_airport_history_key -- , arrive_airport_oai_code, arrive_airport_effective_date
 	 ;
 
--- select * from air_oai_facts.airline_traffic_market;
--- select count(*) from air_oai_facts.airline_traffic_market; -- 317940
--- select count(*) from air_oai_facts.f41_traffic_t100_market_archive; -- 317940
--- drop materialized view if exists air_oai_facts.airline_traffic_market_integrate_mv;
--- drop table if exists air_oai_facts.f41_traffic_t100_market_archive;
-
------------------------------
--- Airline Traffic Segment --
------------------------------
-
--- DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_archive;
+-- 2. process Airline Traffic Market data
+-- 2.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
+DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_archive;
 CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 	( scheduled_departures_qty	 			float4
 	, performed_departures_qty	 			float4
@@ -257,15 +267,14 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 	--, filler_txt 							varchar(10)
 	);
 
+-- 2.2. stage t100_segment csv data
 copy air_oai_facts.f41_traffic_t100_segment_archive
 from '/opt/_data/_air/_oai/_t100/T_T100_SEGMENT_ALL_CARRIER_2022.csv'
 delimiter ',' header csv;
 
--- select * from air_oai_facts.f41_traffic_t100_segment_archive;
-
-/* -- this is only needed for particular older files that require data quality work.
--- drop materialized view air_oai_facts.f41_traffic_t100_segment_load_mv;
--- create materialized view air_oai_facts.f41_traffic_t100_segment_load_mv as
+-- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
+drop materialized view air_oai_facts.f41_traffic_t100_segment_load_mv;
+create materialized view air_oai_facts.f41_traffic_t100_segment_load_mv as
 SELECT scheduled_departures_qty
 	, performed_departures_qty
 	, payload_lbr
@@ -278,41 +287,41 @@ SELECT scheduled_departures_qty
 	, air_time_min
 	, airline_unique_oai_code
 	, airline_usdot_id
-	--, case when airline_oai_code = '5G' and airline_usdot_id is null then 21181
-	       --when airline_oai_code = '0OQ' and airline_usdot_id is null then 21287
-	       --when airline_oai_code = 'AQ' and airline_usdot_id is null then 19678
-	       --when airline_oai_code = 'KH' and airline_usdot_id = 19678 then 21634
-	       --airline_oai_code = 'K8' and airline_usdot_id is null then 20310
-	       --airline_oai_code = 'XP' and airline_usdot_id is null then 20207
-	       --when airline_oai_code = '2HQ' is not null and airline_usdot_id is null then 21712
-	--       else airline_usdot_id end::integer as airline_usdot_id
+	, case when airline_oai_code = '5G' and airline_usdot_id is null then 21181
+	  when airline_oai_code = '0OQ' and airline_usdot_id is null then 21287
+	  when airline_oai_code = 'AQ' and airline_usdot_id is null then 19678
+	  when airline_oai_code = 'KH' and airline_usdot_id = 19678 then 21634
+	  airline_oai_code = 'K8' and airline_usdot_id is null then 20310
+	  airline_oai_code = 'XP' and airline_usdot_id is null then 20207
+	  when airline_oai_code = '2HQ' is not null and airline_usdot_id is null then 21712
+	  else airline_usdot_id end::integer as airline_usdot_id
 	, airline_unique_name
 	, entity_unique_oai_code
-	--, case when airline_oai_code = '5G' and airline_usdot_id is null then '71032'
-	       --when airline_oai_code = '0OQ' and airline_usdot_id is null then '71056'
-	       --when airline_oai_code = 'AQ' and (airline_usdot_id is null or airline_usdot_id = 19678)
-	       -- and (depart_country_iso_code in ('US','CA') and arrive_country_iso_code in ('US','CA')) then '05045'
-	       --when airline_oai_code = 'AQ' and (airline_usdot_id is null or airline_usdot_id = 19678)
-	       -- and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '15045'
-	       --when airline_oai_code = 'K8' and airline_usdot_id is null
-	       -- and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '16076'
-	       --when airline_oai_code = 'K8' and airline_usdot_id is null
-	       -- and (depart_country_iso_code = 'US' and arrive_country_iso_code = 'US') then '06076'
-	       --when airline_oai_code = 'XP' and airline_usdot_id is null
-	       -- and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '16144'
-	       --when airline_oai_code = 'XP' and airline_usdot_id is null
-	       -- and (depart_country_iso_code = 'US' and arrive_country_iso_code = 'US') then '06144'
-	       --when airline_oai_code = '2HQ' is not null and airline_usdot_id is null
-	       -- and depart_country_iso_code = 'US' and arrive_country_iso_code = 'US' then '01200'
-	       --when airline_oai_code = '2HQ' is not null and airline_usdot_id is null
-	       -- and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '11047'
-	--       else unique_entity_oai_code end::varchar(15) as unique_entity_oai_code
+	, case when airline_oai_code = '5G' and airline_usdot_id is null then '71032'
+	  when airline_oai_code = '0OQ' and airline_usdot_id is null then '71056'
+	  when airline_oai_code = 'AQ' and (airline_usdot_id is null or airline_usdot_id = 19678)
+        and (depart_country_iso_code in ('US','CA') and arrive_country_iso_code in ('US','CA')) then '05045'
+	  when airline_oai_code = 'AQ' and (airline_usdot_id is null or airline_usdot_id = 19678)
+	    and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '15045'
+	  when airline_oai_code = 'K8' and airline_usdot_id is null
+	    and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '16076'
+	  when airline_oai_code = 'K8' and airline_usdot_id is null
+	    and (depart_country_iso_code = 'US' and arrive_country_iso_code = 'US') then '06076'
+	  when airline_oai_code = 'XP' and airline_usdot_id is null
+	    and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '16144'
+	  when airline_oai_code = 'XP' and airline_usdot_id is null
+	    and (depart_country_iso_code = 'US' and arrive_country_iso_code = 'US') then '06144'
+	  when airline_oai_code = '2HQ' is not null and airline_usdot_id is null
+	    and depart_country_iso_code = 'US' and arrive_country_iso_code = 'US' then '01200'
+	  when airline_oai_code = '2HQ' is not null and airline_usdot_id is null
+	    and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '11047'
+	 else entity_unique_oai_code end::varchar(15) as entity_unique_oai_code
 	, operating_region_code
 	, airline_oai_code
-	--, case when airline_oai_code = '39Q' and airline_usdot_id = 21894 then 'AN'
-	--       when airline_oai_code = '3GQ' and airline_usdot_id = 21869 then '36Q'
-	--       when airline_oai_code = 'A0' and airline_usdot_id = 20234 and unique_entity_oai_code = '9486F' then '8R'
-	--       else airline_oai_code end::varchar(5) as airline_oai_code
+	, case when airline_oai_code = '39Q' and airline_usdot_id = 21894 then 'AN'
+	  when airline_oai_code = '3GQ' and airline_usdot_id = 21869 then '36Q'
+	  when airline_oai_code = 'A0' and airline_usdot_id = 20234 and unique_entity_oai_code = '9486F' then '8R'
+	  else airline_oai_code end::varchar(5) as airline_oai_code
 	, airline_name
 	, airline_old_group_nbr
 	, airline_new_group_nbr
@@ -350,14 +359,10 @@ SELECT scheduled_departures_qty
 	--, filler_txt
 FROM air_oai_facts.f41_traffic_t100_segment_archive;
 --limit 1000;
-*/
 
-select * from air_oai_facts.f41_traffic_t100_segment_load_mv;
-
--- select * from air_oai.airline_traffic_segment_integrate_mv limit 1000;
--- drop materialized view if exists air_oai.airline_traffic_segment_integrate_mv;
---refresh 
--- CREATE materialized view air_oai_facts.airline_traffic_segment_integrate_mv as
+-- 2.4. create another materialized view (airline_traffic_segment_integrate_mv)
+drop materialized view air_oai_facts.airline_traffic_segment_integrate_mv;
+CREATE materialized view air_oai_facts.airline_traffic_segment_integrate_mv as
 SELECT (f.year_nbr::char(4) || lpad(f.month_nbr::varchar(2),2,'0'))::integer as year_month_nbr
      , f.service_class_code
      , f.airline_usdot_id
@@ -393,8 +398,8 @@ SELECT (f.year_nbr::char(4) || lpad(f.month_nbr::varchar(2),2,'0'))::integer as 
      , f.performed_departures_qty
      , f.ramp_to_ramp_min
      , f.air_time_min
-     , 'gxclark' as created_by
-     , now() as created_tmst
+     , current_user::varchar(32) as created_by
+     , current_timestamp::timestamp(0) as created_tmst
 from air_oai_facts.f41_traffic_t100_segment_archive f
 -- left outer join calendar.year_month_v c on f.year_nbr = c.year_nbr and f.month_nbr = c.month_of_year_nbr
 left outer join air_oai_dims.airline_entities ae
@@ -416,9 +421,8 @@ left outer join air_oai_dims.airport_history h2
    < case when h2.effective_thru_date is null then current_date else h2.effective_thru_date end
 order by f.airline_oai_code, f.depart_airport_oai_code, f.arrive_airport_oai_code;
 
------
-
---drop table if exists air_oai_facts.airline_traffic_segment;
+-- 2.5. create final fact table (air_oai_facts.airline_traffic_segment) 
+drop table if exists air_oai_facts.airline_traffic_segment;
 CREATE TABLE air_oai_facts.airline_traffic_segment 
 	( airline_traffic_segment_key				char(32)		not null
 	, year_month_nbr							integer			not null
@@ -455,8 +459,7 @@ CREATE TABLE air_oai_facts.airline_traffic_segment
 	, constraint airline_traffic_segment_pk PRIMARY KEY (airline_traffic_segment_key) 
 	);
 
------
-
+-- 2.6. pull the data from the materialized view into the fact table
 INSERT INTO air_oai_facts.airline_traffic_segment
 ( airline_traffic_segment_key, year_month_nbr, service_class_code
 , airline_oai_code, airline_effective_date, airline_entity_id, airline_entity_key
@@ -499,30 +502,93 @@ SELECT md5(year_month_nbr::char(6)
 	 , sum(ramp_to_ramp_min) as ramp_to_ramp_min
 	 , sum(air_time_min) as air_time_min
 	 , count(*) as t100_records_qty
-	 , 'gxclark' as created_by
-	 , now() as created_tmst
+	 , current_user::varchar(32) as created_by
+     , current_timestamp::timestamp(0) as created_tmst
 FROM air_oai_facts.airline_traffic_segment_integrate_mv
-WHERE year_month_nbr is not null and service_class_code is not null and airline_entity_key is not null 
-and depart_airport_history_key is not null and arrive_airport_history_key is not null
-and aircraft_type_oai_nbr is not null and aircraft_configuration_ref is not null
+WHERE year_month_nbr is not null -- NOT NULL conditions exclude ~700 rows of segment data
+and service_class_code is not null 
+and airline_entity_key is not null 
+and depart_airport_history_key is not null 
+and arrive_airport_history_key is not null
+and aircraft_type_oai_nbr is not null 
+and aircraft_configuration_ref is not null
 --and year_month_nbr between 199101 and 199512
 --and year_month_nbr::char(6) like '1990%'
 GROUP BY year_month_nbr, service_class_code
 	 , airline_entity_key --, airline_oai_code, airline_effective_date
 	 , depart_airport_history_key --, depart_airport_oai_code, depart_airport_effective_date
 	 , arrive_airport_history_key -- , arrive_airport_oai_code, arrive_airport_effective_date
-     , aircraft_type_oai_nbr, aircraft_configuration_ref;
-     
--- select count(*) from air_oai_facts.airline_traffic_segment; -- 507080
--- select count(*) from air_oai_facts.f41_traffic_t100_segment_archive; -- 507080
--- drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
--- drop materialized view air_oai_facts.f41_traffic_t100_segment_load_mv;
--- drop table if exists air_oai_facts.f41_traffic_t100_segment_archive;
+     , aircraft_type_oai_nbr, aircraft_configuration_ref; 
 
 
--------------------
--- Establish FKs --
--------------------
+-- 3. create dimensional tables by extracting data from the fact tables
+-- 3.1. air_oai_dims.aircraft_configurations (aircraft_configuration_ref)
+drop table if exists air_oai_dims.aircraft_configurations;
+create table air_oai_dims.aircraft_configurations as
+select f.aircraft_configuration_ref
+     , max(case f.aircraft_configuration_ref 
+			when 'CMB' then 'Combination Freight and Passenger, Main Deck'
+            when 'FRT' then 'Freight Only, Main Deck'
+            when 'PAX' then 'Passenger Only, Main Deck'
+            when 'SEA' then 'Seaplane'
+            else null end::varchar(255)) as aircraft_configuration_descr
+     , current_user::varchar(32) as created_by
+     , current_timestamp::timestamp(0) as created_ts
+     , null::char(32) as updated_by
+     , null::timestamp(0) as updated_tmst
+from air_oai_facts.airline_traffic_segment f
+group by 1 order by 1;
+
+-- 3.2. air_oai_dims.airline_service_classes (service_class_code)
+drop table if exists air_oai_dims.airline_service_classes;
+create table air_oai_dims.airline_service_classes as
+select f.service_class_code
+     , max(case when f.service_class_code in ('F','G') then 1 else 0 end::smallint) as scheduled_ind
+     , max(case when f.service_class_code in ('L','P') then 1 else 0 end::smallint) as chartered_ind
+     , max(case f.service_class_code 
+			when 'F' then 'Scheduled Passenger / Cargo Service'
+            when 'G' then 'Scheduled CAll Cargo Service'
+            when 'L' then 'Non-Scheduled Civilian Passenger / Cargo Service'
+            when 'P' then 'Non-Scheduled Civilian All Cargo Service'
+            else null end::varchar(255)) as service_class_descr
+     , current_user::varchar(32) as created_by
+     , current_timestamp::timestamp(0) as created_ts
+     , null::char(32) as updated_by
+     , null::timestamp(0) as updated_tmst
+from air_oai_facts.airline_traffic_market f
+group by 1 order by 1;
+
+-- 4. add keys and indexes
+
+-- dimension tables' primary keys
+alter table air_oai_dims.aircraft_configurations 
+add constraint aircraft_configurations_pk primary key (aircraft_configuration_ref);
+
+alter table air_oai_dims.airline_service_classes
+add constraint airline_service_classes_pk primary key (service_class_code);
+
+-- foreign keys
+-- air_oai_facts.airline_traffic_market
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_service_fk 
+foreign key (service_class_code) references air_oai_dims.airline_service_classes (service_class_code);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_airline_id_fk
+foreign key (airline_entity_id) references air_oai_dims.airline_entities (airline_entity_id);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_depart_airport_id_fk
+foreign key (depart_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_arrive_airport_id_fk 
+foreign key (arrive_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_airline_key_fk 
+foreign key (airline_entity_key) references air_oai_dims.airline_entities (airline_entity_key);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_depart_airport_key_fk 
+foreign key (depart_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
+
+alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_arrive_airport_key_fk
+foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
 -- air_oai_facts.airline_traffic_segment
 alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_service_fk 
@@ -534,7 +600,6 @@ foreign key (aircraft_configuration_ref) references air_oai_dims.aircraft_config
 alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_aircraft_type_fk 
 foreign key (aircraft_type_oai_nbr) references air_oai_dims.aircraft_types (aircraft_type_oai_nbr);
 
--- IDS:
 alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_airline_id_fk 
 foreign key (airline_entity_id) references air_oai_dims.airline_entities (airline_entity_id);
 
@@ -544,7 +609,6 @@ foreign key (depart_airport_history_id) references air_oai_dims.airport_history 
 alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_arrive_airport_id_fk 
 foreign key (arrive_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
 
--- KEYS:
 alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_airline_key_fk 
 foreign key (airline_entity_key) references air_oai_dims.airline_entities (airline_entity_key);
 
@@ -554,28 +618,21 @@ foreign key (depart_airport_history_key) references air_oai_dims.airport_history
 alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_arrive_airport_key_fk 
 foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
------
+-- 5. vacuum the tables
+vacuum analyze air_oai_dims.aircraft_configurations;
+vacuum analyze air_oai_dims.airline_service_classes;
 
--- air_oai_facts.airline_traffic_market
-alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_service_fk 
-foreign key (service_class_code) references air_oai_dims.airline_service_classes (service_class_code);
+-- 6. data validation
+-- TODO
+select count(*) from air_oai_facts.airline_traffic_market; -- 25544
+select count(*) from air_oai_facts.f41_traffic_t100_market_archive; -- 25948
 
--- IDS:
-alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_airline_id_fk 
-foreign key (airline_entity_id) references air_oai_dims.airline_entities (airline_entity_id);
+select count(*) from air_oai_facts.airline_traffic_segment; -- 44289
+select count(*) from air_oai_facts.f41_traffic_t100_segment_archive; -- 44941
 
-alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_depart_airport_id_fk 
-foreign key (depart_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
-
-alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_arrive_airport_id_fk 
-foreign key (arrive_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
-
--- KEYS:
-alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_airline_key_fk 
-foreign key (airline_entity_key) references air_oai_dims.airline_entities (airline_entity_key);
-
-alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_depart_airport_key_fk 
-foreign key (depart_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
-
-alter table air_oai_facts.airline_traffic_market add constraint airline_traffic_market_arrive_airport_key_fk 
-foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
+-- 7. clean-up
+drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
+drop materialized view if exists air_oai_facts.f41_traffic_t100_segment_load_mv;
+drop materialized view if exists air_oai_facts.airline_traffic_market_integrate_mv;
+drop table if exists air_oai_facts.f41_traffic_t100_market_archive;
+drop table if exists air_oai_facts.f41_traffic_t100_segment_archive;

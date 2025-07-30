@@ -1,7 +1,7 @@
 # aviation
 Aviation database, all flavors and tools
 
-Leveraging our 30 year history, MicroStrategy writes the best automated SQL for all analytical databases, Cloud datawarehouses and data lakes included.  Ongoing investments data gateways show that MSTR continues the strategy to work with all major database technologies, and continues to support nearly all available options.  Please checkout the MSTR Data Gateway portal for Supported and Certified options: 
+Leveraging our 30 year history, Strategy writes the best automated SQL for all analytical databases, Cloud datawarehouses and data lakes included. Ongoing investments data gateways show that MSTR continues the strategy to work with all major database technologies, and continues to support nearly all available options. Please checkout the MSTR Data Gateway portal for Supported and Certified options: 
 
 https://www2.microstrategy.com/producthelp/Current/Gateway_Connections/WebHelp/Lang_1033/Content/home.htm
 

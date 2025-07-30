@@ -1,5 +1,34 @@
--- zed_meta.database_schema_descriptions_v
-CREATE OR REPLACE VIEW zed_meta.database_schema_descriptions_v 
+----------------------------------------------------
+-- STEPS:
+-- 1. create schemas
+-- 2. create pg extensions 
+-- 3. create pg metadata views
+-- 4. define stored procedures
+-- 5. load the shape file for time zone boundaries
+----------------------------------------------------
+
+-- 1. create schemas
+CREATE SCHEMA IF NOT EXISTS air_oai_facts;
+CREATE SCHEMA IF NOT EXISTS air_oai_dims;
+CREATE SCHEMA IF NOT EXISTS airlines_pg;
+CREATE SCHEMA IF NOT EXISTS cal_gen;
+CREATE SCHEMA IF NOT EXISTS calendar_pg;
+CREATE SCHEMA IF NOT EXISTS geography;
+
+comment on schema air_oai_dims is 'Dimension data tables and associated foreign tables for processing OAI dimension data.';
+comment on schema air_oai_facts is 'Fact data and associated foreign tables and materialized views for processing OAI fact data.';
+comment on schema airlines_pg is 'Views that simplify the presentation of schemata like air_ for analysis tools, such as Strategy.';
+comment on schema cal_gen is 'Gregorian calendar generation views to be able to adjust data time frame in calendar schema.';
+comment on schema calendar_pg is 'Gregorian calendar data as well as time transformation for ROLAP analysis.';
+comment on schema geography is 'geo-political dimension and spatial data in support of aviation analysis.';
+
+-- 2. create extensions 
+CREATE EXTENSION IF NOT EXISTS POSTGIS; -- extension needed for geometry data type in one of the tables in air_oai_dims
+CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing data from an Amazon S3 (in Aurora)
+
+-- 3. create pg metadata views
+-- database_schema_descriptions_v
+CREATE OR REPLACE VIEW database_schema_descriptions_v 
 AS  
 SELECT n.oid as schema_oid
      , max(n.nspname) AS schema_name
@@ -19,8 +48,8 @@ WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
 GROUP BY n.oid
 ORDER BY n.nspname;
 
--- zed_meta.database_objects_v
-CREATE OR REPLACE VIEW zed_meta.database_objects_v 
+-- database_objects_v
+CREATE OR REPLACE VIEW database_objects_v 
 AS  
 SELECT current_database() AS database_name
      , n.nspname AS schema_name
@@ -53,8 +82,10 @@ WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
 and c.relkind = 'r'
 ORDER BY 3,7 desc;
 
-----Procedure for import csv
-CREATE OR REPLACE PROCEDURE import_data_from_manifest(OUT files_imported INTEGER,
+-- 4. define data load stored procedure - simplifies s3 data loads in aurora
+CREATE OR REPLACE PROCEDURE import_data_from_manifest
+(OUT 
+    files_imported INTEGER,
     target_table TEXT,
     manifest_file TEXT,
     source_bucket TEXT,
@@ -136,8 +167,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- call for procedure
-
+-- sample procedure call
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_ticket_load',  -- target_table
@@ -146,3 +176,20 @@ CALL import_data_from_manifest(
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
+
+
+-- 5. load the shape file for time zone boundaries
+
+/*
+In order to process the Flight Performance data, we need a valid time zone name for each airport.
+The dimension table from OAI does not contain this data, so we have to load the time zone boundaries
+, and then update the airport history dimension: 
+*/
+
+-- Shape file for time zone boundaries was located here:
+-- https://github.com/evansiroky/timezone-boundary-builder/releases/download/2023b/timezones-with-oceans.shapefile.zip
+-- This is after the shape file was loaded via shp2pgsql command line tool:
+-- shp2pgsql -I -s 4326 combined-shapefile-with-oceans.shp | psql -p 5432 -d aviation 
+
+--select * from public."combined-shapefile-with-oceans" limit 10;
+--alter table public."combined-shapefile-with-oceans" rename to timezone_boundaries;
