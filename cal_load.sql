@@ -3,7 +3,8 @@
 ----------------------------------------------------
 -- STEPS:
 -- 1. Create cal_gen views that generate information about all date/time parts
--- 2. create calendar tables based on base views and start/end year
+-- 2. Create calendar tables based on base views and start/end year
+-- 3. Drop cal_gen views
 ----------------------------------------------------
 
 -- 1. Create cal_gen views that generate information about all date/time parts
@@ -488,3 +489,18 @@ create or replace view calendar_pg.cumulative_month_to_dates_v as select calenda
 create or replace view calendar_pg.cumulative_quarter_to_dates_v as select calendar_date, cumulative_quarter_to_date from calendar_pg.cumulative_quarter_to_dates;
 create or replace view calendar_pg.cumulative_year_to_dates_v as select calendar_date, cumulative_year_to_date from calendar_pg.cumulative_year_to_dates;
 create or replace view calendar_pg.cumulative_week_to_dates_v as select calendar_date, cumulative_week_to_date from calendar_pg.cumulative_week_to_dates;
+
+-- 3. Drop cal_gen views (used for generating calendar tables)
+drop view if exists cal_gen.make_calendar_date_hour_v;
+drop view if exists cal_gen.make_calendar_date_hour_min_v;
+drop view if exists cal_gen.make_year_week_v; 
+drop view if exists cal_gen.make_calendar_date_v; 
+drop view if exists cal_gen.make_gregorian_year_month_v; 
+drop view if exists cal_gen.make_gregorian_year_quarter_v; 
+drop view if exists cal_gen.make_gregorian_quarter_of_year_v; 
+drop view if exists cal_gen.make_day_of_week_v; 
+drop view if exists cal_gen.make_gregorian_month_of_year_v; 
+drop view if exists cal_gen.make_day_of_month_v; 
+drop view if exists cal_gen.make_minute_of_hour_v; 
+drop view if exists cal_gen.make_hour_of_day_v; 
+drop view if exists cal_gen.make_gregorian_year_v;
