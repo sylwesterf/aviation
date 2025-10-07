@@ -17,8 +17,7 @@
 --  4.4. air_oai_facts.airline_flights_diverted (diverted_ind = 1)
 --  4.5. air_oai_facts.airline_flights_diverted_legs (union different number of flight diversions, diverted_ind = 1 AND diverted<1-5>_airport_history_id is not null)
 -- 5. add keys and indexes
--- 6. vacuum the tables
--- 7. test/validation queries
+-- 6. create presentation layer views
 ----------------------------------------------------
 
 
@@ -1019,13 +1018,113 @@ foreign key (original_arrive_airport_history_key) references air_oai_dims.airpor
 alter table air_oai_facts.airline_flights_diverted_legs add constraint airline_flights_diverted_legs_diverted_airport_key_fk 
 foreign key (diverted_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
+-- 6. create presentation layer views
+-- drop view if exists airlines_pg.airline_flights_scheduled_v;
+create or replace view airlines_pg.airline_flights_scheduled_v as
+SELECT flight_key, flight_date
+	, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+	, flight_nbr, flight_count, tail_nbr
+	, depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
+	, distance_smi, distance_nmi, distance_kmt, distance_group_id
+	, depart_time_block, arrive_time_block
+	, report_depart_tmstz_lcl, report_depart_tmstz_lcl::date as report_depart_date_lcl
+	, report_depart_tmstz_utc, report_depart_tmstz_utc::date as report_depart_date_utc
+	, report_arrive_tmstz_lcl, report_arrive_tmstz_lcl::date as report_arrive_date_lcl
+	, report_arrive_tmstz_utc, report_arrive_tmstz_utc::date as report_arrive_date_utc
+	, report_elapsed_time_min
+FROM air_oai_facts.airline_flights_scheduled;
 
--- 6. vacuum
-vacuum analyze air_oai_facts.airline_flights_scheduled;
-vacuum analyze air_oai_facts.airline_flights_completed;
-vacuum analyze air_oai_facts.airline_flights_cancelled;
-vacuum analyze air_oai_facts.airline_flights_diverted;
-vacuum analyze air_oai_facts.airline_flights_diverted_legs;
+-- drop view if exists airlines_pg.airline_flights_completed_v;
+create or replace view airlines_pg.airline_flights_completed_v as
+SELECT flight_key, flight_date
+	, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+	, flight_nbr, flight_count, tail_nbr
+	, depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
+	, distance_smi, distance_nmi, distance_kmt, distance_group_id
+	, depart_time_block, arrive_time_block
+	, report_depart_tmstz_lcl, report_depart_tmstz_lcl::date as report_depart_date_lcl
+	, report_depart_tmstz_utc, report_depart_tmstz_utc::date as report_depart_date_utc
+	, report_arrive_tmstz_lcl, report_arrive_tmstz_lcl::date as report_arrive_date_lcl
+	, report_arrive_tmstz_utc, report_arrive_tmstz_utc::date as report_arrive_date_utc
+	, report_elapsed_time_min, flight_status
+	, actual_depart_tmstz_lcl, actual_depart_tmstz_lcl::date as actual_depart_date_lcl
+	, actual_depart_tmstz_utc, actual_depart_tmstz_utc::date as actual_depart_date_utc
+	, actual_arrive_tmstz_lcl, actual_arrive_tmstz_lcl::date as actual_arrive_date_lcl
+	, actual_arrive_tmstz_utc, actual_arrive_tmstz_utc::date as actual_arrive_date_utc
+	, actual_elapsed_time_min
+	, wheels_off_tmstz_lcl, wheels_off_tmstz_lcl::date as wheels_off_date_lcl
+	, wheels_off_tmstz_utc, wheels_off_tmstz_utc::date as wheels_off_date_utc
+	, wheels_on_tmstz_lcl, wheels_on_tmstz_lcl::date as wheels_on_date_lcl
+	, wheels_on_tmstz_utc, wheels_on_tmstz_utc::date as wheels_on_date_utc
+	, airborne_time_min, taxi_out_min, taxi_in_min
+	, first_gate_depart_tmstz_lcl, first_gate_depart_tmstz_utc
+	, total_ground_time, longest_ground_time
+	, airline_delay_min, weather_delay_min, nas_delay_min, security_delay_min, late_aircraft_delay_min
+FROM air_oai_facts.airline_flights_completed;
 
--- 7. validation
--- TODO
+-- drop view if exists airlines_pg.airline_flights_cancelled_v;
+create or replace view airlines_pg.airline_flights_cancelled_v as
+SELECT flight_key, flight_date
+	, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+	, flight_nbr, flight_count, tail_nbr
+	, depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
+	, distance_smi, distance_nmi, distance_kmt, distance_group_id
+	, depart_time_block, arrive_time_block
+	, report_depart_tmstz_lcl, report_depart_tmstz_lcl::date as report_depart_date_lcl
+	, report_depart_tmstz_utc, report_depart_tmstz_utc::date as report_depart_date_utc
+	, report_arrive_tmstz_lcl, report_arrive_tmstz_lcl::date as report_arrive_date_lcl
+	, report_arrive_tmstz_utc, report_arrive_tmstz_utc::date as report_arrive_date_utc
+	, report_elapsed_time_min, flight_status
+	, actual_depart_tmstz_lcl, actual_depart_tmstz_lcl::date as actual_depart_date_lcl
+	, actual_depart_tmstz_utc, actual_depart_tmstz_utc::date as actual_depart_date_utc
+	, wheels_off_tmstz_lcl, wheels_off_tmstz_lcl::date as wheels_off_date_lcl
+	, wheels_off_tmstz_utc, wheels_off_tmstz_utc::date as wheels_off_date_utc
+	, taxi_out_min
+	, first_gate_depart_tmstz_lcl, first_gate_depart_tmstz_utc
+	, total_ground_time, longest_ground_time
+FROM air_oai_facts.airline_flights_cancelled;
+
+-- drop view if exists airlines_pg.airline_flights_diverted_v;
+create or replace view airlines_pg.airline_flights_diverted_v as
+SELECT flight_key, flight_date
+	, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+	, flight_nbr, flight_count, tail_nbr
+	, depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
+	, distance_smi, distance_nmi, distance_kmt, distance_group_id
+	, depart_time_block, arrive_time_block
+	, report_depart_tmstz_lcl, report_depart_tmstz_lcl::date as report_depart_date_lcl
+	, report_depart_tmstz_utc, report_depart_tmstz_utc::date as report_depart_date_utc
+	, report_arrive_tmstz_lcl, report_arrive_tmstz_lcl::date as report_arrive_date_lcl
+	, report_arrive_tmstz_utc, report_arrive_tmstz_utc::date as report_arrive_date_utc
+	, report_elapsed_time_min, flight_status
+	, actual_depart_tmstz_lcl, actual_depart_tmstz_lcl::date as actual_depart_date_lcl
+	, actual_depart_tmstz_utc, actual_depart_tmstz_utc::date as actual_depart_date_utc
+	, actual_arrive_tmstz_lcl, actual_arrive_tmstz_lcl::date as actual_arrive_date_lcl
+	, actual_arrive_tmstz_utc, actual_arrive_tmstz_utc::date as actual_arrive_date_utc
+	, actual_elapsed_time_min
+	, wheels_off_tmstz_lcl, wheels_off_tmstz_lcl::date as wheels_off_date_lcl
+	, wheels_off_tmstz_utc, wheels_off_tmstz_utc::date as wheels_off_date_utc
+	, wheels_on_tmstz_lcl, wheels_on_tmstz_lcl::date as wheels_on_date_lcl
+	, wheels_on_tmstz_utc, wheels_on_tmstz_utc::date as wheels_on_date_utc
+	, airborne_time_min, taxi_out_min, taxi_in_min
+	, first_gate_depart_tmstz_lcl, first_gate_depart_tmstz_utc
+	, total_ground_time, longest_ground_time
+FROM airlines_pg.air_oai_facts.airline_flights_diverted;
+
+-- drop view if exists airlines_pg.airline_flights_diverted_legs_v:
+create or replace view airlines_pg.airline_flights_diverted_legs_v as
+SELECT flight_key, diversion_nbr, flight_date
+	, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+	, flight_nbr, flight_count, tail_nbr
+	, depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+	, original_arrive_airport_oai_code, original_arrive_airport_from_date, original_arrive_airport_history_id, original_arrive_airport_history_key
+	, diverted_airport_oai_code, diverted_airport_from_date, diverted_airport_history_id, diverted_airport_history_key
+	, diverted_tail_nbr
+	, diverted_wheels_on_tmstz_lcl, diverted_wheels_on_tmstz_utc
+	, diverted_wheels_off_tmstz_lcl, diverted_wheels_off_tmstz_utc
+	, diverted_total_ground_time_min, diverted_longest_ground_time_min
+FROM air_oai_facts.airline_flights_diverted_legs;

@@ -8,31 +8,31 @@
 --STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 -- 1. process DB1B Ticket data
---  1.3. Create table air_oai_facts.airfare_survey_ticket_load 
---  1.2. Copy DB1B data into
---  1.3. Create air_oai_facts.airfare_survey_itinerary
---  1.4. Create partioning airfare_survey_itinerary
---  1.5. Insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
+--  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
+--  1.2. copy DB1B data into
+--  1.3. create air_oai_facts.airfare_survey_itinerary
+--  1.4. create partioning airfare_survey_itinerary
+--  1.5. insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
 -- 2. process DB1B Coupon data
---  2.1. Create table a air_oai_facts.airfare_survey_coupon_load
---  2.2. Copy DB1B data into airfare_survey_coupon_load
---  2.3. Create air_oai_facts.airfare_survey_coupon
---  2.4. Create partioning air_oai_facts.airfare_survey_coupon
---  2.5. Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
+--  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
+--  2.2. copy DB1B data into airfare_survey_coupon_load
+--  2.3. create air_oai_facts.airfare_survey_coupon
+--  2.4. create partioning air_oai_facts.airfare_survey_coupon
+--  2.5. insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
 -- 3. process DB1B Market data
---  3.1. Create table air_oai_facts.airfare_survey_market_load
---  3.1. Copy DB1B data into air_oai_facts.airfare_survey_market_load
---  3.2. Create table airfare_survey_market
---  3.4. Create partioning table airfare_survey_market
---  3.5. Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
--- 4. Create create primary key and index on the tables
--- 5. Vacuum on the table
--- 6. Validation
+--  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
+--  3.1. copy DB1B data into air_oai_facts.airfare_survey_market_load
+--  3.2. create table airfare_survey_market
+--  3.4. create partioning table airfare_survey_market
+--  3.5. insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
+-- 4. create primary key and index on the tables
+-- 5. create presentation layer views
 ----------------------------------------------------
 
 -- 1.1 Create table air_oai_facts.airfare_survey_ticket_load  
 create table air_oai_facts.airfare_survey_ticket_load
-( itinerary_oai_id								bigint null
+( 
+	itinerary_oai_id								bigint null
 	, coupon_qty									float4 null
 	, year_nbr										integer null
 	, quarter_nbr									integer null
@@ -194,9 +194,9 @@ WHERE ac.year_quarter_from_date
 	  
 
 --   2.1 Create table a air_oai_facts.airfare_survey_coupon_load
-
 create table air_oai_facts.airfare_survey_coupon_load
-	( itinerary_oai_id             		bigint null
+( 
+	itinerary_oai_id             		bigint null
 	, market_oai_id						bigint null
 	, flight_pass_seq					integer null
 	, flight_pass_qty					integer null
@@ -262,9 +262,9 @@ CALL import_data_from_manifest(
 );
 
 --   2.3 Create air_oai_facts.airfare_survey_coupon
-
 create table air_oai_facts.airfare_survey_coupon
-	( itinerary_oai_id             		bigint 		not null
+( 
+	itinerary_oai_id             		bigint 		not null
 	, flight_pass_seq					integer 	not null
 	, year_quarter_start_date			date		not null
 	, market_oai_id						bigint 		not null
@@ -514,8 +514,7 @@ create table air_oai_facts.airfare_survey_market
 	;
 
 
---   3.4 Create partioning table airfare_survey_market
-
+-- 3.4 Create partioning table airfare_survey_market
 DO $$
 DECLARE
     year_val INT;
@@ -555,6 +554,7 @@ BEGIN
         END LOOP;
     END LOOP;
 END $$;
+
 --   3.5 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
 WITH filtered_airline_entities AS (
     SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
@@ -622,21 +622,54 @@ where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.
 	ANDagq.year_quarter_from_date
        between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
 
-
-
--- 5 create an primary key and index
+-- 4. create an primary key and index
 alter table air_oai_facts.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
 create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_carrier_iata_cd);
 create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (orig_airport_iata_cd);
 create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_nbr, quarter_nbr);
 
--- 6. Vacuum on the tables
+-- 5. create presentation layer views
+-- drop view if exists airlines_pg.airfare_survey_itinerary_v:
+create or replace view airlines_pg.airfare_survey_itinerary_v as
+SELECT itinerary_oai_id, year_quarter_start_date, year_quarter_nbr
+	, reporting_airline_entity_id, reporting_airline_entity_key
+	, depart_airport_history_id, depart_airport_history_key
+	, round_trip_fare_ind, online_purchase_ind, bulk_fare_ind, fare_credibility_ind
+	, distance_group_oai_id, geographic_type_oai_id
+	, coupon_qty, passenger_qty, distance_smi
+	, flown_distance_smi, fare_per_person_usd, fare_per_mile_usd
+FROM air_oai_facts.airfare_survey_itinerary;
 
-VACUUM VERBOSE air_oai_facts.airfare_survey_itinerary;
-vacuum verbose air_oai_facts.airfare_survey_coupon;
-VACUUM VERBOSE air_oai_facts.airfare_survey_market;
+-- drop view if exists airlines_pg.airfare_survey_coupon_v:
+create or replace view airlines_pg.airfare_survey_coupon_v as
+SELECT itinerary_oai_id, flight_pass_seq, year_quarter_start_date, year_quarter_nbr
+    , market_oai_id
+	, ticketing_airline_entity_id, ticketing_airline_entity_key
+	, operating_airline_entity_id, operating_airline_entity_key
+	, reporting_airline_entity_id, reporting_airline_entity_key
+	, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_history_id, arrive_airport_history_key
+	, trip_break_code, gateway_ind
+	, distance_group_oai_id, airfare_class_code
+	, itinerary_geographic_type_oai_id, coupon_geographic_type_oai_id
+	, flight_pass_type, flight_pass_qty
+	, passengers_qty, distance_smi
+FROM air_oai_facts.airfare_survey_coupon;
 
--- 7 Validation
+-- drop view if exists airlines_pg.airfare_survey_market_v:
+create or replace view airlines_pg.airfare_survey_market_v as
+SELECT itinerary_oai_id, market_oai_id, year_quarter_start_date, year_quarter_nbr
+	, ticketing_airline_entity_id, ticketing_airline_entity_key
+	, ticketing_airline_change_ind, ticketing_airlines_group_code
+	, operating_airline_entity_id, operating_airline_entity_key
+	, operating_airline_change_ind, operating_airlines_group_code
+	, reporting_airline_entity_id, reporting_airline_entity_key
+	, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_history_id, arrive_airport_history_key
+	, airports_group_oai_code, world_areas_group_oai_code
+	, itinerary_geograhic_type_oai_id, market_geograhic_type_oai_id, market_distance_group_oai_id
+	, bulk_fare_ind, market_coupon_qty
+	, passenger_qty, market_fare_amount_usd, market_distance_smi
+	, market_flown_distance_smi, non_stop_distance_smi
+FROM air_oai_facts.airfare_survey_market;
 
-select year_nbr, quarter_nbr, count(*) from air_oai_facts.airfare_survey_ticket_load group by 1,2;
-select year_quarter_start_date, count(*) from air_oai_facts.airfare_survey_itinerary group by 1 order by 1 desc;

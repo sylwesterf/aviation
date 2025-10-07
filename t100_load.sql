@@ -12,7 +12,7 @@
 -- 	1.3. create a materialized view to transform the data (air_oai_facts.airline_traffic_market_integrate_mv)
 -- 	1.4. create final fact table (air_oai_facts.airline_traffic_market) 
 --	1.5. pull the data from the materialized view into the fact table
--- 2. process Airline Traffic Market data
+-- 2. process Airline Traffic Segment data
 --  2.1. create air_oai_facts.f41_traffic_t100_segment_archive staging table
 --  2.2. stage t100_segment csv data
 -- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
@@ -23,9 +23,7 @@
 --  3.1. air_oai_dims.aircraft_configurations (aircraft_configuration_ref)
 -- 	3.2. air_oai_dims.airline_service_classes (service_class_code)
 -- 4. add keys and indexes
--- 5. vacuum the tables
--- 6. test/validation queries
--- 7. clean-up
+-- 5. create presentation layer views
 ----------------------------------------------------
 
 -- 1. process Airline Traffic Market data
@@ -210,7 +208,7 @@ GROUP BY year_month_nbr
 	 , arrive_airport_history_key -- , arrive_airport_oai_code, arrive_airport_effective_date
 	 ;
 
--- 2. process Airline Traffic Market data
+-- 2. process Airline Traffic Segment data
 -- 2.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
 DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_archive;
 CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
@@ -618,21 +616,42 @@ foreign key (depart_airport_history_key) references air_oai_dims.airport_history
 alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic_segment_arrive_airport_key_fk 
 foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
--- 5. vacuum the tables
-vacuum analyze air_oai_dims.aircraft_configurations;
-vacuum analyze air_oai_dims.airline_service_classes;
+-- 8. create presentation layer views
+-- drop view if exists airlines_pg.airline_traffic_market_v;
+create or replace view airlines_pg.airline_traffic_market_v as
+SELECT airline_traffic_market_key, year_month_nbr
+	, airline_oai_code, airline_effective_date, airline_entity_id, airline_entity_key
+	, depart_airport_oai_code, depart_airport_effective_date, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_oai_code, arrive_airport_effective_date, arrive_airport_history_id, arrive_airport_history_key
+	, service_class_code, data_source_code
+	, passengers_qty, freight_kgm, mail_kgm
+	--, t100_records_qty
+FROM air_oai_facts.airline_traffic_market;
 
--- 6. data validation
--- TODO
-select count(*) from air_oai_facts.airline_traffic_market; -- 25544
-select count(*) from air_oai_facts.f41_traffic_t100_market_archive; -- 25948
+-- drop view if exists airlines_pg.airline_traffic_segment_v;
+create or replace view airlines_pg.airline_traffic_segment_v as
+SELECT airline_traffic_segment_key, year_month_nbr, service_class_code
+	, airline_oai_code, airline_effective_date, airline_entity_id, airline_entity_key
+	, depart_airport_oai_code, depart_airport_effective_date, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_oai_code, arrive_airport_effective_date, arrive_airport_history_id, arrive_airport_history_key
+	, aircraft_type_oai_nbr, aircraft_configuration_ref
+	, data_source_code
+	, scheduled_departures_qty, performed_departures_qty
+	, available_seat_qty, passengers_qty, freight_kgm, mail_kgm
+	, ramp_to_ramp_min, air_time_min
+	--, t100_records_qty
+FROM air_oai_facts.airline_traffic_segment;
 
-select count(*) from air_oai_facts.airline_traffic_segment; -- 44289
-select count(*) from air_oai_facts.f41_traffic_t100_segment_archive; -- 44941
+-- drop view if exists aviation.aircraft_configurations_v;
+create or replace view aviation.aircraft_configurations_v as
+SELECT aircraft_configuration_ref
+	 , aircraft_configuration_descr
+FROM air_oai_dims.aircraft_configurations;
 
--- 7. clean-up
-drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
-drop materialized view if exists air_oai_facts.f41_traffic_t100_segment_load_mv;
-drop materialized view if exists air_oai_facts.airline_traffic_market_integrate_mv;
-drop table if exists air_oai_facts.f41_traffic_t100_market_archive;
-drop table if exists air_oai_facts.f41_traffic_t100_segment_archive;
+-- drop view if exists airlines_pg.airline_service_classes_v;
+create or replace view airlines_pg.airline_service_classes_v as
+SELECT service_class_code
+	, scheduled_ind
+	, chartered_ind
+	, service_class_descr
+FROM air_oai_dims.airline_service_classes;

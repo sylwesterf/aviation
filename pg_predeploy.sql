@@ -1,11 +1,15 @@
 ----------------------------------------------------
 -- STEPS:
+-- 0. create aviation database
 -- 1. create schemas
 -- 2. create pg extensions 
 -- 3. create pg metadata views
 -- 4. define stored procedures
 -- 5. load the shape file for time zone boundaries
 ----------------------------------------------------
+
+-- 0. create database
+CREATE DATABASE aviation OWNER aviation;
 
 -- 1. create schemas
 CREATE SCHEMA IF NOT EXISTS air_oai_facts;
@@ -23,6 +27,7 @@ comment on schema calendar_pg is 'Gregorian calendar data as well as time transf
 comment on schema geography is 'geo-political dimension and spatial data in support of aviation analysis.';
 
 -- 2. create extensions 
+GRANT rds_superuser TO aviation;
 CREATE EXTENSION IF NOT EXISTS POSTGIS; -- extension needed for geometry data type in one of the tables in air_oai_dims
 CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing data from an Amazon S3 (in Aurora)
 

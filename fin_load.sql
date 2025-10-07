@@ -10,8 +10,7 @@
 -- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
 -- 4. define keys and indexes
 -- 5. add comments 
--- 6. data validation
--- 7. clean-up
+-- 6. create presentation layer views
 ----------------------------------------------------
 
 -- 1. create air_oai_dims.f41_schedule_b43_fdw table in postgre
@@ -39,7 +38,10 @@ CREATE TABLE air_oai_dims.f41_schedule_b43_fdw
 )
 
 -- 2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw
---mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.f41_schedule_b43_fdw FROM 'T_F41SCHEDULE_B43.csv' CSV HEADER";
+-- 2.1. mstr psql version of the data load
+-- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.f41_schedule_b43_fdw FROM 'T_F41SCHEDULE_B43.csv.gz' CSV HEADER";
+-- 2.2. AWS Aurora data load
+SELECT aws_s3.table_import_from_s3('air_oai_dims.f41_schedule_b43_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/FIN/CSV/T_F41SCHEDULE_B43.csv.gz', 'us-west-2'));
 
 -- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
 drop table if exists air_oai_dims.airframe_and_engine_inventory_annual;
@@ -84,42 +86,72 @@ create unique index airframe_and_engine_inventory_annual_nk on air_oai_dims.airf
 
 -- 5. add comments 
 comment on table air_oai_dims.airframe_and_engine_inventory_annual is 'Annual Inventory of Airframe and Aircraft Engines.';
-comment on column air_oai_dims.inventory_key is 'composite hashed key of year_nbr~airline_oai_code~tail_nbr~serial_nbr.';
-comment on column air_oai_dims.airline_entity_id is 'Foreign key column to air_oai_dims.airline_entities.';
-comment on column air_oai_dims.airline_entity_key is 'Alternate Foreign key column to air_oai_dims.airline_entities.';
-comment on column air_oai_dims.airline_oai_code is 'Code assigned by IATA and commonly used to identify a carrier. As the same code may have been assigned to different carriers over time, the code is not always unique. For analysis, use the Unique Carrier Code.';
-comment on column air_oai_dims.year_nbr is 'Year that this inventory record applies, or was conducted.';
-comment on column air_oai_dims.tail_nbr is 'Tail Number, this should be the registered number with the FAA, and painted on the aircraft.';
-comment on column air_oai_dims.serial_nbr is 'Serial Number, this should be the sequential number aspplied by the manufacturer to this airframe.';
-comment on column air_oai_dims.manufacturer_name  is 'Company that initially produced this airframe.';
-comment on column air_oai_dims.model_ref is 'Model reference, a short code that identifies the model (or class) for this airframe.';
-comment on column air_oai_dims.aircraft_oai_type is 'This should be a FK reference to air_oai_dims.aircraft_types, but seems incomplete.';
-comment on column air_oai_dims.aircraft_icao_type is 'The standard code published by ICAO for this aircraft model.';
-comment on column air_oai_dims.aircraft_iata_type is 'The standard code published by IATA for this aircraft model.';
-comment on column air_oai_dims.manufacture_year_nbr is 'the year that this airframe was produced.';
-comment on column air_oai_dims.acquisition_date is 'Date that this airframe was acquired or placed in service by this airline.';
-comment on column air_oai_dims.aircraft_status_code is 'Aircraft Status - unknown codes.';
-comment on column air_oai_dims.operating_status_ind is 'Operating Status, Y for operation, N for non-operational.';
-comment on column air_oai_dims.seats_qty is 'Number Of Seats available for passengers.';
-comment on column air_oai_dims.capacity_lbr is 'Available Capacity in Pounds, presumably payload.';
-comment on column air_oai_dims.created_by is 'audit column, who loaded this row?';
-comment on column air_oai_dims.created_ts is 'audit column, when was this row loaded?';
-comment on column air_oai_dims.updated_by is 'audit column, who modified this row?';
-comment on column air_oai_dims.updated_ts is 'audit column, when was this row modified?';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.inventory_key is 'composite hashed key of year_nbr~airline_oai_code~tail_nbr~serial_nbr.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.airline_entity_id is 'Foreign key column to air_oai_dims.airline_entities.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.airline_entity_key is 'Alternate Foreign key column to air_oai_dims.airline_entities.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.airline_oai_code is 'Code assigned by IATA and commonly used to identify a carrier. As the same code may have been assigned to different carriers over time, the code is not always unique. For analysis, use the Unique Carrier Code.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.year_nbr is 'Year that this inventory record applies, or was conducted.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.tail_nbr is 'Tail Number, this should be the registered number with the FAA, and painted on the aircraft.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.serial_nbr is 'Serial Number, this should be the sequential number aspplied by the manufacturer to this airframe.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.manufacturer_name  is 'Company that initially produced this airframe.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.model_ref is 'Model reference, a short code that identifies the model (or class) for this airframe.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.aircraft_oai_type is 'This should be a FK reference to air_oai_dims.aircraft_types, but seems incomplete.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.aircraft_icao_type is 'The standard code published by ICAO for this aircraft model.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.aircraft_iata_type is 'The standard code published by IATA for this aircraft model.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.manufacture_year_nbr is 'the year that this airframe was produced.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.acquisition_date is 'Date that this airframe was acquired or placed in service by this airline.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.aircraft_status_code is 'Aircraft Status - unknown codes.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.operating_status_ind is 'Operating Status, Y for operation, N for non-operational.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.seats_qty is 'Number Of Seats available for passengers.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.capacity_lbr is 'Available Capacity in Pounds, presumably payload.';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.created_by is 'audit column, who loaded this row?';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.created_ts is 'audit column, when was this row loaded?';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_by is 'audit column, who modified this row?';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_ts is 'audit column, when was this row modified?';
 
--- 6. data validation
--- select count(*) from air_oai_dims.f41_schedule_b43_fdw where aircraft_type is null; -- 94151 / 29933
+-- 6. create presentation layer views
+-- drop view if exists airlines_pg.airframe_and_engine_inventory_annual_v;
+create or replace view airlines_pg.airframe_and_engine_inventory_annual_v as
+select inventory_key
+	, airline_entity_id
+	, airline_entity_key
+	, airline_oai_code
+	, year_nbr 
+	, tail_nbr
+	, serial_nbr 
+	, manufacturer_name
+	, model_ref
+	, aircraft_oai_type
+	, aircraft_icao_type
+	, aircraft_iata_type
+	--, aircraft_type_brief_name
+	, manufacture_year_nbr
+	, acquisition_date
+	, aircraft_status_code
+	, operating_status_ind
+	, seats_qty
+	, capacity_lbr
+from air_oai_dims.airframe_and_engine_inventory_annual;
 
--- select year_nbr, count(*) from air_oai_dims.f41_schedule_b43_fdw group by 1 order by 1;
--- select * from air_oai_dims.f41_schedule_b43_fdw limit 25;
-
-/* -- verify uniqueness
-select * from air_oai_dims.f41_schedule_b43_fdw
-where year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/ in
-(select year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/
-from air_oai_dims.f41_schedule_b43_fdw group by 1 having count(*) > 1)
-order by year_nbr, carrier_oai_code, tail_nbr;
-*/
-
--- 7. clean-up
-drop table if exists air_oai_dims.f41_schedule_b43_fdw
+-- drop view if exists airlines_pg.airline_aircraft_by_tail_v;
+CREATE OR REPLACE VIEW airlines_pg.airline_aircraft_by_tail_v AS 
+SELECT airline_entity_id,
+    max(airline_entity_key) AS airline_entity_key,
+    max(airline_oai_code::text) AS airline_oai_code,
+    min(year_nbr) AS min_year_nbr,
+    max(year_nbr) AS max_year_nbr,
+    tail_nbr,
+    max(serial_nbr::text) AS serial_nbr,
+    max(manufacturer_name::text) AS manufacturer_name,
+    max(model_ref::text) AS model_ref,
+    max(aircraft_oai_type::text) AS aircraft_oai_type,
+    max(aircraft_icao_type) AS aircraft_icao_type,
+    max(aircraft_iata_type::text) AS aircraft_iata_type,
+    max(manufacture_year_nbr) AS manufacture_year_nbr,
+    max(acquisition_date) AS acquisition_date,
+    max(aircraft_status_code) AS aircraft_status_code,
+    max(operating_status_ind) AS operating_status_ind,
+    max(seats_qty) AS seats_qty,
+    max(capacity_lbr) AS capacity_lbr
+FROM air_oai_dims.airframe_and_engine_inventory_annual
+GROUP BY airline_entity_id, tail_nbr;

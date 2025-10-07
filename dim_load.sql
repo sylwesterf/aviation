@@ -38,9 +38,11 @@
 -- 7. create airport types group (legacy) lookup 
 --  7.1. create air_oai_dims.airline_entity_legacy_groups
 --  7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_entities
--- 8. define column comments
--- 9. vacuum the tables
--- 10. test/validation queries
+-- 8. create geographic types lookup (hardcoded)
+-- 9. create airfare classes lookup (hardcoded)
+-- 10. create traffic data sources lookup (hardcoded)
+-- 11. define column comments
+-- 12. create presentation layer views
 ----------------------------------------------------
 
 -- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
@@ -55,7 +57,7 @@ create table air_oai_dims.aircraft_types_fdw
 	, aircraft_type_brief_name		varchar(55)	not null
 	, aircraft_type_from_date		date		not null
 	, aircraft_type_thru_date		date
-)
+);
 
 -- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
 -- 1.2.1. mstr psql version of the data load
@@ -88,7 +90,7 @@ insert into air_oai_dims.aircraft_types
 	aircraft_type_oai_nbr
 	, aircraft_group_oai_nbr
 	, aircraft_oai_type
-	,manufacturer_name
+	, manufacturer_name
 	, aircraft_type_long_name
 	, aircraft_type_brief_name
 	, aircraft_type_from_date
@@ -102,8 +104,8 @@ select f.aircraft_type_oai_nbr
 	 , case when f.manufacturer_name is null then 'GENERIC' else f.manufacturer_name end as manufacturer_name
 	 , f.aircraft_type_long_name
 	 , f.aircraft_type_brief_name
-	 , TO_DATE(f.aircraft_type_from_date,'MM/DD/YYYY K:m:s a') aircraft_type_from_date
-	 , TO_DATE(f.aircraft_type_thru_date,'MM/DD/YYYY K:m:s a') aircraft_type_thru_date
+	 , f.aircraft_type_from_date
+	 , f.aircraft_type_thru_date
 	 , current_user
      , current_timestamp
 from air_oai_dims.aircraft_types_fdw f
@@ -112,7 +114,7 @@ where t.aircraft_type_oai_nbr is null;
 
 
 -- 2.1. create air_oai_dims.wac_country_state_fdw table in postgre
-DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw
+DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
 CREATE TABLE air_oai_dims.wac_country_state_fdw
 ( 
 	world_area_oai_id					integer
@@ -707,7 +709,7 @@ select distinct coalesce(airline_old_group_nbr, -1) as airline_old_group_nbr
           WHEN 7 THEN 'All Cargo'
           ELSE 'UNK'
       END AS descr
-      ,CASE
+      ,CASE airline_old_group_nbr
           WHEN 0 THEN 'International Carriers'
           WHEN 1 THEN 'Regional Carriers (including Large, Medium, Commuter, Small Certified)'
           WHEN 2 THEN 'National Carriers'
@@ -719,7 +721,40 @@ select distinct coalesce(airline_old_group_nbr, -1) as airline_old_group_nbr
       ,current_timestamp as created_ts
 from air_oai_dims.airline_entities;
 
--- 8. define column comments
+-- 8. create air_oai_dims.airline_geographic_types 
+drop table if exists air_oai_dims.airline_geographic_types;
+create table air_oai_dims.airline_geographic_types
+as
+select 0::smallint as geograhic_type_oai_id, 'International'::varchar(35) as descr, 'International travel between indepedent soverign states.'::varchar(255) as long_descr union
+select 1::smallint as geograhic_type_oai_id, 'Domestic, Global'::varchar(35) as descr, 'Domestic Non-contiguous (Includes Hawaii, Alaska and Territories)'::varchar(255) as long_descr union
+select 2::smallint as geograhic_type_oai_id, 'Domestic, Lower48'::varchar(35) as descr, 'Domestic Contiguous (Lower 48 U.S. States Only)'::varchar(255) as long_descr
+order by 1;
+
+-- 9. create air_oai_dims.airfare_classes 
+drop table if exists air_oai_dims.airfare_classes;
+create table air_oai_dims.airfare_classes
+as
+select '-'::char(1) as airfare_class_code, 'Ground'::varchar(35) as descr, 'Ground Segment'::varchar(255) as long_descr union
+select 'C'::char(1) as airfare_class_code, 'Biz Unl'::varchar(35) as descr, 'Unrestricted Business Class'::varchar(255) as long_descr union
+select 'D'::char(1) as airfare_class_code, 'Biz Lim'::varchar(35) as descr, 'Restricted Business Class'::varchar(255) as long_descr union
+select 'F'::char(1) as airfare_class_code, 'First Unl'::varchar(35) as descr, 'Unrestricted First Class'::varchar(255) as long_descr union
+select 'G'::char(1) as airfare_class_code, 'First Lim'::varchar(35) as descr, 'Restricted First Class'::varchar(255) as long_descr union
+select 'U'::char(1) as airfare_class_code, 'Unk'::varchar(35) as descr, 'Unknown'::varchar(255) as long_descr union
+select 'X'::char(1) as airfare_class_code, 'Econ Lim'::varchar(35) as descr, 'Restricted Coach Class'::varchar(255) as long_descr union
+select 'Y'::char(1) as airfare_class_code, 'Econ Unl'::varchar(35) as descr, 'Unrestricted Coach Class'::varchar(255) as long_descr
+order by 1;
+
+-- 10. create air_oai_dims.airline_traffic_data_sources
+drop table if exists air_oai_dims.airline_traffic_data_sources;
+create table air_oai_dims.airline_traffic_data_sources
+as
+select 'DF'::varchar(5) as service_class_code, 'DOM, INTL carrier'::varchar(55) as descr, 'Domestic Data, Foreign Carriers'::varchar(255) as long_descr union
+select 'DU'::varchar(5) as service_class_code, 'DOM, US carrier'::varchar(55) as descr, 'Domestic Data, US Carriers Only'::varchar(255) as long_descr union
+select 'IF'::varchar(5) as service_class_code, 'INTL, INTL carrier'::varchar(55) as descr, 'International Data, Foreign Carriers'::varchar(255) as long_descr union
+select 'IU'::varchar(5) as service_class_code, 'INTL, US carrier'::varchar(55) as descr, 'International Data, US Carriers Only'::varchar(255) as long_descr
+order by 1;
+
+-- 11. define column comments
 -- air_oai_dims.aircraft_types
 comment on column air_oai_dims.aircraft_types.aircraft_type_oai_nbr is 'AC_TYPEID = Aircraft Type Identification Number. This Number Is Related To The Aircraft Group Number And Falls Within The Range Of A Group Number.';
 comment on column air_oai_dims.aircraft_types.aircraft_group_oai_nbr is 'AC_GROUP = Aircraft Type Group - This Number Gives The Group Or Classification Of Aircraft Engine And Type Of Aircraft.';
@@ -789,239 +824,135 @@ comment on column air_oai_dims.airport_history.effective_thru_date is 'AIRPORT_T
 comment on column air_oai_dims.airport_history.airport_closed_ind is 'AIRPORT_IS_CLOSED = Indicates if the airport is closed (1 = Yes).  If yes, the airport is closed is on the AirportEndDate.';
 comment on column air_oai_dims.airport_history.airport_latest_ind is 'AIRPORT_IS_LATEST = Indicates if this row contains the latest attributes for the Airport (1 = Yes)';
 
+-- 12. create presentation layer views
+-- drop view if exists airlines_pg.aircraft_types_v:
+create or replace view airlines_pg.aircraft_types_v as
+SELECT aircraft_type_oai_nbr
+	 , aircraft_group_oai_nbr
+	 , aircraft_oai_type
+	 , manufacturer_name
+	 , aircraft_type_long_name
+	 , aircraft_type_brief_name
+	 , aircraft_type_from_date
+	 , aircraft_type_thru_date
+FROM air_oai_dims.aircraft_types;
 
--- 9. vacuum the tables
-vacuum analyze air_oai_dims.aircraft_types;
-vacuum analyze air_oai_dims.world_areas;
-vacuum analyze air_oai_dims.airport_history;
-vacuum analyze air_oai_dims.aircraft_type_groups;
-vacuum analyze air_oai_dims.airline_entity_new_groups;
-vacuum analyze air_oai_dims.airline_entity_legacy_groups;
+-- drop view if exists airlines_pg.airport_history_v;
+create or replace view airlines_pg.airport_history_v as
+SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date
+	, airport_closed_ind, airport_latest_ind, airport_oai_seq_id, airport_oai_id, airport_display_name
+	, city_full_display_name
+	, airport_world_area_oai_seq_id, airport_world_area_oai_id, airport_world_area_key
+	, utc_local_time_variation, time_zone_name
+	, market_city_oai_seq_id, market_city_oai_id, market_city_full_display_name
+	, market_city_world_area_oai_seq_id, market_city_world_area_oai_id, market_city_world_area_key
+	, subdivision_iso_code, subdivision_fips_code, subdivision_name
+	, country_iso_code, country_name
+	, latitude_decimal_nbr, longitude_decimal_nbr
+FROM air_oai_dims.airport_history;
 
--- 10. test/validation queries
--- TODO
--- ROW COUNT
+-- drop view if exists airlines_pg.airport_current_v;
+create or replace view airlines_pg.airport_current_v as
+SELECT -- airport_history_id, airport_history_key,
+      airport_oai_code -- , effective_from_date, effective_thru_date
+	, airport_closed_ind
+	-- , airport_latest_ind, airport_oai_seq_id
+	, airport_oai_id, airport_display_name
+	, city_full_display_name
+	, airport_world_area_oai_seq_id, airport_world_area_oai_id, airport_world_area_key
+	, utc_local_time_variation, time_zone_name
+	, market_city_oai_seq_id, market_city_oai_id, market_city_full_display_name
+	, market_city_world_area_oai_seq_id, market_city_world_area_oai_id, market_city_world_area_key
+	, subdivision_iso_code, subdivision_fips_code, subdivision_name
+	, country_iso_code, country_name
+	, latitude_decimal_nbr, longitude_decimal_nbr
+FROM air_oai_dims.airport_history
+where airport_latest_ind = 1;
 
-select 'aircraft_types', case when count(distinct aircraft_type_oai_nbr) = 437 then 'passed' else 'error' end
-from air_oai_dims.aircraft_types
-union all 
-select 'world_areas', case when count(distinct world_area_oai_seq_id) = 344 then 'passed' else 'error' end
-from air_oai_dims.world_areas
-union all 
-select 'airport_history', case when count(distinct airport_history_id) = 19150 then 'passed' else 'error' end
-from air_oai_dims.airport_history
-union all
---in Geof script is 10
--- changed aircraft_configuration_ref for  aircraft_group_oai_nbr
-select 'aircraft_type_groups', case when count(distinct aircraft_group_oai_nbr) = 9 then 'passed' else 'error' end  
-from air_oai_dims.aircraft_type_groups
-union all 
---changed airline_entity_id for airline_new_group_nbr
-select 'airline_entity_new_groups', case when count(distinct airline_new_group_nbr) = 9 then 'passed' else 'error' end
-from air_oai_dims.airline_entity_new_groups
-union all
---changed airline_entity_id for airline_old_group_nbr
-select 'airline_entity_legacy_groups', case when count(distinct airline_old_group_nbr) = 5 then 'passed' else 'error' end
-from air_oai_dims.airline_entity_legacy_groups 
-union all
-select 'airline_entities', case when count(distinct airline_entity_id) = 2791 then 'passed' else 'error' end
-from air_oai_dims.airline_entities
+-- drop view if exists airlines_pg.world_areas_v:
+create or replace view airlines_pg.world_areas_v as
+SELECT world_area_oai_seq_id, world_area_key
+	, world_area_oai_id, effective_from_date, effective_thru_date, world_area_latest_ind
+	, world_area_name, world_region_name
+	, subdivision_iso_code, subdivision_fips_code, subdivision_name
+	, country_iso_code, country_short_name, country_type_descr
+	, sovereign_country_name, capital_city_name, world_area_comments_text
+FROM air_oai_dims.world_areas;
 
-	
--- ### 1
-select aircraft_type_oai_nbr, count(*) from air_oai_dims.aircraft_types_fdw group by 1 having count(*) > 1 order by count(*) desc; -- unique! One aircraft one lane
+-- drop view if exists airlines_pg.airline_entity_legacy_groups_v;
+create or replace view airlines_pg.airline_entity_legacy_groups_v as
+select airline_old_group_nbr
+	, descr
+	, long_descr 
+from air_oai_dims.airline_entity_legacy_groups;
+	 
+-- drop view if exists airlines_pg.airline_entity_new_groups_v;
+create or replace view airlines_pg.airline_entity_new_groups_v as
+select airline_new_group_nbr
+	, descr
+	, long_descr 
+from air_oai_dims.airline_entity_new_groups;
 
-select * from air_oai_dims.aircraft_types; 
-select * from air_oai_dims.aircraft_types_fdw; -- 433
-drop foreign table if exists air_oai_dims.aircraft_types_fdw;
+-- drop view if exists airlines_pg.airline_entities_v:
+create or replace view airlines_pg.airline_entities_v as
+SELECT airline_entity_id
+	, airline_entity_key
+	, airline_usdot_id
+	, airline_oai_code
+	, entity_oai_code
+	, airline_name
+	, airline_unique_oai_code
+	, entity_unique_oai_code
+	, airline_unique_name
+	, world_area_oai_id
+	, world_area_oai_seq_id
+	, airline_old_group_nbr
+	, airline_new_group_nbr
+	, operating_region_code
+	, source_from_date
+	, source_thru_date
+FROM air_oai_dims.airline_entities;
 
+-- drop view if exists airlines_pg.airline_entities_current_v:
+create or replace view airlines_pg.airline_entities_current_v as
+SELECT --airline_entity_id, airline_entity_key
+	 airline_oai_code
+	, airline_usdot_id
+	, entity_oai_code
+	, airline_name
+	--, airline_unique_oai_code
+	--, entity_unique_oai_code
+	--, airline_unique_name
+	, world_area_oai_id
+	, world_area_oai_seq_id
+	, airline_old_group_nbr
+	, airline_new_group_nbr
+	, operating_region_code
+	--, source_from_date
+	--, source_thru_date
+FROM air_oai_dims.airline_entities
+where source_thru_date is null;
 
--- ### 2
--- select * from air_oai_dims.wac_country_state_fdw limit 100;
----
---check if it was loaded once, if empty result - good
----	
-select world_area_oai_id, effective_from_date, count(*) 
-from air_oai_dims.wac_country_state_fdw group by 1,2 having count(*) > 1 order by count(*) desc;
+-- drop view if exists airlines_pg.airline_geographic_types_v:
+create or replace view airlines_pg.airline_geographic_types_v as
+SELECT
+	geograhic_type_oai_id
+	, descr
+	, long_descr
+from air_oai_dims.airline_geographic_types;
 
-select world_area_oai_seq_id, count(*) 
-from air_oai_dims.wac_country_state_fdw group by 1 having count(*) > 1 order by count(*) desc;
+-- drop view if exists airlines_pg.airfare_classes_v:
+create or replace view airlines_pg.airfare_classes_v as
+SELECT
+	airfare_class_code
+	, descr
+	, long_descr
+from air_oai_dims.airfare_classes;
 
-select world_area_name, effective_from_date, count(*) 
-from air_oai_dims.wac_country_state_fdw group by 1,2 having count(*) > 1 order by count(*) desc;
-
--- SELECT * FROM air_oai_dims.airline_entities limit 100;
--- select sovereign_country_name, count(*) from air_oai_dims.wac_country_state_fdw group by 1 order by count(*) desc; 
-
--- select count(*) from air_oai_dims.wac_country_state_fdw; -- 344
--- select count(*) from air_oai_dims.world_areas; -- 344
--- drop foreign table air_oai_dims.wac_country_state_fdw;
-
--- ### 3
--- select * from air_oai_dims.carrier_decode_fdw;
-
-select airline_usdot_id, count(*) from air_oai_dims.carrier_decode_fdw group by 1 having count(*) > 1 order by count(*) desc;
-select airline_oai_code, count(*) from air_oai_dims.carrier_decode_fdw group by 1 having count(*) > 1 order by count(*) desc;
-select airline_oai_code, entity_oai_code, count(*) from air_oai_dims.carrier_decode_fdw group by 1,2 having count(*) > 1 order by count(*) desc;
-
-select airline_usdot_id, airline_unique_oai_code, entity_unique_oai_code, source_from_date, count(*) 
-from air_oai_dims.carrier_decode_fdw group by 1,2,3,4 having count(*) > 1 order by count(*) desc;
-
-select airline_usdot_id, airline_oai_code, entity_oai_code, source_from_date, count(*) 
-from air_oai_dims.carrier_decode_fdw group by 1,2,3,4 having count(*) > 1 order by count(*) desc;
-
-select airline_usdot_id, airline_oai_code, source_from_date, count(*) 
-from air_oai_dims.carrier_decode_fdw group by 1,2,3 having count(*) > 1 order by count(*) desc;
-
-select airline_oai_code, entity_oai_code, source_from_date, count(*) 
-from air_oai_dims.carrier_decode_fdw group by 1,2,3 having count(*) > 1 order by count(*) desc;
-
-select airline_usdot_id, entity_oai_code, source_from_date, count(*) 
-from air_oai_dims.carrier_decode_fdw group by 1,2,3 having count(*) > 1 order by count(*) desc;
-
-select min(airline_usdot_id) as min_id, max(airline_usdot_id) as max_id, count(*) from air_oai_dims.carrier_decode_fdw;
-
-/*
-CREATE TABLE color 
-( color_id INT GENERATED BY DEFAULT AS IDENTITY (START WITH 10 INCREMENT BY 10)
-, color_name VARCHAR NOT NULL);
-*/ 
-
--- WHERE octet_length(col) > length(col);  -- any non-ASCII letter?
--- WHERE col ~ '\W';                       -- anything but digits & letters? 
-
-select airline_oai_code, entity_oai_code, source_from_date, count(*) 
-from air_oai_dims.carrier_decode_fdw group by 1,2,3 having count(*) > 1 order by count(*) desc;
-
-select count(*) from air_oai_dims.carrier_decode_fdw 
---where airline_usdot_id is null
---where carrier_oai_code is null
---where entity_oai_code is null
---where carrier_name is null
---where unique_carrier_oai_code is null
---where unique_entity_oai_code is null
---where unique_carrier_name is null
---where world_area_oai_code is null
---where carrier_old_group_nbr is null
---where carrier_new_group_nbr is null
---where operating_region_code	is null	
---where source_from_date  is null
-where source_thru_date  is null -- yes, many
-
-select airline_oai_code, entity_oai_code, source_from_date, count(*) 
-from air_oai_dims.carrier_decode_fdw 
---where ( octet_length(carrier_oai_code) > length(carrier_oai_code) or carrier_oai_code ~ '\W'
---or      octet_length(entity_oai_code) > length(entity_oai_code) or entity_oai_code ~ '\W') 
-group by 1,2,3 having count(*) > 1 order by count(*) desc;
--- 3KQ	01267	2021-04-01	2
-
--- select ctid, * from air_oai_dims.carrier_decode_fdw where airline_oai_code = '3KQ';
--- delete 
-
-
-
- select count(*) from air_oai_dims.airline_entities; -- 2785
-select count(*) from air_oai_dims.carrier_decode_fdw; -- 2786
--- drop foreign table if exists air_oai_dims.carrier_decode_fdw;
-
-
-
-select ae.airline_entity_id, source_from_date, source_thru_date
-     , ae.airline_name, ae.operating_region_code
-     , ae.world_area_oai_id, ae.world_area_oai_seq_id
-     , wa.world_area_oai_id, wa.world_area_oai_seq_id
-     , wa.effective_from_date, wa.effective_thru_date
-     , wa.world_area_name
-from air_oai_dims.airline_entities ae
-left join air_oai_dims.world_areas wa
-  on ae.world_area_oai_id = wa.world_area_oai_id
- -- where source_from_date between wa.effective_from_date and coalesce(wa.effective_thru_date, now())
- -- and ae.airline_entity_id in (4542,4545)
-;
-
--- select * from air_oai_dims.world_areas where world_area_oai_id = 10;
--- select * from air_oai_dims.world_areas where country_iso_code = 'US' order by world_area_oai_id;
-
--- select count(*) from air_oai_dims.airline_entities; -- 2785
--- select count(*) from air_oai_dims.carrier_decode_fdw; -- 2786
--- drop foreign table if exists air_oai_dims.carrier_decode_fdw;
-
-
-
--- select * from air_oai_dims.master_cord_fdw;
-
-select airport_oai_code, airport_effective_from_date, count(*)
-from air_oai_dims.master_cord_fdw group by 1,2 having count(*) > 1 order by count(*)  desc; -- unique
-
-select min(airport_oai_id) as min_id, max(airport_oai_id) as max_id, min(airport_oai_seq_id) as min_seq, max(airport_oai_seq_id) as max_seq, count(*)
-from air_oai_dims.master_cord_fdw;
-
-select distinct utc_local_time_variation from air_oai_dims.master_cord_fdw;
-
-
--- select * from air_oai_dims.airport_history;
-select count(*) from air_oai_dims.airport_history; -- 19132
-select count(*) from air_oai_dims.master_cord_fdw; -- 19132
--- drop foreign table if exists air_oai_dims.master_cord_fdw;
-
-select case when airport_world_area_oai_id is null then 'null'::char(4) else 'data'::char(4) end as airport_wac_oai_id_data
-     , case when airport_world_area_key is null then 'null'::char(4) else 'data'::char(4) end as airport_wac_key_data
-     , case when market_city_world_area_oai_id is null then 'null'::char(4) else 'data'::char(4) end as market_city_wac_oai_id_data
-     , case when market_city_world_area_key is null then 'null'::char(4) else 'data'::char(4) end as market_city_wac_key_data
-     , count(*)
-from (
-select a.airport_history_id, a.airport_oai_code, a.effective_from_date
-     , a.subdivision_iso_code, a.country_iso_code
-     , a.airport_world_area_oai_id as airport_wac_oai_id, a.airport_world_area_oai_seq_id as airport_wac_oai_seq_id
-     , b.world_area_oai_id as airport_world_area_oai_id, b.world_area_key as airport_world_area_key
-     , a.market_city_world_area_oai_id as market_city_wac_oai_id, a.market_city_world_area_oai_seq_id
-     , c.world_area_oai_id as market_city_world_area_oai_id, c.world_area_key as market_city_world_area_key
-from air_oai_dims.airport_history a 
-left outer join air_oai_dims.world_areas b
-  on a.airport_world_area_oai_id = b.world_area_oai_id
- and a.airport_world_area_oai_seq_id = b.world_area_oai_seq_id
-left outer join air_oai_dims.world_areas c
-  on a.market_city_world_area_oai_id = c.world_area_oai_id
- and a.market_city_world_area_oai_seq_id = c.world_area_oai_seq_id
-) abc 
-group by 1,2,3,4 order by count(*) desc;
---limit 100;
-
-select case when airport_world_area_key is null then 'null'::char(4) else 'data'::char(4) end as airport_wac_key_data
-     , case when market_city_world_area_key is null then 'null'::char(4) else 'data'::char(4) end as market_city_wac_key_data
-     , count(*)
-from air_oai_dims.airport_history
-group by 1,2 order by count(*) desc;
-
-
-
-select country_iso_code
-     , max(airport_country_code) as apt_iso 
-     , max(market_country_code) as mkt_iso
-     , max(airport_world_area_name) as world_area_name
-     , max(airport_world_region_name) as world_region_name
-     , max(airport_country_type_descr) as country_type_descr
-     , max(airport_sovereign_country_name) as sovereign_country_name
-     , count(*) as record_qty
-from (
-select a.airport_history_id, a.airport_history_key
-     , a.airport_oai_code, a.effective_from_date
-     , a.subdivision_iso_code
-     , a.country_iso_code
-     , b.country_iso_code as airport_country_code
-     , b.country_type_descr as airport_country_type_descr
-     , b.sovereign_country_name as airport_sovereign_country_name
-     , b.world_area_name as airport_world_area_name
-     , b.world_region_name as airport_world_region_name
-     , c.country_iso_code as market_country_code
-     , c.country_type_descr as market_country_type_descr
-     , c.sovereign_country_name as market_sovereign_country_name
-     , c.world_area_name as market_world_area_name
-     , c.world_region_name as market_world_region_name
-from air_oai_dims.airport_history a 
-left outer join air_oai_dims.world_areas b
-  on a.airport_world_area_key = b.world_area_key
-left outer join air_oai_dims.world_areas c
-  on a.market_city_world_area_key = c.world_area_key
-) x --where country_iso_code != market_country_code
-group by 1 order by world_region_name, count(*) desc;
+-- drop view if exists airlines_pg.airline_traffic_data_sources_v:
+create or replace view airlines_pg.airline_traffic_data_sources_v as
+SELECT
+	service_class_code
+	, descr
+	, long_descr
+from air_oai_dims.airline_traffic_data_sources;
