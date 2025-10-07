@@ -9,27 +9,28 @@
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 -- 1. process DB1B Ticket data
 --  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
---  1.2. copy DB1B data into
---  1.3. create air_oai_facts.airfare_survey_itinerary
---  1.4. create partioning airfare_survey_itinerary
---  1.5. insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
+--  1.2. ingest ticket csv data
+--  1.3. create fact table air_oai_facts.airfare_survey_itinerary
+--  1.4. create partioning
+--  1.5. insert data into fact table
 -- 2. process DB1B Coupon data
 --  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
---  2.2. copy DB1B data into airfare_survey_coupon_load
+--  2.2. ingest coupon csv data
 --  2.3. create air_oai_facts.airfare_survey_coupon
---  2.4. create partioning air_oai_facts.airfare_survey_coupon
---  2.5. insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
+--  2.4. create partioning
+--  2.5. insert data into fact table
 -- 3. process DB1B Market data
 --  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
---  3.1. copy DB1B data into air_oai_facts.airfare_survey_market_load
+--  3.1. ingest market csv data
 --  3.2. create table airfare_survey_market
---  3.4. create partioning table airfare_survey_market
---  3.5. insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
--- 4. create primary key and index on the tables
+--  3.4. create partioning
+--  3.5. insert data into fact table
+-- 4. create primary keys and indexes on the tables
 -- 5. create presentation layer views
 ----------------------------------------------------
 
--- 1.1 Create table air_oai_facts.airfare_survey_ticket_load  
+-- 1. process DB1B Ticket data
+-- 1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
 create table air_oai_facts.airfare_survey_ticket_load
 ( 
 	itinerary_oai_id								bigint null
@@ -60,22 +61,13 @@ create table air_oai_facts.airfare_survey_ticket_load
 	, filler										varchar(10) null
 	);
 
--- 1.2 Copy DB1B data into airfare_survey_ticket_load
+-- 1.2. ingest ticket csv data
+-- 1.2.1. mstr psql version of the data load
 -- for x in $(ls /tmp/DB1B/_ticket/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
-
----AWS Aurora SQL - one file
-SELECT aws_s3.table_import_from_s3(
-    'air_oai_facts.airfare_survey_ticket_load', 
-    '', 
-    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
-    aws_commons.create_s3_uri(
-        'src-aviation', 
-        'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BMTicket_2023_1.csv.gz', 
-        'us-west-2'
-    )
-);
--- AWS Aurora SQL - all files in folder
+-- 1.2.2. AWS Aurora data load - one file
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_ticket_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BMTicket_2023_1.csv.gz', 'us-west-2'));
+-- 1.2.3. AWS Aurora data load - mutliple files via manifest
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_ticket_load',  -- target_table
@@ -84,10 +76,11 @@ CALL import_data_from_manifest(
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
---   1.3 Create air_oai_facts.airfare_survey_itinerary
 
+-- 1.3. create fact table air_oai_facts.airfare_survey_itinerary
 create table air_oai_facts.airfare_survey_itinerary
-	 ( itinerary_oai_id								bigint  not null
+( 
+	itinerary_oai_id								bigint  not null
 	 , year_quarter_start_date						date	not null
 	 , reporting_airline_entity_id					smallint not null
 	 , reporting_airline_entity_key					char(32) not null
@@ -110,10 +103,9 @@ create table air_oai_facts.airfare_survey_itinerary
 	 , updated_by 									varchar(32)
 	 , updated_tsmt 								timestamp(0)
 	 , constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
-	 ) partition by range (year_quarter_start_date)
-	 ;
+) partition by range (year_quarter_start_date);
 
---   1.4 Create partioning airfare_survey_itinerary
+-- 1.4. create partioning
 DO $$
 DECLARE
     year_val INT;
@@ -154,14 +146,12 @@ BEGIN
     END LOOP;
 END $$;
 
-	 
---   1.5 Insert into airfare_survey_itinerary FROM airfare_survey_ticket_load; Join with airline_entities; airport_history 
+-- 1.5. insert data into fact table
 WITH filtered_airline_entities AS (
     SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
     FROM air_oai_dims.airline_entities
     WHERE operating_region_code = 'Domestic'
 )
-
 INSERT INTO air_oai_facts.airfare_survey_itinerary
 	( itinerary_oai_id, year_quarter_start_date
 	, reporting_airline_entity_id, reporting_airline_entity_key
@@ -184,16 +174,16 @@ SELECT asf.itinerary_oai_id
 	 , current_user, now()
 FROM air_oai_facts.airfare_survey_ticket_load asf
 -- air_oai_facts.airfare_survey_ticket_fdw asf
-Join calendar_pg.gregorian_year_quarter  ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
+join calendar_pg.gregorian_year_quarter  ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
 left join filtered_airline_entities ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
 left join air_oai_dims.airport_history ah
   on asf.depart_airport_oai_seq_id = ah.airport_oai_seq_id
 WHERE ac.year_quarter_from_date
-      between ae.source_from_date and coalesce(ae.source_thru_date, current_date)
-	  
+      between ae.source_from_date and coalesce(ae.source_thru_date, current_date);
 
---   2.1 Create table a air_oai_facts.airfare_survey_coupon_load
+-- 2. process DB1B Coupon data
+-- 2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
 create table air_oai_facts.airfare_survey_coupon_load
 ( 
 	itinerary_oai_id             		bigint null
@@ -233,24 +223,15 @@ create table air_oai_facts.airfare_survey_coupon_load
 	, itinerary_geo_type_id     		integer null
 	, coupon_geo_type_id        		integer null
 	, filler							varchar(10) null
-	)
-
---   2.2 Copy DB1B data into airfare_survey_coupon_load
---for x in $(ls /tmp/DB1B/_coupon/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_load FROM '$x' CSV HEADER"; done ;
-
----AWS Aurora
-
-SELECT aws_s3.table_import_from_s3(
-    'air_oai_facts.airfare_survey_coupon_load', 
-    '', 
-    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
-    aws_commons.create_s3_uri(
-        'src-aviation', 
-        'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 
-        'us-west-2'
-    )
 );
+	
+-- 2.2. ingest coupon csv data
+-- 2.2.1. mstr psql version of the data load
+-- for x in $(ls /tmp/DB1B/_coupon/*.csv);
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_load FROM '$x' CSV HEADER"; done ;
+-- 2.2.2. AWS Aurora data load - one file
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_coupon_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 'us-west-2'));
+-- 2.2.3. AWS Aurora data load - mutliple files via manifest
 -- AWS Aurora SQL - all files in folder
 CALL import_data_from_manifest(
     0, 
@@ -293,10 +274,9 @@ create table air_oai_facts.airfare_survey_coupon
 	, updated_by 						varchar(32)
 	, updated_tsmt 						timestamp(0)
 	, constraint airfare_survey_coupon_pk primary key (itinerary_oai_id, flight_pass_seq, year_quarter_start_date)
-	) partition by range (year_quarter_start_date)
-	;
+) partition by range (year_quarter_start_date);
 
---   2.4 Create partioning air_oai_facts.airfare_survey_coupon
+-- 2.4. create partioning
 DO $$
 DECLARE
     year_val INT;
@@ -337,13 +317,12 @@ BEGIN
     END LOOP;
 END $$;
 
---   2.5 Insert into airfare_survey_coupon FROM airfare_survey_coupon_load; Join with airline_entities; airport_history 
+-- 2.5. insert data into fact table
 WITH filtered_airline_entities AS (
     SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
     FROM air_oai_dims.airline_entities
     WHERE operating_region_code = 'Domestic'
 )
-
 INSERT INTO air_oai_facts.airfare_survey_coupon
 	(itinerary_oai_id, flight_pass_seq, year_quarter_start_date, market_oai_id
 	, ticketing_airline_entity_id, ticketing_airline_entity_key
@@ -396,12 +375,13 @@ left join air_oai_dims.airport_history aha
 where aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
 	AND aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
 	AND aq.year_quarter_from_date
-       between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
+       between aet.source_from_date and coalesce(aet.source_thru_date, current_date);
 
-
--- 3.1 Create table air_oai_facts.airfare_survey_market_load
+-- 3. process DB1B market data
+-- 3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
 create table air_oai_facts.airfare_survey_market_load
-	( itinerary_oai_id              	bigint null
+( 
+	itinerary_oai_id              	bigint null
 	, market_oai_id                		bigint null
 	, market_coupon_qty		       		integer null
 	, year_nbr                 			integer null
@@ -443,25 +423,15 @@ create table air_oai_facts.airfare_survey_market_load
 	, itinerary_geograhic_type_oai_id   integer null
 	, market_geograhic_type_oai_id      integer null
 	, filler							varchar(10) null
-	)
-	
---   3.1 Copy DB1B data into air_oai_facts.airfare_survey_market_load
-	
---for x in $(ls /tmp/DB1B/_market/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_load FROM '$x' CSV HEADER"; done ;
-
---- AWS Aurora SQL
-SELECT aws_s3.table_import_from_s3(
-    'air_oai_facts.airfare_survey_market_load', 
-    '', 
-    '(FORMAT CSV, HEADER true, QUOTE ''"'')',
-    aws_commons.create_s3_uri(
-        'src-aviation', 
-        'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 
-        'us-west-2'
-    )
 );
--- AWS Aurora SQL - all files in folder
+
+-- 3.2. ingest market csv data
+-- 3.2.1. mstr psql version of the data load
+-- for x in $(ls /tmp/DB1B/_market/*.csv);
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_load FROM '$x' CSV HEADER"; done ;
+-- 3.2.2. AWS Aurora data load - one file
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_market_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 'us-west-2'));
+-- 3.2.3. AWS Aurora data load - mutliple files via manifest
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_market_load',  -- target_table
@@ -471,12 +441,10 @@ CALL import_data_from_manifest(
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
 
-
-	
---   3.2 Create table airfare_survey_market
-
+-- 3.2. create fact table
 create table air_oai_facts.airfare_survey_market
-	( itinerary_oai_id             		bigint 		not null
+( 
+	itinerary_oai_id             		bigint 		not null
 	, market_oai_id						bigint 		not null
 	, year_quarter_start_date			date		not null
 	, ticketing_airline_entity_id		smallint	not null
@@ -510,11 +478,9 @@ create table air_oai_facts.airfare_survey_market
 	, updated_by 						varchar(32)
 	, updated_tsmt 						timestamp(0)
 	, constraint airfare_survey_market_pk primary key (itinerary_oai_id, market_oai_id, year_quarter_start_date)
-	) partition by range (year_quarter_start_date)
-	;
+) partition by range (year_quarter_start_date);
 
-
--- 3.4 Create partioning table airfare_survey_market
+-- 3.4. create partioning
 DO $$
 DECLARE
     year_val INT;
@@ -555,13 +521,12 @@ BEGIN
     END LOOP;
 END $$;
 
---   3.5 Insert into airfare_survey_market_load into airfare_survey_market. Join airline_entities; airport_history
+-- 3.5. insert data into fact table
 WITH filtered_airline_entities AS (
     SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
     FROM air_oai_dims.airline_entities
     WHERE operating_region_code = 'Domestic'
 )
-
 INSERT INTO air_oai_facts.airfare_survey_market
 	( itinerary_oai_id, market_oai_id, year_quarter_start_date
 	, ticketing_airline_entity_id, ticketing_airline_entity_key, ticketing_airline_change_ind, ticketing_airlines_group_code
@@ -619,10 +584,10 @@ left join air_oai_dims.airport_history aha
   on am.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
 where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date) 
 	AND agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
-	ANDagq.year_quarter_from_date
-       between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
+	AND agq.year_quarter_from_date
+       between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date);
 
--- 4. create an primary key and index
+-- 4. create extra primary key and indexes
 alter table air_oai_facts.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
 create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_carrier_iata_cd);
 create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (orig_airport_iata_cd);
@@ -672,4 +637,5 @@ SELECT itinerary_oai_id, market_oai_id, year_quarter_start_date, year_quarter_nb
 	, passenger_qty, market_fare_amount_usd, market_distance_smi
 	, market_flown_distance_smi, non_stop_distance_smi
 FROM air_oai_facts.airfare_survey_market;
+
 
