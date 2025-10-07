@@ -1,6 +1,25 @@
 -- DATA VALIDATION, CLEAN-UP AND VACUUM GOES HERE
 
 ---------------------------------------------------------
+----------------------- cal -----------------------------
+---------------------------------------------------------
+-- 3. Drop cal_gen views (used for generating calendar tables)
+drop view if exists cal_gen.make_calendar_date_hour_v;
+drop view if exists cal_gen.make_calendar_date_hour_min_v;
+drop view if exists cal_gen.make_year_week_v; 
+drop view if exists cal_gen.make_calendar_date_v; 
+drop view if exists cal_gen.make_gregorian_year_month_v; 
+drop view if exists cal_gen.make_gregorian_year_quarter_v; 
+drop view if exists cal_gen.make_gregorian_quarter_of_year_v; 
+drop view if exists cal_gen.make_day_of_week_v; 
+drop view if exists cal_gen.make_gregorian_month_of_year_v; 
+drop view if exists cal_gen.make_day_of_month_v; 
+drop view if exists cal_gen.make_minute_of_hour_v; 
+drop view if exists cal_gen.make_hour_of_day_v; 
+drop view if exists cal_gen.make_gregorian_year_v;
+
+
+---------------------------------------------------------
 ----------------------- t100 -----------------------------
 ---------------------------------------------------------
 -- 5. vacuum the tables
