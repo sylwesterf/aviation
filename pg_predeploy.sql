@@ -8,7 +8,8 @@
 -- 5. load the shape file for time zone boundaries
 ----------------------------------------------------
 
--- 0. create database
+-- 0. create aviation database and user
+--CREATE user aviation WITH PASSWORD 'password';
 CREATE DATABASE aviation OWNER aviation;
 
 -- 1. create schemas
