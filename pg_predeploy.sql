@@ -31,6 +31,11 @@ GRANT rds_superuser TO aviation;
 CREATE EXTENSION IF NOT EXISTS POSTGIS; -- extension needed for geometry data type in one of the tables in air_oai_dims
 CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing data from an Amazon S3 (in Aurora)
 
+-- test aws_s3 extension and rds-s3 connectivity (via table_import_from_s3 call)
+create table test (id int, descr varchar(10));
+SELECT aws_s3.table_import_from_s3('test','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/test_file.csv', 'us-west-2'));
+drop table test;
+
 -- 3. create pg metadata views
 -- database_schema_descriptions_v
 CREATE OR REPLACE VIEW database_schema_descriptions_v 
@@ -181,7 +186,6 @@ CALL import_data_from_manifest(
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
-
 
 -- 5. load the shape file for time zone boundaries
 
