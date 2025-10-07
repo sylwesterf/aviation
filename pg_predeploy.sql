@@ -34,6 +34,7 @@ CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing d
 -- test aws_s3 extension and rds-s3 connectivity (via table_import_from_s3 call)
 create table test (id int, descr varchar(10));
 SELECT aws_s3.table_import_from_s3('test','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/test_file.csv', 'us-west-2'));
+select * from test;
 drop table test;
 
 -- 3. create pg metadata views
