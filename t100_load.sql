@@ -71,12 +71,19 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, distance_group_id 			int4
 	, service_class_code 			varchar(5)
 	, data_source_code 				varchar(5)
-	);
+);
 
--- 1.2. ingest t100_market csv data using copy command 
-copy air_oai_facts.f41_traffic_t100_market_archive
-from '/opt/_data/_air/_oai/_t100/T_T100_MARKET_ALL_CARRIER_2022.csv'
-delimiter ',' header csv;
+-- 1.2. ingest t100 market csv data
+-- 1.2.1. mstr psql version of the data load
+-- for x in $(ls /tmp/t100/market/*.csv);
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_market_archive FROM '$x' CSV HEADER"; done ;
+-- 1.2.2. AWS Aurora data load - one file
+--TODO SELECT aws_s3.table_import_from_s3()
+-- 1.2.3. AWS Aurora data load - mutliple files via manifest
+--TODO 
+CALL import_data_from_manifest(
+
+);
 
 -- 1.3. create a materialized view to transform the data
 drop materialized view if EXISTS air_oai_facts.airline_traffic_market_integrate_mv;
@@ -156,7 +163,7 @@ CREATE TABLE air_oai_facts.airline_traffic_market
 	, updated_by 								varchar(32)
 	, updated_tmst 								timestamp(0)
 	, constraint airline_traffic_market_pk PRIMARY KEY (airline_traffic_market_key) 
-	);
+);
 
 -- 1.5. insert values into air_oai_facts.airline_traffic_market from the materialized view air_oai_facts.airline_traffic_market_integrate_mv
 INSERT INTO air_oai_facts.airline_traffic_market
@@ -212,7 +219,8 @@ GROUP BY year_month_nbr
 -- 2.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
 DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_archive;
 CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
-	( scheduled_departures_qty	 			float4
+( 
+	scheduled_departures_qty	 			float4
 	, performed_departures_qty	 			float4
 	, payload_lbr 							float4
 	, available_seat_qty 					float4
@@ -263,12 +271,19 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 	, service_class_code 					char(1)
 	, data_source_code 						varchar(5)
 	--, filler_txt 							varchar(10)
-	);
+);
 
--- 2.2. stage t100_segment csv data
-copy air_oai_facts.f41_traffic_t100_segment_archive
-from '/opt/_data/_air/_oai/_t100/T_T100_SEGMENT_ALL_CARRIER_2022.csv'
-delimiter ',' header csv;
+-- 2.2. stage t100 segment csv data
+-- 1.2.1. mstr psql version of the data load
+-- for x in $(ls /tmp/t100/segment/*.csv);
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_segment_archive FROM '$x' CSV HEADER"; done ;
+-- 1.2.2. AWS Aurora data load - one file
+--TODO SELECT aws_s3.table_import_from_s3()
+-- 1.2.3. AWS Aurora data load - mutliple files via manifest
+--TODO 
+CALL import_data_from_manifest(
+
+);
 
 -- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
 drop materialized view air_oai_facts.f41_traffic_t100_segment_load_mv;
@@ -422,7 +437,8 @@ order by f.airline_oai_code, f.depart_airport_oai_code, f.arrive_airport_oai_cod
 -- 2.5. create final fact table (air_oai_facts.airline_traffic_segment) 
 drop table if exists air_oai_facts.airline_traffic_segment;
 CREATE TABLE air_oai_facts.airline_traffic_segment 
-	( airline_traffic_segment_key				char(32)		not null
+( 
+	airline_traffic_segment_key				char(32)		not null
 	, year_month_nbr							integer			not null
 	, service_class_code 						char(1) 		not null	
 	, airline_oai_code 							varchar(3) 		not null
@@ -455,7 +471,7 @@ CREATE TABLE air_oai_facts.airline_traffic_segment
 	, updated_by 								varchar(32)
 	, updated_tmst 								timestamp(0)
 	, constraint airline_traffic_segment_pk PRIMARY KEY (airline_traffic_segment_key) 
-	);
+);
 
 -- 2.6. pull the data from the materialized view into the fact table
 INSERT INTO air_oai_facts.airline_traffic_segment
@@ -557,7 +573,6 @@ from air_oai_facts.airline_traffic_market f
 group by 1 order by 1;
 
 -- 4. add keys and indexes
-
 -- dimension tables' primary keys
 alter table air_oai_dims.aircraft_configurations 
 add constraint aircraft_configurations_pk primary key (aircraft_configuration_ref);
@@ -617,6 +632,20 @@ alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic
 foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
 -- 8. create presentation layer views
+-- drop view if exists aviation.aircraft_configurations_v;
+create or replace view aviation.aircraft_configurations_v as
+SELECT aircraft_configuration_ref
+	 , aircraft_configuration_descr
+FROM air_oai_dims.aircraft_configurations;
+
+-- drop view if exists airlines_pg.airline_service_classes_v;
+create or replace view airlines_pg.airline_service_classes_v as
+SELECT service_class_code
+	, scheduled_ind
+	, chartered_ind
+	, service_class_descr
+FROM air_oai_dims.airline_service_classes;
+
 -- drop view if exists airlines_pg.airline_traffic_market_v;
 create or replace view airlines_pg.airline_traffic_market_v as
 SELECT airline_traffic_market_key, year_month_nbr
@@ -641,17 +670,3 @@ SELECT airline_traffic_segment_key, year_month_nbr, service_class_code
 	, ramp_to_ramp_min, air_time_min
 	--, t100_records_qty
 FROM air_oai_facts.airline_traffic_segment;
-
--- drop view if exists aviation.aircraft_configurations_v;
-create or replace view aviation.aircraft_configurations_v as
-SELECT aircraft_configuration_ref
-	 , aircraft_configuration_descr
-FROM air_oai_dims.aircraft_configurations;
-
--- drop view if exists airlines_pg.airline_service_classes_v;
-create or replace view airlines_pg.airline_service_classes_v as
-SELECT service_class_code
-	, scheduled_ind
-	, chartered_ind
-	, service_class_descr
-FROM air_oai_dims.airline_service_classes;

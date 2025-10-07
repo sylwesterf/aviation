@@ -144,7 +144,7 @@ CREATE TABLE air_oai_facts.airline_flight_performance_fdw
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airline_flight_performance_fdw',  -- target_table
-    'OTP/manifest_otp_csv.csv',      			-- manifest_file
+    'OTP/manifest_otp.csv',      			-- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options

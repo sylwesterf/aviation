@@ -63,7 +63,7 @@ create table air_oai_facts.airfare_survey_ticket_load
 
 -- 1.2. ingest ticket csv data
 -- 1.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/DB1B/_ticket/*.csv);
+-- for x in $(ls /tmp/DB1B/ticket/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
 -- 1.2.2. AWS Aurora data load - one file
 -- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_ticket_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BMTicket_2023_1.csv.gz', 'us-west-2'));
@@ -71,7 +71,7 @@ create table air_oai_facts.airfare_survey_ticket_load
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_ticket_load',  -- target_table
-    'DB1B/ticket/manifest_ticket_csv.csv',      -- manifest_file
+    'DB1B/ticket/manifest_db1b_ticket.csv',      -- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
@@ -227,7 +227,7 @@ create table air_oai_facts.airfare_survey_coupon_load
 	
 -- 2.2. ingest coupon csv data
 -- 2.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/DB1B/_coupon/*.csv);
+-- for x in $(ls /tmp/DB1B/coupon/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_load FROM '$x' CSV HEADER"; done ;
 -- 2.2.2. AWS Aurora data load - one file
 -- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_coupon_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 'us-west-2'));
@@ -236,7 +236,7 @@ create table air_oai_facts.airfare_survey_coupon_load
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_coupon_load',  -- target_table
-    'DB1B/coupon/manifest_coupon_csv.csv',      -- manifest_file
+    'DB1B/coupon/manifest_db1b_coupon.csv',      -- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
@@ -427,7 +427,7 @@ create table air_oai_facts.airfare_survey_market_load
 
 -- 3.2. ingest market csv data
 -- 3.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/DB1B/_market/*.csv);
+-- for x in $(ls /tmp/DB1B/market/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_load FROM '$x' CSV HEADER"; done ;
 -- 3.2.2. AWS Aurora data load - one file
 -- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_market_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 'us-west-2'));
@@ -435,7 +435,7 @@ create table air_oai_facts.airfare_survey_market_load
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_market_load',  -- target_table
-    'DB1B/market/manifest_market_csv.csv',      -- manifest_file
+    'DB1B/market/manifest_db1b_market.csv',      -- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
