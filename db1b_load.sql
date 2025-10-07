@@ -25,7 +25,7 @@
 --  3.2. create table airfare_survey_market
 --  3.4. create partioning
 --  3.5. insert data into fact table
--- 4. create primary keys and indexes on the tables
+-- 4. add keys and indexes
 -- 5. create presentation layer views
 ----------------------------------------------------
 
@@ -637,5 +637,6 @@ SELECT itinerary_oai_id, market_oai_id, year_quarter_start_date, year_quarter_nb
 	, passenger_qty, market_fare_amount_usd, market_distance_smi
 	, market_flown_distance_smi, non_stop_distance_smi
 FROM air_oai_facts.airfare_survey_market;
+
 
 
