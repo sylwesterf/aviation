@@ -143,11 +143,12 @@ CREATE TABLE air_oai_facts.airline_flight_performance_fdw
 -- 2.3. AWS Aurora data load - mutliple files via manifest
 CALL import_data_from_manifest(
     0, 
-    'air_oai_facts.airline_flight_performance_fdw',  -- target_table
-    'OTP/manifest_otp.csv',      			-- manifest_file
-    'src-aviation',                              -- source_bucket
-    'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
+    'air_oai_facts.airline_flight_performance_fdw',  	-- target_table
+    'OTP/manifest_otp.csv',      						-- manifest_file
+    'src-aviation',                              		-- source_bucket
+    'us-west-2',                                 		-- region
+    '(FORMAT CSV, DELIMITER '','', HEADER)'      		-- format_options
+	,3 													-- max_files_to_import 
 );
 
 -- 3.1. define materialized view for initial data quality work (removed spaces)
