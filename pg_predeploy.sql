@@ -34,7 +34,7 @@ CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing d
 
 -- test aws_s3 extension and rds-s3 connectivity (via table_import_from_s3 call)
 create table test (id int, descr varchar(10));
-SELECT aws_s3.table_import_from_s3('test','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/test_file.csv', 'us-west-2'));
+SELECT aws_s3.table_import_from_s3('test','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', 'test/test_file_1.csv', 'us-west-2'));
 select * from test;
 drop table test;
 
@@ -164,9 +164,6 @@ BEGIN
     -- Drop the temporary table
     EXECUTE format('DROP TABLE IF EXISTS %s', quote_ident(temp_table_name));
 
-    -- Vacuum target table
-    EXECUTE format('VACUUM VERBOSE %s', quote_ident(target_table));
-
     end_time := clock_timestamp();
     
     -- Print summary information
@@ -180,14 +177,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- sample procedure call
+create table test (id int, descr varchar(10));
 CALL import_data_from_manifest(
     0, 
-    'air_oai_facts.airfare_survey_ticket_load',  -- target_table
-    'DB1B/ticket/_manifest_ticket_csv.csv',      -- manifest_file
+    'test',  									-- target_table
+    'test/manifest_test.csv',      				-- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
 );
+select * from test;
+drop table test;
 
 -- 5. load the shape file for time zone boundaries
 
