@@ -363,7 +363,7 @@ SELECT ac.itinerary_oai_id
 	 , current_user
 	 , current_timestamp
 FROM air_oai_facts.airfare_survey_coupon_load ac
-Join calendar_pg.gregorian_year_quarter aq ON asf.year_nbr = aq.year_nbr AND asf.quarter_nbr = aq.quarter_of_year_nbr
+Join calendar_pg.gregorian_year_quarter aq ON ac.year_nbr = aq.year_nbr AND ac.quarter_nbr = aq.quarter_of_year_nbr
 left join filtered_airline_entities aet
   on ac.ticketing_airline_oai_code = aet.airline_oai_code
 left join filtered_airline_entities aeo
@@ -375,9 +375,8 @@ left join air_oai_dims.airport_history ahd
 left join air_oai_dims.airport_history aha
   on ac.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
 where aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
-	AND aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
-	AND aq.year_quarter_from_date
-       between aet.source_from_date and coalesce(aet.source_thru_date, current_date);
+	AND aq.year_quarter_from_date between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
+	AND aq.year_quarter_from_date between aer.source_from_date and coalesce(aer.source_thru_date, current_date);
 
 -- 3. process DB1B market data
 -- 3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
@@ -544,7 +543,7 @@ INSERT INTO air_oai_facts.airfare_survey_market
 	, created_by, created_tmst)
 SELECT am.itinerary_oai_id
 	 , am.market_oai_id
-	 , agq.year_quarter_from_date as year_quarter_start_date as year_quarter_start_date
+	 , agq.year_quarter_from_date as year_quarter_start_date
      , aet.airline_entity_id as ticketing_airline_entity_id
      , aet.airline_entity_key as ticketing_airline_entity_key
 	 , am.ticketing_airline_change_ind
@@ -586,9 +585,8 @@ left join air_oai_dims.airport_history ahd
 left join air_oai_dims.airport_history aha
   on am.arrive_airport_oai_seq_id = aha.airport_oai_seq_id
 where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date) 
-	AND agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
-	AND agq.year_quarter_from_date
-       between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date);
+	AND agq.year_quarter_from_date between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
+	AND agq.year_quarter_from_date between aer.source_from_date and coalesce(aer.source_thru_date, current_date);
 
 -- 4. create extra primary key and indexes
 alter table air_oai_facts.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
