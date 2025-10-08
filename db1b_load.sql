@@ -59,14 +59,14 @@ create table air_oai_facts.airfare_survey_ticket_load
 	, flown_distance_smi							float4 null
 	, geographic_type_oai_id						integer null
 	, filler										varchar(10) null
-	);
+);
 
 -- 1.2. ingest ticket csv data
 -- 1.2.1. mstr psql version of the data load
 -- for x in $(ls /tmp/DB1B/ticket/*.csv);
 -- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
 -- 1.2.2. AWS Aurora data load - one file
--- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_ticket_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BMTicket_2023_1.csv.gz', 'us-west-2'));
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_ticket_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2023_1.csv.gz', 'us-west-2'));
 -- 1.2.3. AWS Aurora data load - mutliple files via manifest
 CALL import_data_from_manifest(
     0, 
@@ -637,6 +637,7 @@ SELECT itinerary_oai_id, market_oai_id, year_quarter_start_date, year_quarter_nb
 	, passenger_qty, market_fare_amount_usd, market_distance_smi
 	, market_flown_distance_smi, non_stop_distance_smi
 FROM air_oai_facts.airfare_survey_market;
+
 
 
 
