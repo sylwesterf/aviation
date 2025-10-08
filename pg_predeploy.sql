@@ -125,7 +125,7 @@ BEGIN
     PERFORM aws_s3.table_import_from_s3(
         temp_table_name,
         'file_uri',
-        '(FORMAT CSV, HEADER false)',
+        '(FORMAT CSV, HEADER true)',
         aws_commons.create_s3_uri(
             source_bucket,
             manifest_file,
@@ -204,7 +204,8 @@ CALL import_data_from_manifest(
     'test/manifest_test.csv',      				-- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
+    '(FORMAT CSV, DELIMITER '','', HEADER)',      -- format_options
+	null
 );
 select * from test;
 
