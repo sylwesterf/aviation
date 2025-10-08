@@ -137,15 +137,27 @@ BEGIN
     EXECUTE format('SELECT COUNT(*) FROM %s WHERE TRIM(file_uri) <> %L', quote_ident(temp_table_name), '')
         INTO total_files;
     RAISE NOTICE 'Found % files to import in manifest', total_files;
+	
+	-- Ensure max_files_to_import does not exceed total_files
+	IF max_files_to_import IS NOT NULL AND max_files_to_import > total_files THEN
+    RAISE NOTICE 'Requested max_files_to_import (%) is greater than files available (%). Setting max_files_to_import = %', 
+        max_files_to_import, total_files, total_files;
+    max_files_to_import := total_files;
+	END IF;
     
 	-- LIMIT the load to the requested number of files!
     FOR uri_record IN EXECUTE format(
-	    'SELECT TRIM(file_uri) AS file_uri FROM %s WHERE TRIM(file_uri) <> %L ORDER BY TRIM(file_uri) DESC LIMIT %s',
-	    quote_ident(temp_table_name),
-	    '',
-	    max_files_to_import
-	)
-	LOOP
+    'SELECT TRIM(file_uri) AS file_uri FROM %s WHERE TRIM(file_uri) <> %L %s',
+    quote_ident(temp_table_name),
+    '',
+    CASE 
+        WHEN max_files_to_import IS NOT NULL 
+        THEN 'LIMIT ' || max_files_to_import
+        ELSE ''
+    END
+)
+LOOP
+
         -- Import the file using the provided URI directly
         BEGIN
             PERFORM aws_s3.table_import_from_s3(
