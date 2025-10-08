@@ -185,6 +185,7 @@ $$ LANGUAGE plpgsql;
 
 -- sample procedure call
 create table test (id int, descr varchar(10));
+-- load all files fom the manifest
 CALL import_data_from_manifest(
     0, 
     'test',  									-- target_table
@@ -192,6 +193,18 @@ CALL import_data_from_manifest(
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
+);
+select * from test;
+
+-- load 2 files fom the manifest
+CALL import_data_from_manifest(
+    0, 
+    'test',  									-- target_table
+    'test/manifest_test.csv',      				-- manifest_file
+    'src-aviation',                              -- source_bucket
+    'us-west-2',                                 -- region
+    '(FORMAT CSV, DELIMITER '','', HEADER)',      -- format_options
+	2											-- max_files_to_import
 );
 select * from test;
 drop table test;
