@@ -74,7 +74,8 @@ CALL import_data_from_manifest(
     'DB1B/ticket/manifest_db1b_ticket.csv',      -- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
+    '(FORMAT CSV, DELIMITER '','', HEADER)',     -- format_options
+	3 											 -- max_files_to_import 
 );
 
 -- 1.3. create fact table air_oai_facts.airfare_survey_itinerary
@@ -239,7 +240,8 @@ CALL import_data_from_manifest(
     'DB1B/coupon/manifest_db1b_coupon.csv',      -- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
+    '(FORMAT CSV, DELIMITER '','', HEADER)',     -- format_options
+	3 											 -- max_files_to_import 
 );
 
 --   2.3 Create air_oai_facts.airfare_survey_coupon
@@ -438,7 +440,8 @@ CALL import_data_from_manifest(
     'DB1B/market/manifest_db1b_market.csv',      -- manifest_file
     'src-aviation',                              -- source_bucket
     'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      -- format_options
+    '(FORMAT CSV, DELIMITER '','', HEADER)',     -- format_options
+	3 											 -- max_files_to_import 
 );
 
 -- 3.2. create fact table
@@ -637,7 +640,3 @@ SELECT itinerary_oai_id, market_oai_id, year_quarter_start_date, year_quarter_nb
 	, passenger_qty, market_fare_amount_usd, market_distance_smi
 	, market_flown_distance_smi, non_stop_distance_smi
 FROM air_oai_facts.airfare_survey_market;
-
-
-
-
