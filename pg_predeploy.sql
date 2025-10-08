@@ -102,7 +102,8 @@ CREATE OR REPLACE PROCEDURE import_data_from_manifest
     manifest_file TEXT,
     source_bucket TEXT,
     region TEXT DEFAULT 'us-west-2',
-   format_options TEXT DEFAULT '(FORMAT CSV, DELIMITER '','', HEADER)'
+    format_options TEXT DEFAULT '(FORMAT CSV, DELIMITER '','', HEADER)',
+	max_files_to_import INTEGER DEFAULT NULL 
 ) AS $$
 DECLARE
     uri_record RECORD;
@@ -137,8 +138,14 @@ BEGIN
         INTO total_files;
     RAISE NOTICE 'Found % files to import in manifest', total_files;
     
-    -- Loop through each URI in the manifest and import the data
-    FOR uri_record IN EXECUTE format('SELECT TRIM(file_uri) AS file_uri FROM %s WHERE TRIM(file_uri) <> %L', quote_ident(temp_table_name), '') LOOP
+	-- LIMIT the load to the requested number of files!
+    FOR uri_record IN EXECUTE format(
+	    'SELECT TRIM(file_uri) AS file_uri FROM %s WHERE TRIM(file_uri) <> %L ORDER BY TRIM(file_uri) DESC LIMIT %s',
+	    quote_ident(temp_table_name),
+	    '',
+	    max_files_to_import
+	)
+	LOOP
         -- Import the file using the provided URI directly
         BEGIN
             PERFORM aws_s3.table_import_from_s3(
