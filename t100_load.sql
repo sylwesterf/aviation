@@ -49,7 +49,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, depart_airport_oai_code 		varchar(5)
 	, depart_city_name 				varchar(75)
 	, depart_subdivision_iso_code 	varchar(5)
-	, depart_subdivision_fips_code 	int4
+	, depart_subdivision_fips_code 	varchar(5)
 	, depart_subdivision_name 		varchar(75)
 	, depart_country_iso_code 		varchar(5)
 	, depart_country_name 			varchar(75)
@@ -60,7 +60,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, arrive_airport_oai_code 		varchar(5)
 	, arrive_city_name 				varchar(75)
 	, arrive_subdivision_iso_code 	varchar(5)
-	, arrive_subdivision_fips_code 	int4
+	, arrive_subdivision_fips_code 	varchar(5)
 	, arrive_subdivision_name 		varchar(75)
 	, arrive_country_iso_code 		varchar(5)
 	, arrive_country_name 			varchar(75)
@@ -71,6 +71,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, distance_group_id 			int4
 	, service_class_code 			varchar(5)
 	, data_source_code 				varchar(5)
+	, filler_txt 					varchar(10)
 );
 
 -- 1.2. ingest t100 market csv data
@@ -137,7 +138,8 @@ order by f.airline_oai_code, f.depart_airport_oai_code, f.arrive_airport_oai_cod
 -- 1.4. create final fact table (air_oai_facts.airline_traffic_market) 
 drop table if exists air_oai_facts.airline_traffic_market;
 CREATE TABLE air_oai_facts.airline_traffic_market 
-	( airline_traffic_market_key				char(32)		not null
+( 
+	airline_traffic_market_key				char(32)		not null
 	, year_month_nbr							integer			not null
 	, airline_oai_code 							varchar(3) 		not null
 	, airline_effective_date					date			not null
@@ -270,7 +272,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 	, distance_group_id 					int4
 	, service_class_code 					char(1)
 	, data_source_code 						varchar(5)
-	--, filler_txt 							varchar(10)
+	, filler_txt 							varchar(10)
 );
 
 -- 2.2. stage t100 segment csv data
