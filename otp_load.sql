@@ -265,192 +265,188 @@ create index airline_flight_performance_mv_flight_date_idx on air_oai_facts.airl
 
 -- 3.2. define a "final" materialized view with some data transformations (timezone, data types)
 -- we'll load the data into individual fact tables from our materialized view 
-drop materialized view if exists air_oai_facts.airline_flight_performance_integrated_mv;
-create materialized view air_oai_facts.airline_flight_performance_integrated_mv 
-as
-select md5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::text||'|'||fp.depart_airport_oai_code)::char(32) as flight_key
-     , fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::text||'|'||fp.depart_airport_oai_code as flight_key_comp
-     , fp.flight_date::date								as flight_date
-	 , fp.airline_oai_code::varchar(3)					as airline_oai_code
-	 , ae.source_from_date								as airline_entity_from_date
-	 , ae.airline_entity_id								as airline_entity_id
-	 , ae.airline_entity_key							as airline_entity_key
-	 , lpad(fp.flight_nbr,4,'0')::char(4)				as flight_nbr
-	 , fp.flight_count::smallint						as flight_count
-	 , fp.tail_nbr::varchar(10)							as tail_nbr
-	 , fp.depart_airport_oai_code::char(3)				as depart_airport_oai_code
-	 , a.effective_from_date							as depart_airport_from_date 
-	 , a.airport_history_id								as depart_airport_history_id
-	 , a.airport_history_key							as depart_airport_history_key
-	 , a.time_zone_name									as depart_time_zone_name
-	 , fp.arrive_airport_oai_code::char(3)				as arrive_airport_oai_code
-	 , b.effective_from_date							as arrive_airport_from_date 
-	 , b.airport_history_id								as arrive_airport_history_id
-	 , b.airport_history_key							as arrive_airport_history_key
-	 , b.time_zone_name									as arrive_time_zone_name
-	 , case when cancelled_ind = 1 then 'cancelled' when diverted_ind = 1 then 'diverted' 
-	        when fp.airline_delay_min::smallint is not null then 'arrived_delayed'
-	        else 'arrived_on_time' end::varchar(25) as flight_status
-     , fp.cancelled_ind::smallint						as cancelled_ind
-	 , fp.cancellation_code::varchar(25)				as cancellation_code
-	 , fp.diverted_ind::smallint						as diverted_ind
-	 , fp.distance_smi::smallint						as distance_smi
-	 , (fp.distance_smi / 1.1508::float)::smallint		as distance_nmi
-	 , (fp.distance_smi * 1.60934::float)::smallint		as distance_kmt
-	 , fp.distance_group_id::smallint					as distance_group_id
-	 , fp.depart_time_block
-	 , fp.arrive_time_block
-	 , fp.report_depart_time_lcl
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(report_depart_time_lcl::time)::char(8))::timestamp) at time zone a.time_zone_name as report_depart_tmstz_lcl
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(report_depart_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 			  as report_depart_tmstz_utc
-	 , fp.report_arrive_time_lcl
-	 , timezone(b.time_zone_name, (flight_date::char(10)||' '||(report_arrive_time_lcl::time)::char(8))::timestamp) at time zone b.time_zone_name as report_arrive_tmstz_lcl
-	 , timezone(b.time_zone_name, (flight_date::char(10)||' '||(report_arrive_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 			  as report_arrive_tmstz_utc
-	 , fp.report_elapsed_time_min -- redundant?
-	 , fp.actual_depart_time_lcl
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(actual_depart_time_lcl::time)::char(8))::timestamp) at time zone a.time_zone_name as actual_depart_tmstz_lcl
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(actual_depart_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 			  as actual_depart_tmstz_utc
-	 , fp.actual_arrive_time_lcl
-	 , timezone(b.time_zone_name, (flight_date::char(10)||' '||(actual_arrive_time_lcl::time)::char(8))::timestamp) at time zone b.time_zone_name as actual_arrive_tmstz_lcl
-	 , timezone(b.time_zone_name, (flight_date::char(10)||' '||(actual_arrive_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 			  as actual_arrive_tmstz_utc
-	 , fp.actual_elapsed_time_min -- redundant?
-	 , fp.wheels_off_time_lcl
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(wheels_off_time_lcl::time)::char(8))::timestamp) at time zone a.time_zone_name as wheels_off_tmstz_lcl
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(wheels_off_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		   as wheels_off_tmstz_utc
-	 , fp.wheels_on_time_lcl
-	 , timezone(b.time_zone_name, (flight_date::char(10)||' '||(wheels_on_time_lcl::time)::char(8))::timestamp) at time zone b.time_zone_name as wheels_on_tmstz_lcl
-	 , timezone(b.time_zone_name, (flight_date::char(10)||' '||(wheels_on_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 			  as wheels_on_tmstz_utc
-	 , fp.airborne_time_min -- redundant?
-	 , fp.taxi_out_min::smallint						as taxi_out_min  -- redundant?
-	 , fp.taxi_in_min::smallint							as taxi_in_min  -- redundant?
-	 , fp.first_gate_depart_time
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(first_gate_depart_time::time)::char(8))::timestamp) at time zone a.time_zone_name as first_gate_depart_tmstz_lcl
-	 , timezone(a.time_zone_name, (flight_date::char(10)||' '||(first_gate_depart_time::time)::char(8))::timestamp) at time zone 'UTC' 			  as first_gate_depart_tmstz_utc
-	 , (fp.total_ground_time::numeric(3,0))::smallint	as total_ground_time
-	 , (fp.longest_ground_time::numeric(3,0))::smallint	as longest_ground_time
-	 , fp.airline_delay_min::smallint					as airline_delay_min
-	 , fp.weather_delay_min::smallint					as weather_delay_min
-	 , fp.nas_delay_min::smallint						as nas_delay_min
-	 , fp.security_delay_min::smallint					as security_delay_min
-	 , fp.late_aircraft_delay_min::smallint				as late_aircraft_delay_min
-	 , fp.diverted_airport_landing_count::smallint		as diverted_airport_landing_count
-	 , fp.diverted_reached_dest_ind::smallint			as diverted_reached_dest_ind
-	 , fp.diverted_actual_elapsed_time_min::smallint	as diverted_actual_elapsed_time_min
-	 , fp.diverted_arrive_delay_min::smallint			as diverted_arrive_delay_min
-	 , fp.diverted_distance_smi::integer				as diverted_distance_smi
-	 , fp.diverted1_airport_oai_code::char(3)			as diverted1_airport_oai_code
-	 , d1.effective_from_date							as diverted1_airport_from_date 
-     , d1.airport_history_id							as diverted1_airport_history_id
-	 , d1.airport_history_key							as diverted1_airport_history_key
-	 , d1.time_zone_name								as diverted1_time_zone_name
-	 , fp.diverted2_airport_oai_code::char(3)			as diverted2_airport_oai_code
-	 , d2.effective_from_date							as diverted2_airport_from_date 
-     , d2.airport_history_id							as diverted2_airport_history_id
-	 , d2.airport_history_key							as diverted2_airport_history_key
-	 , d2.time_zone_name								as diverted2_time_zone_name
-	 , fp.diverted3_airport_oai_code::char(3)			as diverted3_airport_oai_code
-	 , d3.effective_from_date							as diverted3_airport_from_date 
-     , d3.airport_history_id							as diverted3_airport_history_id
-	 , d3.airport_history_key							as diverted3_airport_history_key
-	 , d3.time_zone_name								as diverted3_time_zone_name
-	 , fp.diverted4_airport_oai_code::char(3)			as diverted4_airport_oai_code
-	 , d4.effective_from_date							as diverted4_airport_from_date 
-     , d4.airport_history_id							as diverted4_airport_history_id
-	 , d4.airport_history_key							as diverted4_airport_history_key
-	 , d4.time_zone_name								as diverted4_time_zone_name
-	 , fp.diverted5_airport_oai_code::char(3)			as diverted5_airport_oai_code
-	 , d5.effective_from_date							as diverted5_airport_from_date 
-     , d5.airport_history_id							as diverted5_airport_history_id
-	 , d5.airport_history_key							as diverted5_airport_history_key
-	 , d5.time_zone_name								as diverted5_time_zone_name
-	 , fp.diverted1_tail_nbr::varchar(10)				as diverted1_tail_nbr
-	 , fp.diverted2_tail_nbr::varchar(10)				as diverted2_tail_nbr
-	 , fp.diverted3_tail_nbr::varchar(10)				as diverted3_tail_nbr
-	 , fp.diverted4_tail_nbr::varchar(10)				as diverted4_tail_nbr
-	 , fp.diverted5_tail_nbr::varchar(10)				as diverted5_tail_nbr
-	 , fp.diverted1_wheels_on_time_lcl
-	 , timezone(d1.time_zone_name, (flight_date::char(10)||' '||(diverted1_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone d1.time_zone_name as diverted1_wheels_on_tmstz_lcl
-	 , timezone(d1.time_zone_name, (flight_date::char(10)||' '||(diverted1_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 			 as diverted1_wheels_on_tmstz_utc
-	 , fp.diverted1_wheels_off_time_lcl
-	 , timezone(d1.time_zone_name, (flight_date::char(10)||' '||(diverted1_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone d1.time_zone_name as diverted1_wheels_off_tmstz_lcl
-	 , timezone(d1.time_zone_name, (flight_date::char(10)||' '||(diverted1_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		      as diverted1_wheels_off_tmstz_utc
-	 , fp.diverted1_total_ground_time_min::smallint		as diverted1_total_ground_time_min
-	 , fp.diverted1_longest_ground_time_min::smallint	as diverted1_longest_ground_time_min
-	 , fp.diverted2_wheels_on_time_lcl
-	 , timezone(d2.time_zone_name, (flight_date::char(10)||' '||(diverted2_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone d2.time_zone_name as diverted2_wheels_on_tmstz_lcl
-	 , timezone(d2.time_zone_name, (flight_date::char(10)||' '||(diverted2_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		      as diverted2_wheels_on_tmstz_utc
-	 , fp.diverted2_wheels_off_time_lcl
-	 , timezone(d2.time_zone_name, (flight_date::char(10)||' '||(diverted2_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone d2.time_zone_name as diverted2_wheels_off_tmstz_lcl
-	 , timezone(d2.time_zone_name, (flight_date::char(10)||' '||(diverted2_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		       as diverted2_wheels_off_tmstz_utc
-	 , fp.diverted2_total_ground_time_min::smallint		as diverted2_total_ground_time_min
-	 , fp.diverted2_longest_ground_time_min::smallint	as diverted2_longest_ground_time_min
-	 , fp.diverted3_wheels_on_time_lcl
-	 , timezone(d3.time_zone_name, (flight_date::char(10)||' '||(diverted3_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone d3.time_zone_name as diverted3_wheels_on_tmstz_lcl
-	 , timezone(d3.time_zone_name, (flight_date::char(10)||' '||(diverted3_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		      as diverted3_wheels_on_tmstz_utc
-	 , fp.diverted3_wheels_off_time_lcl
-	 , timezone(d3.time_zone_name, (flight_date::char(10)||' '||(diverted3_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone d3.time_zone_name as diverted3_wheels_off_tmstz_lcl
-	 , timezone(d3.time_zone_name, (flight_date::char(10)||' '||(diverted3_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		       as diverted3_wheels_off_tmstz_utc
-	 , fp.diverted3_total_ground_time_min::smallint		as diverted3_total_ground_time_min
-	 , fp.diverted3_longest_ground_time_min::smallint	as diverted3_longest_ground_time_min
-	 , fp.diverted4_wheels_on_time_lcl
-	 , timezone(d4.time_zone_name, (flight_date::char(10)||' '||(diverted4_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone d4.time_zone_name as diverted4_wheels_on_tmstz_lcl
-	 , timezone(d4.time_zone_name, (flight_date::char(10)||' '||(diverted4_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		      as diverted4_wheels_on_tmstz_utc
-	 , fp.diverted4_wheels_off_time_lcl
-	 , timezone(d4.time_zone_name, (flight_date::char(10)||' '||(diverted4_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone d4.time_zone_name as diverted4_wheels_off_tmstz_lcl
-	 , timezone(d4.time_zone_name, (flight_date::char(10)||' '||(diverted4_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		       as diverted4_wheels_off_tmstz_utc
-	 , fp.diverted4_total_ground_time_min::smallint		as diverted4_total_ground_time_min
-	 , fp.diverted4_longest_ground_time_min::smallint	as diverted4_longest_ground_time_min
-	 , fp.diverted5_wheels_on_time_lcl
-	 , timezone(d5.time_zone_name, (flight_date::char(10)||' '||(diverted5_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone d5.time_zone_name as diverted5_wheels_on_tmstz_lcl
-	 , timezone(d5.time_zone_name, (flight_date::char(10)||' '||(diverted5_wheels_on_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		      as diverted5_wheels_on_tmstz_utc
-	 , fp.diverted5_wheels_off_time_lcl
-	 , timezone(d5.time_zone_name, (flight_date::char(10)||' '||(diverted5_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone d5.time_zone_name as diverted5_wheels_off_tmstz_lcl
-	 , timezone(d5.time_zone_name, (flight_date::char(10)||' '||(diverted5_wheels_off_time_lcl::time)::char(8))::timestamp) at time zone 'UTC' 		       as diverted5_wheels_off_tmstz_utc
-	 , fp.diverted5_total_ground_time_min::smallint		as diverted5_total_ground_time_min
-	 , fp.diverted5_longest_ground_time_min::smallint	as diverted5_longest_ground_time_min
-FROM air_oai_facts.airline_flight_performance_mv fp
-left outer join 
-(
-	select airline_entity_id, airline_entity_key, airline_oai_code, source_from_date, source_thru_date 
-	from air_oai_dims.airline_entities 
-	where operating_region_code = 'Domestic'
-) ae on fp.airline_oai_code = ae.airline_oai_code and fp.flight_date between ae.source_from_date and coalesce(ae.source_thru_date, current_date)
-left outer join 
-(
-	select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
-	from air_oai_dims.airport_history
-) a on fp.depart_airport_oai_code = a.airport_oai_code and fp.flight_date between a.effective_from_date and coalesce(a.effective_thru_date, current_date)
-left outer join 
-(
-	select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
-	from air_oai_dims.airport_history
-) b on fp.arrive_airport_oai_code = b.airport_oai_code and fp.flight_date between b.effective_from_date and coalesce(b.effective_thru_date, current_date)
-left outer join 
-(
-	select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
-	from air_oai_dims.airport_history
-) d1 on fp.diverted1_airport_oai_code = d1.airport_oai_code and fp.flight_date between d1.effective_from_date and coalesce(d1.effective_thru_date, current_date)
-left outer join 
-(
-	select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
-	from air_oai_dims.airport_history
-) d2 on fp.diverted2_airport_oai_code = d2.airport_oai_code and fp.flight_date between d2.effective_from_date and coalesce(d2.effective_thru_date, current_date)
-left outer join 
-(
-	select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
-	from air_oai_dims.airport_history
-) d3 on fp.diverted3_airport_oai_code = d3.airport_oai_code and fp.flight_date between d3.effective_from_date and coalesce(d3.effective_thru_date, current_date)
-left outer join 
-(
-	select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
-	from air_oai_dims.airport_history
-) d4 on fp.diverted4_airport_oai_code = d4.airport_oai_code and fp.flight_date between d4.effective_from_date and coalesce(d4.effective_thru_date, current_date)
-left outer join 
-(
-	select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
-	from air_oai_dims.airport_history
-) d5 on fp.diverted5_airport_oai_code = d5.airport_oai_code and fp.flight_date between d5.effective_from_date and coalesce(d5.effective_thru_date, current_date);
+DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.airline_flight_performance_integrated_mv;
+CREATE MATERIALIZED VIEW air_oai_facts.airline_flight_performance_integrated_mv AS
+SELECT
+    md5(fp.airline_oai_code || '|' || fp.flight_nbr || '|' || fp.flight_date::text || '|' || fp.depart_airport_oai_code)::char(32) AS flight_key,
+    fp.flight_date::date AS flight_date,
+    fp.airline_oai_code::varchar(3) AS airline_oai_code,
+    ae.source_from_date AS airline_entity_from_date,
+    ae.airline_entity_id AS airline_entity_id,
+    ae.airline_entity_key AS airline_entity_key,
+    lpad(fp.flight_nbr,4,'0')::char(4) AS flight_nbr,
+    COALESCE(ROUND(fp.flight_count::float),0)::smallint AS flight_count,
+    fp.tail_nbr::varchar(10) AS tail_nbr,
+    fp.depart_airport_oai_code::char(3) AS depart_airport_oai_code,
+    a.effective_from_date AS depart_airport_from_date,
+    a.airport_history_id AS depart_airport_history_id,
+    a.airport_history_key AS depart_airport_history_key,
+    a.time_zone_name AS depart_time_zone_name,
+    fp.arrive_airport_oai_code::char(3) AS arrive_airport_oai_code,
+    b.effective_from_date AS arrive_airport_from_date,
+    b.airport_history_id AS arrive_airport_history_id,
+    b.airport_history_key AS arrive_airport_history_key,
+    b.time_zone_name AS arrive_time_zone_name,
+    fp.cancellation_code::varchar(25) AS cancellation_code,
+    ROUND(fp.distance_smi::float)::smallint AS distance_smi,
+    ROUND((fp.distance_smi::float / 1.1508))::smallint AS distance_nmi,
+    ROUND((fp.distance_smi::float * 1.60934))::smallint AS distance_kmt,
+    COALESCE(ROUND(fp.distance_group_id::float),0)::smallint AS distance_group_id,
+    fp.depart_time_block,
+    fp.arrive_time_block,
 
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.report_depart_time_lcl::time)::char(8))::timestamp) AT TIME ZONE a.time_zone_name AS report_depart_tmstz_lcl,
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.report_depart_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS report_depart_tmstz_utc,
+    timezone(b.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.report_arrive_time_lcl::time)::char(8))::timestamp) AT TIME ZONE b.time_zone_name AS report_arrive_tmstz_lcl,
+    timezone(b.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.report_arrive_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS report_arrive_tmstz_utc,
+
+    fp.report_elapsed_time_min,
+    fp.actual_depart_time_lcl,
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.actual_depart_time_lcl::time)::char(8))::timestamp) AT TIME ZONE a.time_zone_name AS actual_depart_tmstz_lcl,
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.actual_depart_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS actual_depart_tmstz_utc,
+    fp.actual_arrive_time_lcl,
+    timezone(b.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.actual_arrive_time_lcl::time)::char(8))::timestamp) AT TIME ZONE b.time_zone_name AS actual_arrive_tmstz_lcl,
+    timezone(b.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.actual_arrive_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS actual_arrive_tmstz_utc,
+
+    fp.actual_elapsed_time_min,
+    fp.wheels_off_time_lcl,
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE a.time_zone_name AS wheels_off_tmstz_lcl,
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS wheels_off_tmstz_utc,
+    fp.wheels_on_time_lcl,
+    timezone(b.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE b.time_zone_name AS wheels_on_tmstz_lcl,
+    timezone(b.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS wheels_on_tmstz_utc,
+
+    fp.first_gate_depart_time,
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.first_gate_depart_time::time)::char(8))::timestamp) AT TIME ZONE a.time_zone_name AS first_gate_depart_tmstz_lcl,
+    timezone(a.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.first_gate_depart_time::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS first_gate_depart_tmstz_utc,
+
+    fp.airborne_time_min,
+    ROUND(fp.taxi_out_min::float)::smallint AS taxi_out_min,
+    ROUND(fp.taxi_in_min::float)::smallint AS taxi_in_min,
+    ROUND(fp.total_ground_time::float)::smallint AS total_ground_time,
+    ROUND(fp.longest_ground_time::float)::smallint AS longest_ground_time,
+    ROUND(fp.airline_delay_min::float)::smallint AS airline_delay_min,
+    ROUND(fp.weather_delay_min::float)::smallint AS weather_delay_min,
+    ROUND(fp.nas_delay_min::float)::smallint AS nas_delay_min,
+    ROUND(fp.security_delay_min::float)::smallint AS security_delay_min,
+    ROUND(fp.late_aircraft_delay_min::float)::smallint AS late_aircraft_delay_min,
+    COALESCE(ROUND(fp.cancelled_ind::float),0)::smallint AS cancelled_ind,
+    COALESCE(ROUND(fp.diverted_ind::float),0)::smallint AS diverted_ind,
+
+    -- DIVERTED 1
+    fp.diverted1_airport_oai_code::char(3) as diverted1_airport_oai_code,
+    d1.effective_from_date as diverted1_airport_from_date,
+    d1.airport_history_id as diverted1_airport_history_id,
+    d1.airport_history_key as diverted1_airport_history_key,
+    d1.time_zone_name as diverted1_time_zone_name,
+    fp.diverted1_tail_nbr::varchar(10) as diverted1_tail_nbr,
+    fp.diverted1_wheels_on_time_lcl,
+    timezone(d1.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted1_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d1.time_zone_name AS diverted1_wheels_on_tmstz_lcl,
+    timezone(d1.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted1_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted1_wheels_on_tmstz_utc,
+    fp.diverted1_wheels_off_time_lcl,
+    timezone(d1.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted1_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d1.time_zone_name AS diverted1_wheels_off_tmstz_lcl,
+    timezone(d1.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted1_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted1_wheels_off_tmstz_utc,
+    ROUND(fp.diverted1_total_ground_time_min::float)::smallint as diverted1_total_ground_time_min,
+    ROUND(fp.diverted1_longest_ground_time_min::float)::smallint as diverted1_longest_ground_time_min,
+
+    -- DIVERTED 2
+    fp.diverted2_airport_oai_code::char(3) as diverted2_airport_oai_code,
+    d2.effective_from_date as diverted2_airport_from_date,
+    d2.airport_history_id as diverted2_airport_history_id,
+    d2.airport_history_key as diverted2_airport_history_key,
+    d2.time_zone_name as diverted2_time_zone_name,
+    fp.diverted2_tail_nbr::varchar(10) as diverted2_tail_nbr,
+    fp.diverted2_wheels_on_time_lcl,
+    timezone(d2.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted2_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d2.time_zone_name AS diverted2_wheels_on_tmstz_lcl,
+    timezone(d2.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted2_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted2_wheels_on_tmstz_utc,
+    fp.diverted2_wheels_off_time_lcl,
+    timezone(d2.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted2_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d2.time_zone_name AS diverted2_wheels_off_tmstz_lcl,
+    timezone(d2.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted2_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted2_wheels_off_tmstz_utc,
+    ROUND(fp.diverted2_total_ground_time_min::float)::smallint as diverted2_total_ground_time_min,
+    ROUND(fp.diverted2_longest_ground_time_min::float)::smallint as diverted2_longest_ground_time_min,
+
+    -- DIVERTED 3
+    fp.diverted3_airport_oai_code::char(3) as diverted3_airport_oai_code,
+    d3.effective_from_date as diverted3_airport_from_date,
+    d3.airport_history_id as diverted3_airport_history_id,
+    d3.airport_history_key as diverted3_airport_history_key,
+    d3.time_zone_name as diverted3_time_zone_name,
+    fp.diverted3_tail_nbr::varchar(10) as diverted3_tail_nbr,
+    fp.diverted3_wheels_on_time_lcl,
+    timezone(d3.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted3_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d3.time_zone_name AS diverted3_wheels_on_tmstz_lcl,
+    timezone(d3.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted3_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted3_wheels_on_tmstz_utc,
+    fp.diverted3_wheels_off_time_lcl,
+    timezone(d3.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted3_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d3.time_zone_name AS diverted3_wheels_off_tmstz_lcl,
+    timezone(d3.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted3_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted3_wheels_off_tmstz_utc,
+    ROUND(fp.diverted3_total_ground_time_min::float)::smallint as diverted3_total_ground_time_min,
+    ROUND(fp.diverted3_longest_ground_time_min::float)::smallint as diverted3_longest_ground_time_min,
+
+    -- DIVERTED 4
+    fp.diverted4_airport_oai_code::char(3) as diverted4_airport_oai_code,
+    d4.effective_from_date as diverted4_airport_from_date,
+    d4.airport_history_id as diverted4_airport_history_id,
+    d4.airport_history_key as diverted4_airport_history_key,
+    d4.time_zone_name as diverted4_time_zone_name,
+    fp.diverted4_tail_nbr::varchar(10) as diverted4_tail_nbr,
+    fp.diverted4_wheels_on_time_lcl,
+    timezone(d4.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted4_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d4.time_zone_name AS diverted4_wheels_on_tmstz_lcl,
+    timezone(d4.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted4_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted4_wheels_on_tmstz_utc,
+    fp.diverted4_wheels_off_time_lcl,
+    timezone(d4.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted4_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d4.time_zone_name AS diverted4_wheels_off_tmstz_lcl,
+    timezone(d4.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted4_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted4_wheels_off_tmstz_utc,
+    ROUND(fp.diverted4_total_ground_time_min::float)::smallint as diverted4_total_ground_time_min,
+    ROUND(fp.diverted4_longest_ground_time_min::float)::smallint as diverted4_longest_ground_time_min,
+
+    -- DIVERTED 5
+    fp.diverted5_airport_oai_code::char(3) as diverted5_airport_oai_code,
+    d5.effective_from_date as diverted5_airport_from_date,
+    d5.airport_history_id as diverted5_airport_history_id,
+    d5.airport_history_key as diverted5_airport_history_key,
+    d5.time_zone_name as diverted5_time_zone_name,
+    fp.diverted5_tail_nbr::varchar(10) as diverted5_tail_nbr,
+    fp.diverted5_wheels_on_time_lcl,
+    timezone(d5.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted5_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d5.time_zone_name AS diverted5_wheels_on_tmstz_lcl,
+    timezone(d5.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted5_wheels_on_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted5_wheels_on_tmstz_utc,
+    fp.diverted5_wheels_off_time_lcl,
+    timezone(d5.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted5_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE d5.time_zone_name AS diverted5_wheels_off_tmstz_lcl,
+    timezone(d5.time_zone_name, (fp.flight_date::char(10) || ' ' || (fp.diverted5_wheels_off_time_lcl::time)::char(8))::timestamp) AT TIME ZONE 'UTC' AS diverted5_wheels_off_tmstz_utc,
+    ROUND(fp.diverted5_total_ground_time_min::float)::smallint as diverted5_total_ground_time_min,
+    ROUND(fp.diverted5_longest_ground_time_min::float)::smallint as diverted5_longest_ground_time_min,
+
+    CASE
+        WHEN COALESCE(ROUND(fp.cancelled_ind::float),0) = 1 THEN 'cancelled'
+        WHEN COALESCE(ROUND(fp.diverted_ind::float),0) = 1 THEN 'diverted'
+        WHEN ROUND(fp.airline_delay_min::float) IS NOT NULL THEN 'arrived_delayed'
+        ELSE 'arrived_on_time'
+    END::varchar(25) AS flight_status
+
+FROM air_oai_facts.airline_flight_performance_mv fp
+
+LEFT JOIN (SELECT airline_entity_id, airline_entity_key, airline_oai_code, source_from_date, source_thru_date 
+           FROM air_oai_dims.airline_entities WHERE operating_region_code = 'Domestic') ae 
+  ON fp.airline_oai_code = ae.airline_oai_code AND fp.flight_date BETWEEN ae.source_from_date AND COALESCE(ae.source_thru_date, CURRENT_DATE)
+LEFT JOIN (SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
+           FROM air_oai_dims.airport_history) a 
+  ON fp.depart_airport_oai_code = a.airport_oai_code AND fp.flight_date BETWEEN a.effective_from_date AND COALESCE(a.effective_thru_date, CURRENT_DATE)
+LEFT JOIN (SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
+           FROM air_oai_dims.airport_history) b 
+  ON fp.arrive_airport_oai_code = b.airport_oai_code AND fp.flight_date BETWEEN b.effective_from_date AND COALESCE(b.effective_thru_date, CURRENT_DATE)
+LEFT JOIN (SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
+           FROM air_oai_dims.airport_history) d1 
+  ON fp.diverted1_airport_oai_code = d1.airport_oai_code AND fp.flight_date BETWEEN d1.effective_from_date AND COALESCE(d1.effective_thru_date, CURRENT_DATE)
+LEFT JOIN (SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
+           FROM air_oai_dims.airport_history) d2 
+  ON fp.diverted2_airport_oai_code = d2.airport_oai_code AND fp.flight_date BETWEEN d2.effective_from_date AND COALESCE(d2.effective_thru_date, CURRENT_DATE)
+LEFT JOIN (SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
+           FROM air_oai_dims.airport_history) d3 
+  ON fp.diverted3_airport_oai_code = d3.airport_oai_code AND fp.flight_date BETWEEN d3.effective_from_date AND COALESCE(d3.effective_thru_date, CURRENT_DATE)
+LEFT JOIN (SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
+           FROM air_oai_dims.airport_history) d4 
+  ON fp.diverted4_airport_oai_code = d4.airport_oai_code AND fp.flight_date BETWEEN d4.effective_from_date AND COALESCE(d4.effective_thru_date, CURRENT_DATE)
+LEFT JOIN (SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name 
+           FROM air_oai_dims.airport_history) d5 
+  ON fp.diverted5_airport_oai_code = d5.airport_oai_code AND fp.flight_date BETWEEN d5.effective_from_date AND COALESCE(d5.effective_thru_date, CURRENT_DATE)
+;
 
 -- 4.1. air_oai_facts.airline_flights_scheduled
 drop table if exists air_oai_facts.airline_flights_scheduled;
@@ -488,9 +484,7 @@ SELECT flight_key --, flight_key_comp
 	        then report_arrive_tmstz_utc + (interval '24 hours')
 	        else report_arrive_tmstz_utc end as report_arrive_tmstz_utc
 	 , report_elapsed_time_min
-     --, case when report_arrive_tmstz_utc <= report_depart_tmstz_utc 
-	 --       then report_arrive_tmstz_utc + (interval '24 hours')
-	 --       else report_arrive_tmstz_utc end - report_depart_tmstz_utc as report_elapsed_time_min1
+	 , flight_status       
 	 , current_user::varchar(32) as created_by
      , current_timestamp::timestamp(0) as created_ts
      , null::varchar(32) as updated_by
@@ -900,6 +894,65 @@ SELECT flight_key --, flight_key_comp
 FROM air_oai_facts.airline_flight_performance_integrated_mv
 where diverted_ind = 1
 and diverted5_airport_history_id is not null;
+
+--MERGEOTP2
+-- Backup current scheduled table (recommended)
+DROP TABLE IF EXISTS air_oai_facts.airline_flights_scheduled_bak;
+CREATE TABLE air_oai_facts.airline_flights_scheduled_bak AS
+    SELECT * FROM air_oai_facts.airline_flights_scheduled;
+
+-- Create merged table using all types of flights
+DROP TABLE IF EXISTS air_oai_facts.airline_flights_scheduled_new;
+CREATE TABLE air_oai_facts.airline_flights_scheduled_new
+AS
+    SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key,
+           flight_nbr, flight_count, tail_nbr,
+           depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key,
+           arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key,
+           distance_smi, distance_nmi, distance_kmt, distance_group_id,
+           depart_time_block, arrive_time_block,
+           report_depart_tmstz_lcl, report_depart_tmstz_utc, report_arrive_tmstz_lcl, report_arrive_tmstz_utc,
+           report_elapsed_time_min, flight_status,
+           created_by, created_ts, updated_by, updated_ts
+      FROM air_oai_facts.airline_flights_scheduled
+    UNION
+    SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key,
+           flight_nbr, flight_count, tail_nbr,
+           depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key,
+           arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key,
+           distance_smi, distance_nmi, distance_kmt, distance_group_id,
+           depart_time_block, arrive_time_block,
+           report_depart_tmstz_lcl, report_depart_tmstz_utc, report_arrive_tmstz_lcl, report_arrive_tmstz_utc,
+           report_elapsed_time_min, flight_status,
+           created_by, created_ts, updated_by, updated_ts
+      FROM air_oai_facts.airline_flights_cancelled
+    UNION
+    SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key,
+           flight_nbr, flight_count, tail_nbr,
+           depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key,
+           arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key,
+           distance_smi, distance_nmi, distance_kmt, distance_group_id,
+           depart_time_block, arrive_time_block,
+           report_depart_tmstz_lcl, report_depart_tmstz_utc, report_arrive_tmstz_lcl, report_arrive_tmstz_utc,
+           report_elapsed_time_min, flight_status,
+           created_by, created_ts, updated_by, updated_ts
+      FROM air_oai_facts.airline_flights_diverted;
+
+-- Replace the original table with the merged version
+ALTER TABLE air_oai_facts.airline_flights_scheduled RENAME TO airline_flights_scheduled_bak2;
+ALTER TABLE air_oai_facts.airline_flights_scheduled_new RENAME TO airline_flights_scheduled;
+
+-- Reapply primary key constraint
+DO $$
+BEGIN
+    BEGIN
+        ALTER TABLE air_oai_facts.airline_flights_scheduled DROP CONSTRAINT airline_flights_scheduled_pk;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+END$$;
+ALTER TABLE air_oai_facts.airline_flights_scheduled
+    ADD CONSTRAINT airline_flights_scheduled_pk PRIMARY KEY (flight_key);
+--MERGEOTP2
 
 
 -- 5. add keys and indexes
