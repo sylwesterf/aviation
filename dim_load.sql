@@ -61,9 +61,9 @@ create table air_oai_dims.aircraft_types_fdw
 
 -- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
 -- 1.2.1. mstr psql version of the data load
--- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES_2024-01-16.csv' CSV HEADER";
+-- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES.csv' CSV HEADER";
 -- 1.2.2. AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.aircraft_types_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_AIRCRAFT_TYPES_2024-01-16.csv', 'us-west-2'));
+SELECT aws_s3.table_import_from_s3('air_oai_dims.aircraft_types_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_AIRCRAFT_TYPES.csv', 'us-west-2'));
 
 -- 1.3. define final dimensional table air_oai_dims.aircraft_types
 drop table if exists air_oai_dims.aircraft_types;
@@ -109,8 +109,8 @@ select f.aircraft_type_oai_nbr
 	 , current_user
      , current_timestamp
 from air_oai_dims.aircraft_types_fdw f
-left outer join air_oai_dims.aircraft_types t on f.aircraft_type_oai_nbr = t.aircraft_type_oai_nbr
-where t.aircraft_type_oai_nbr is null;
+--left outer join air_oai_dims.aircraft_types t on f.aircraft_type_oai_nbr = t.aircraft_type_oai_nbr
+--where t.aircraft_type_oai_nbr is null;
 
 
 -- 2.1. create air_oai_dims.wac_country_state_fdw table in postgre
@@ -139,7 +139,7 @@ CREATE TABLE air_oai_dims.wac_country_state_fdw
 -- 2.2.1 mstr psql version of the data load
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.wac_country_state_fdw FROM 'T_WAC_COUNTRY_STATE.csv' CSV HEADER";
 -- 2.2.2 AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.wac_country_state_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_WAC_COUNTRY_STATE_2024-01-16.csv', 'us-west-2')); 
+SELECT aws_s3.table_import_from_s3('air_oai_dims.wac_country_state_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_WAC_COUNTRY_STATE.csv', 'us-west-2')); 
 
 -- 2.3. define final dimensional table air_oai_dims.world_areas
 drop table if exists air_oai_dims.world_areas;
@@ -169,7 +169,7 @@ create table air_oai_dims.world_areas
 	, constraint world_areas_pk primary key (world_area_oai_seq_id)
 	, constraint world_areas_ak unique (world_area_key)
 	, constraint world_areas_nk unique (world_area_oai_id, effective_from_date)
-	);
+);
 
 
 -- 2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
@@ -241,7 +241,7 @@ CREATE TABLE air_oai_dims.carrier_decode_fdw
 -- 3.2.1 mstr psql version of the data load
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.carrier_decode_fdw FROM 'T_CARRIER_DECODE.csv' CSV HEADER";
 -- 3.2.2 AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.carrier_decode_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_CARRIER_DECODE_2024-01-16.csv', 'us-west-2')); 
+SELECT aws_s3.table_import_from_s3('air_oai_dims.carrier_decode_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_CARRIER_DECODE.csv', 'us-west-2')); 
 
 -- 3.3. create air_oai_dims.airline_entities table in postgre
 drop table if exists air_oai_dims.airline_entities;
@@ -313,9 +313,9 @@ select md5(f.airline_oai_code||'~'||f.entity_oai_code||'~'||f.source_from_date::
 	, current_user
 	, current_timestamp
 from air_oai_dims.carrier_decode_fdw f
-left outer join air_oai_dims.airline_entities e on f.airline_oai_code = e.airline_oai_code and f.entity_oai_code = e.entity_oai_code and f.source_from_date = e.source_from_date
-where e.airline_oai_code is null
-and f.airline_oai_code != '3KQ' -- this code or set of codes was found to be non-unique
+--left outer join air_oai_dims.airline_entities e on f.airline_oai_code = e.airline_oai_code and f.entity_oai_code = e.entity_oai_code and f.source_from_date = e.source_from_date
+where --e.airline_oai_code is null and 
+f.airline_oai_code != '3KQ' -- this code or set of codes was found to be non-unique
 order by f.airline_usdot_id, f.airline_oai_code, f.entity_oai_code, f.source_from_date;
 
 -- 3.4.2 copy data into air_oai_dims.airline_entities from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
@@ -417,7 +417,7 @@ CREATE TABLE air_oai_dims.master_cord_fdw
 -- 4.2.1 mstr psql version of the data load
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.master_cord_fdw FROM 'T_MASTER_CORD.csv' CSV HEADER";
 -- 4.2.2 AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.master_cord_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_MASTER_CORD_2024-01-16.csv', 'us-west-2')); 
+SELECT aws_s3.table_import_from_s3('air_oai_dims.master_cord_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_MASTER_CORD.csv', 'us-west-2')); 
 
 -- 4.3. create air_oai_dims.airport_history table in postgre
 drop table if exists air_oai_dims.airport_history;
@@ -526,10 +526,10 @@ SELECT md5(upper(m.airport_oai_code)||'~'||m.airport_effective_from_date::char(1
 	, current_user
 	, current_timestamp
 FROM air_oai_dims.master_cord_fdw m
-left join air_oai_dims.airport_history h 
-  on m.airport_oai_code = h.airport_oai_code 
- and m.airport_effective_from_date = h.effective_from_date
-where h.airport_oai_code is null;
+--left join air_oai_dims.airport_history h 
+--  on m.airport_oai_code = h.airport_oai_code 
+-- and m.airport_effective_from_date = h.effective_from_date
+--where h.airport_oai_code is null;
 
 -- 4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas  
 update air_oai_dims.airport_history
