@@ -88,7 +88,7 @@ CALL import_data_from_manifest(
     'src-aviation',                              		-- source_bucket
     'us-west-2',                                 		-- region
     '(FORMAT CSV, DELIMITER '','', HEADER)'      		-- format_options
-	,3 													-- max_files_to_import 
+	,null 													-- max_files_to_import 
 );
 
 -- to load data with and withoud 'filler_txt' column -- 10.120.965 rows.
