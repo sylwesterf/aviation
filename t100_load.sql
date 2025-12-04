@@ -652,8 +652,8 @@ alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic
 foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
 -- 8. create presentation layer views
--- drop view if exists aviation.aircraft_configurations_v;
-create or replace view air_oai_dims.aircraft_configurations_v as
+--drop view if exists airlines_pg.aircraft_configurations_v;
+create or replace view airlines_pg.aircraft_configurations_v as
 SELECT aircraft_configuration_ref
 	 , aircraft_configuration_descr
 FROM air_oai_dims.aircraft_configurations;
