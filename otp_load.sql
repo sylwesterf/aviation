@@ -11,11 +11,15 @@
 --  3.1. air_oai_facts.airline_flight_performance_mv 
 --  3.2. air_oai_facts.airline_flight_performance_integrated_mv (timezone, keys, data types)
 -- 4. create fact tables by pulling the data from air_oai_facts.airline_flight_performance_integrated_mv with appropriate conditions:
---  4.1. air_oai_facts.airline_flights_scheduled (cancelled_ind = 0 AND diverted_ind = 0)
---  4.2. air_oai_facts.airline_flights_completed (cancelled_ind = 0 AND diverted_ind = 0)
---  4.3. air_oai_facts.airline_flights_cancelled (cancelled_ind = 1)
---  4.4. air_oai_facts.airline_flights_diverted (diverted_ind = 1)
---  4.5. air_oai_facts.airline_flights_diverted_legs (union different number of flight diversions, diverted_ind = 1 AND diverted<1-5>_airport_history_id is not null)
+--  4.1. air_oai_facts.airline_flights_completed (cancelled_ind = 0 AND diverted_ind = 0)
+--  4.2. air_oai_facts.airline_flights_cancelled (cancelled_ind = 1)
+--  4.3. air_oai_facts.airline_flights_diverted (diverted_ind = 1)
+--  4.4. air_oai_facts.airline_flights_diverted_legs (union different number of flight diversions, diverted_ind = 1 AND diverted<1-5>_airport_history_id is not null)
+--  4.5. air_oai_facts.airline_flights_scheduled 
+--   4.5.1. base data insert (completed flights)
+--   4.5.2. update flight status
+--   4.5.3. insert cancelled flights
+--   4.5.4. insert diverted flights
 -- 5. add keys and indexes
 -- 6. create presentation layer views
 ----------------------------------------------------
@@ -452,54 +456,7 @@ left outer join
 ) d5 on fp.diverted5_airport_oai_code = d5.airport_oai_code and fp.flight_date between d5.effective_from_date and coalesce(d5.effective_thru_date, current_date);
 
 
--- 4.1. air_oai_facts.airline_flights_scheduled
-drop table if exists air_oai_facts.airline_flights_scheduled;
-create table air_oai_facts.airline_flights_scheduled 
-as 
-SELECT flight_key --, flight_key_comp
-	 , flight_date
-	 , airline_oai_code
-	 , airline_entity_from_date
-	 , airline_entity_id
-	 , airline_entity_key
-	 , flight_nbr
-	 , flight_count
-	 , tail_nbr
-	 , depart_airport_oai_code
-	 , depart_airport_from_date
-	 , depart_airport_history_id
-	 , depart_airport_history_key
-	 , arrive_airport_oai_code
-	 , arrive_airport_from_date
-	 , arrive_airport_history_id
-	 , arrive_airport_history_key
-	 , distance_smi
-	 , distance_nmi
-	 , distance_kmt
-	 , distance_group_id
-	 , depart_time_block
-	 , arrive_time_block
-	 , report_depart_tmstz_lcl
-	 , report_depart_tmstz_utc
-	 , case when report_arrive_tmstz_utc <= report_depart_tmstz_utc 
-	        then report_arrive_tmstz_lcl + (interval '24 hours')
-	        else report_arrive_tmstz_lcl end as report_arrive_tmstz_lcl
-	 , case when report_arrive_tmstz_utc <= report_depart_tmstz_utc 
-	        then report_arrive_tmstz_utc + (interval '24 hours')
-	        else report_arrive_tmstz_utc end as report_arrive_tmstz_utc
-	 , report_elapsed_time_min
-     --, case when report_arrive_tmstz_utc <= report_depart_tmstz_utc 
-	 --       then report_arrive_tmstz_utc + (interval '24 hours')
-	 --       else report_arrive_tmstz_utc end - report_depart_tmstz_utc as report_elapsed_time_min1
-	 , current_user::varchar(32) as created_by
-     , current_timestamp::timestamp(0) as created_ts
-     , null::varchar(32) as updated_by
-     , null::timestamp(0) as updated_ts 
-FROM air_oai_facts.airline_flight_performance_integrated_mv
-where cancelled_ind = 0 and diverted_ind = 0;
-
-
--- 4.2. air_oai_facts.airline_flights_completed 
+-- 4.1. air_oai_facts.airline_flights_completed 
 drop table if exists air_oai_facts.airline_flights_completed;
 create table air_oai_facts.airline_flights_completed 
 as
@@ -585,11 +542,10 @@ SELECT flight_key --, flight_key_comp
      , null::varchar(32) as updated_by
      , null::timestamp(0) as updated_ts 
 FROM air_oai_facts.airline_flight_performance_integrated_mv
-where cancelled_ind = 0
-and diverted_ind = 0;
+where cancelled_ind = 0 and diverted_ind = 0;
 
 
--- 4.3. air_oai_facts.airline_flights_cancelled 
+-- 4.2. air_oai_facts.airline_flights_cancelled 
 drop table if exists air_oai_facts.airline_flights_cancelled;
 create table air_oai_facts.airline_flights_cancelled 
 as
@@ -644,7 +600,8 @@ SELECT flight_key --, flight_key_comp
 FROM air_oai_facts.airline_flight_performance_integrated_mv
 where cancelled_ind = 1;
 
--- 4.4. air_oai_facts.airline_flights_diverted
+
+-- 4.3. air_oai_facts.airline_flights_diverted
 drop table if exists air_oai_facts.airline_flights_diverted;
 create table air_oai_facts.airline_flights_diverted 
 as
@@ -713,7 +670,7 @@ FROM air_oai_facts.airline_flight_performance_integrated_mv
 where diverted_ind = 1;
 
 
--- 4.5. air_oai_facts.airline_flights_diverted_legs 
+-- 4.4. air_oai_facts.airline_flights_diverted_legs 
 drop table if exists air_oai_facts.airline_flights_diverted_legs;
 create table air_oai_facts.airline_flights_diverted_legs as
 SELECT flight_key --, flight_key_comp
@@ -902,31 +859,100 @@ where diverted_ind = 1
 and diverted5_airport_history_id is not null;
 
 
+-- 4.5. air_oai_facts.airline_flights_scheduled
+-- 4.5.1. base data insert (completed flights)
+drop table if exists air_oai_facts.airline_flights_scheduled;
+create table air_oai_facts.airline_flights_scheduled 
+as 
+SELECT flight_key --, flight_key_comp
+	 , flight_date
+	 , airline_oai_code
+	 , airline_entity_from_date
+	 , airline_entity_id
+	 , airline_entity_key
+	 , flight_nbr
+	 , flight_count
+	 , tail_nbr
+	 , depart_airport_oai_code
+	 , depart_airport_from_date
+	 , depart_airport_history_id
+	 , depart_airport_history_key
+	 , arrive_airport_oai_code
+	 , arrive_airport_from_date
+	 , arrive_airport_history_id
+	 , arrive_airport_history_key
+	 , distance_smi
+	 , distance_nmi
+	 , distance_kmt
+	 , distance_group_id
+	 , depart_time_block
+	 , arrive_time_block
+	 , report_depart_tmstz_lcl
+	 , report_depart_tmstz_utc
+	 , case when report_arrive_tmstz_utc <= report_depart_tmstz_utc 
+	        then report_arrive_tmstz_lcl + (interval '24 hours')
+	        else report_arrive_tmstz_lcl end as report_arrive_tmstz_lcl
+	 , case when report_arrive_tmstz_utc <= report_depart_tmstz_utc 
+	        then report_arrive_tmstz_utc + (interval '24 hours')
+	        else report_arrive_tmstz_utc end as report_arrive_tmstz_utc
+	 , report_elapsed_time_min
+     , flight_status  
+	 , current_user::varchar(32) as created_by
+     , current_timestamp::timestamp(0) as created_ts
+     , null::varchar(32) as updated_by
+     , null::timestamp(0) as updated_ts 
+FROM air_oai_facts.airline_flight_performance_integrated_mv
+where cancelled_ind = 0 and diverted_ind = 0;
+
+-- 4.5.2. update flight status
+update air_oai_facts.airline_flights_scheduled
+set updated_by = current_user
+	, updated_ts = now()
+    , flight_status = a.flight_status
+from (select flight_key, flight_status from air_oai_facts.airline_flights_cancelled) a
+where air_oai_facts.airline_flights_scheduled_new.flight_key = a.flight_key; -- zero
+
+update air_oai_facts.airline_flights_scheduled
+set updated_by = current_user
+	, updated_ts = now()
+    , flight_status = a.flight_status
+from (select flight_key, flight_status from air_oai_facts.airline_flights_diverted) a
+where air_oai_facts.airline_flights_scheduled_new.flight_key = a.flight_key; -- zero
+
+update air_oai_facts.airline_flights_scheduled
+set updated_by = current_user
+	, updated_ts = now()
+    , flight_status = a.flight_status
+from (select flight_key, flight_status from air_oai_facts.airline_flights_completed) a
+where air_oai_facts.airline_flights_scheduled_new.flight_key = a.flight_key; -- 7,142,354
+
+-- 4.5.3. insert cancelled flights
+INSERT INTO aviation.air_oai_facts.airline_flights_scheduled
+SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+    , flight_nbr, flight_count, tail_nbr
+    , depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+    , arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
+    , distance_smi, distance_nmi, distance_kmt, distance_group_id
+    , depart_time_block, arrive_time_block
+    , report_depart_tmstz_lcl, report_depart_tmstz_utc, report_arrive_tmstz_lcl, report_arrive_tmstz_utc
+    , report_elapsed_time_min, flight_status
+    , created_by, created_ts, updated_by, updated_ts
+FROM air_oai_facts.airline_flights_cancelled;
+
+-- 4.5.4. insert diverted flights
+INSERT INTO aviation.air_oai_facts.airline_flights_scheduled_new
+SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+    , flight_nbr, flight_count, tail_nbr
+    , depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+    , arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
+    , distance_smi, distance_nmi, distance_kmt, distance_group_id
+    , depart_time_block, arrive_time_block
+    , report_depart_tmstz_lcl, report_depart_tmstz_utc, report_arrive_tmstz_lcl, report_arrive_tmstz_utc
+    , report_elapsed_time_min, flight_status
+    , created_by, created_ts, updated_by, updated_ts
+FROM air_oai_facts.airline_flights_diverted; -- 17,791
+
 -- 5. add keys and indexes
--- air_oai_facts.airline_flights_scheduled
-alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_pk primary key (flight_key);
-create unique index airline_flights_scheduled_ak on air_oai_facts.airline_flights_scheduled(airline_oai_code, flight_nbr, flight_date, depart_airport_oai_code);
-
-create index airline_flights_scheduled_carrier_idx on air_oai_facts.airline_flights_scheduled (airline_oai_code);
-create index airline_flights_scheduled_flight_date_idx on air_oai_facts.airline_flights_scheduled (flight_date);
-create index airline_flights_scheduled_flight_lane_idx on air_oai_facts.airline_flights_scheduled (depart_airport_oai_code, arrive_airport_oai_code);
-create index airline_flights_scheduled_depart_airport_idx on air_oai_facts.airline_flights_scheduled (depart_airport_oai_code);
-create index airline_flights_scheduled_arrive_airport_idx on air_oai_facts.airline_flights_scheduled (arrive_airport_oai_code);
-
-alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_airline_id_fk 
-foreign key (airline_entity_id) references air_oai_dims.airline_entities (airline_entity_id);
-alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_depart_airport_id_fk 
-foreign key (depart_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
-alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_arrive_airport_id_fk 
-foreign key (arrive_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
-
-alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_airline_key_fk 
-foreign key (airline_entity_key) references air_oai_dims.airline_entities (airline_entity_key);
-alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_depart_airport_key_fk 
-foreign key (depart_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
-alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_arrive_airport_key_fk 
-foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
-
 -- air_oai_facts.airline_flights_completed
 alter table air_oai_facts.airline_flights_completed add constraint airline_flights_completed_pk primary key (flight_key);
 create unique index airline_flights_completed_ak on air_oai_facts.airline_flights_completed(airline_oai_code, flight_nbr, flight_date, depart_airport_oai_code);
@@ -1027,23 +1053,31 @@ foreign key (original_arrive_airport_history_key) references air_oai_dims.airpor
 alter table air_oai_facts.airline_flights_diverted_legs add constraint airline_flights_diverted_legs_diverted_airport_key_fk 
 foreign key (diverted_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
--- 6. create presentation layer views
--- drop view if exists airlines_pg.airline_flights_scheduled_v;
-create or replace view airlines_pg.airline_flights_scheduled_v as
-SELECT flight_key, flight_date
-	, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
-	, flight_nbr, flight_count, tail_nbr
-	, depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
-	, arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
-	, distance_smi, distance_nmi, distance_kmt, distance_group_id
-	, depart_time_block, arrive_time_block
-	, report_depart_tmstz_lcl, report_depart_tmstz_lcl::date as report_depart_date_lcl
-	, report_depart_tmstz_utc, report_depart_tmstz_utc::date as report_depart_date_utc
-	, report_arrive_tmstz_lcl, report_arrive_tmstz_lcl::date as report_arrive_date_lcl
-	, report_arrive_tmstz_utc, report_arrive_tmstz_utc::date as report_arrive_date_utc
-	, report_elapsed_time_min
-FROM air_oai_facts.airline_flights_scheduled;
+-- air_oai_facts.airline_flights_scheduled
+alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_pk primary key (flight_key);
+create unique index airline_flights_scheduled_ak on air_oai_facts.airline_flights_scheduled(airline_oai_code, flight_nbr, flight_date, depart_airport_oai_code); --natural key
 
+create index airline_flights_scheduled_carrier_idx on air_oai_facts.airline_flights_scheduled (airline_oai_code);
+create index airline_flights_scheduled_flight_date_idx on air_oai_facts.airline_flights_scheduled (flight_date);
+create index airline_flights_scheduled_flight_lane_idx on air_oai_facts.airline_flights_scheduled (depart_airport_oai_code, arrive_airport_oai_code);
+create index airline_flights_scheduled_depart_airport_idx on air_oai_facts.airline_flights_scheduled (depart_airport_oai_code);
+create index airline_flights_scheduled_arrive_airport_idx on air_oai_facts.airline_flights_scheduled (arrive_airport_oai_code);
+
+alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_airline_id_fk 
+foreign key (airline_entity_id) references air_oai_dims.airline_entities (airline_entity_id);
+alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_depart_airport_id_fk 
+foreign key (depart_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_arrive_airport_id_fk 
+foreign key (arrive_airport_history_id) references air_oai_dims.airport_history (airport_history_id);
+
+alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_airline_key_fk 
+foreign key (airline_entity_key) references air_oai_dims.airline_entities (airline_entity_key);
+alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_depart_airport_key_fk 
+foreign key (depart_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
+alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_arrive_airport_key_fk 
+foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
+
+-- 6. create presentation layer views
 -- drop view if exists airlines_pg.airline_flights_completed_v;
 create or replace view airlines_pg.airline_flights_completed_v as
 SELECT flight_key, flight_date
@@ -1137,3 +1171,19 @@ SELECT flight_key, diversion_nbr, flight_date
 	, diverted_wheels_off_tmstz_lcl, diverted_wheels_off_tmstz_utc
 	, diverted_total_ground_time_min, diverted_longest_ground_time_min
 FROM air_oai_facts.airline_flights_diverted_legs;
+
+-- drop view if exists airlines_pg.airline_flights_scheduled_v;
+create or replace view airlines_pg.airline_flights_scheduled_v as
+SELECT flight_key, flight_date
+	, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
+	, flight_nbr, flight_count, tail_nbr
+	, depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
+	, arrive_airport_oai_code, arrive_airport_from_date, arrive_airport_history_id, arrive_airport_history_key
+	, distance_smi, distance_nmi, distance_kmt, distance_group_id
+	, depart_time_block, arrive_time_block
+	, report_depart_tmstz_lcl, report_depart_tmstz_lcl::date as report_depart_date_lcl
+	, report_depart_tmstz_utc, report_depart_tmstz_utc::date as report_depart_date_utc
+	, report_arrive_tmstz_lcl, report_arrive_tmstz_lcl::date as report_arrive_date_lcl
+	, report_arrive_tmstz_utc, report_arrive_tmstz_utc::date as report_arrive_date_utc
+	, report_elapsed_time_min
+FROM air_oai_facts.airline_flights_scheduled;
