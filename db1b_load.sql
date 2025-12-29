@@ -106,48 +106,74 @@ create table air_oai_facts.airfare_survey_itinerary
 	 , constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 1.4. create partioning
-DO $$
+
+-- 1.4. create partitioning function
+
+CREATE OR REPLACE FUNCTION air_oai_facts.create_quarter_partitions(
+    p_parent_table   text,  -- fully qualified parent table, e.g. 'air_oai_facts.airfare_survey_itinerary'
+    p_child_prefix   text,  -- fully qualified prefix for child partitions, e.g. 'air_oai_facts.airfare_survey_itinerary_'
+    p_start_year     int,
+    p_end_year       int,
+    p_last_year_max_qtr int  -- max quarter to create for the last year (e.g. 1 for 2024Q1)
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
 DECLARE
-    year_val INT;
-    quarter_val INT;
-    start_date DATE;
-    end_date DATE;
-    table_name TEXT;
-    sql_stmt TEXT;
+    year_val    int;
+    quarter_val int;
+    start_date  date;
+    end_date    date;
+    table_name  text;
+    sql_stmt    text;
 BEGIN
-    FOR year_val IN 1993..2024 LOOP
+    FOR year_val IN p_start_year..p_end_year LOOP
         FOR quarter_val IN 1..4 LOOP
-            -- Skip future quarters in 2024
-            IF (year_val = 2024 AND quarter_val > 1) THEN
+            
+            -- Optional: cap quarters in the last year
+            IF year_val = p_end_year AND quarter_val > p_last_year_max_qtr THEN
                 CONTINUE;
             END IF;
-            
-            -- Calculate start and end dates for the quarter
+
+            -- Calculate start date of quarter
             start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-            
-            -- Calculate end date (first day of next quarter minus 1 day)
+
+            -- Calculate end date = first day of next quarter
             IF quarter_val = 4 THEN
                 end_date := make_date(year_val + 1, 1, 1);
             ELSE
                 end_date := make_date(year_val, quarter_val * 3 + 1, 1);
             END IF;
-            
-            -- Create table name
-            table_name := 'air_oai_facts.airfare_survey_itinerary_' || year_val || 'Q' || quarter_val;
-            
-            -- Build and execute SQL statement
-            sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_itinerary FOR VALUES FROM (''' || 
-                       start_date || ''') TO (''' || end_date || ''');';
-            
+
+            -- Build partition table name
+            table_name := p_child_prefix || year_val || 'Q' || quarter_val;
+
+            -- Build and execute CREATE TABLE statement
+            sql_stmt := format(
+                'CREATE TABLE %I PARTITION OF %s FOR VALUES FROM (%L) TO (%L);',
+                table_name,
+                p_parent_table,
+                start_date,
+                end_date
+            );
+
             RAISE NOTICE '%', sql_stmt;
             EXECUTE sql_stmt;
         END LOOP;
     END LOOP;
-END $$;
+END;
+$$;
 
--- 1.5. insert data into fact table
+-- 1.5. call function for itinerary data
+SELECT air_oai_facts.create_quarter_partitions(
+    'air_oai_facts.airfare_survey_itinerary',  -- parent table
+    'air_oai_facts.airfare_survey_itinerary_', -- child prefix
+    1993,                                      -- start year
+    2024,                                      -- end year
+    1                                          -- max quarter for 2024
+);
+
+-- 1.6. insert data into fact table
 WITH filtered_airline_entities AS (
     SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
     FROM air_oai_dims.airline_entities
@@ -164,6 +190,9 @@ INSERT INTO air_oai_facts.airfare_survey_itinerary
 	, created_by, created_tmst)
 SELECT asf.itinerary_oai_id
 	 , ac.year_quarter_from_date  as year_quarter_start_date
+	 , (extract(year from ac.year_quarter_start_date)::int * 10
+        + ((extract(month from ac.year_quarter_start_date)::int - 1)/3 + 1)
+       ) as year_quarter_nbr
      , ae.airline_entity_id as reporting_airline_entity_id
      , ae.airline_entity_key as reporting_airline_entity_key
      , ah.airport_history_id as depart_airport_history_id
@@ -278,46 +307,14 @@ create table air_oai_facts.airfare_survey_coupon
 	, constraint airfare_survey_coupon_pk primary key (itinerary_oai_id, flight_pass_seq, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 2.4. create partioning
-DO $$
-DECLARE
-    year_val INT;
-    quarter_val INT;
-    start_date DATE;
-    end_date DATE;
-    table_name TEXT;
-    sql_stmt TEXT;
-BEGIN
-    FOR year_val IN 1993..2024 LOOP
-        FOR quarter_val IN 1..4 LOOP
-            -- Skip future quarters in 2024
-            IF (year_val = 2024 AND quarter_val > 1) THEN
-                CONTINUE;
-            END IF;
-            
-            -- Calculate start and end dates for the quarter
-            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-            
-            -- Calculate end date (first day of next quarter minus 1 day)
-            IF quarter_val = 4 THEN
-                end_date := make_date(year_val + 1, 1, 1);
-            ELSE
-                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
-            END IF;
-            
-            -- Create table name
-            table_name := 'air_oai_facts.airfare_survey_coupon_' || year_val || 'Q' || quarter_val;
-            
-            -- Build and execute SQL statement
-            sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_coupon FOR VALUES FROM (''' || 
-                       start_date || ''') TO (''' || end_date || ''');';
-            
-            RAISE NOTICE '%', sql_stmt;
-            EXECUTE sql_stmt;
-        END LOOP;
-    END LOOP;
-END $$;
+-- 2.4. call function for coupon data
+SELECT air_oai_facts.create_quarter_partitions(
+    'air_oai_facts.airfare_survey_coupon',
+    'air_oai_facts.airfare_survey_coupon_',
+    1993,
+    2024,
+    1
+);
 
 -- 2.5. insert data into fact table
 WITH filtered_airline_entities AS (
@@ -339,6 +336,9 @@ INSERT INTO air_oai_facts.airfare_survey_coupon
 SELECT ac.itinerary_oai_id
      , ac.flight_pass_seq
      , aq.year_quarter_from_date as year_quarter_start_date
+	 , (extract(year from aq.year_quarter_start_date)::int * 10
+        + ((extract(month from aq.year_quarter_start_date)::int - 1)/3 + 1)
+       ) as year_quarter_nbr
 	 , ac.market_oai_id
 	 , aet.airline_entity_id as ticketing_airline_entity_id
 	 , aet.airline_entity_key as ticketing_airline_entity_key
@@ -349,7 +349,7 @@ SELECT ac.itinerary_oai_id
 	 , ahd.airport_history_id as depart_airport_history_id
 	 , ahd.airport_history_key as depart_airport_history_key
 	 , aha.airport_history_id as arrive_airport_history_id
-	 , ahd.airport_history_key as arrive_airport_history_key
+	 , aha.airport_history_key as arrive_airport_history_key
 	 , case when ac.trip_break_code = 'X' then 1 else 0 end::smallint as trip_break_code
 	 , ac.gateway_ind
 	 , ac.distance_group_id
@@ -443,7 +443,7 @@ CALL import_data_from_manifest(
 	3 											 -- max_files_to_import 
 );
 
--- 3.2. create fact table
+-- 3.3. create fact table
 create table air_oai_facts.airfare_survey_market
 ( 
 	itinerary_oai_id             		bigint 		not null
@@ -482,46 +482,14 @@ create table air_oai_facts.airfare_survey_market
 	, constraint airfare_survey_market_pk primary key (itinerary_oai_id, market_oai_id, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 3.4. create partioning
-DO $$
-DECLARE
-    year_val INT;
-    quarter_val INT;
-    start_date DATE;
-    end_date DATE;
-    table_name TEXT;
-    sql_stmt TEXT;
-BEGIN
-    FOR year_val IN 1993..2024 LOOP
-        FOR quarter_val IN 1..4 LOOP
-            -- Skip future quarters in 2024
-            IF (year_val = 2024 AND quarter_val > 1) THEN
-                CONTINUE;
-            END IF;
-            
-            -- Calculate start and end dates for the quarter
-            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-            
-            -- Calculate end date (first day of next quarter minus 1 day)
-            IF quarter_val = 4 THEN
-                end_date := make_date(year_val + 1, 1, 1);
-            ELSE
-                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
-            END IF;
-            
-            -- Create table name
-            table_name := 'air_oai_facts.airfare_survey_market_' || year_val || 'Q' || quarter_val;
-            
-            -- Build and execute SQL statement
-            sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_market FOR VALUES FROM (''' || 
-                       start_date || ''') TO (''' || end_date || ''');';
-            
-            RAISE NOTICE '%', sql_stmt;
-            EXECUTE sql_stmt;
-        END LOOP;
-    END LOOP;
-END $$;
+-- 3.4. call function for market data
+SELECT air_oai_facts.create_quarter_partitions(
+    'air_oai_facts.airfare_survey_market',
+    'air_oai_facts.airfare_survey_market_',
+    1993,
+    2024,
+    1
+);
 
 -- 3.5. insert data into fact table
 WITH filtered_airline_entities AS (
@@ -544,6 +512,9 @@ INSERT INTO air_oai_facts.airfare_survey_market
 SELECT am.itinerary_oai_id
 	 , am.market_oai_id
 	 , agq.year_quarter_from_date as year_quarter_start_date
+	 , (extract(year from agq.year_quarter_start_date)::int * 10
+        + ((extract(month from agq.year_quarter_start_date)::int - 1)/3 + 1)
+       ) as year_quarter_nbr
      , aet.airline_entity_id as ticketing_airline_entity_id
      , aet.airline_entity_key as ticketing_airline_entity_key
 	 , am.ticketing_airline_change_ind
@@ -589,10 +560,9 @@ where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.
 	AND agq.year_quarter_from_date between aer.source_from_date and coalesce(aer.source_thru_date, current_date);
 
 -- 4. create extra primary key and indexes
-alter table air_oai_facts.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
-create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_carrier_iata_cd);
-create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (orig_airport_iata_cd);
-create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_nbr, quarter_nbr);
+create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_airline_entity_id);
+create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (arrive_airport_history_id);
+create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_quarter_start_date);
 
 -- 5. create presentation layer views
 -- drop view if exists airlines_pg.airfare_survey_itinerary_v:
