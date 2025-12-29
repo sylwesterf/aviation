@@ -11,19 +11,20 @@
 --  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
 --  1.2. ingest ticket csv data
 --  1.3. create fact table air_oai_facts.airfare_survey_itinerary
---  1.4. create partioning
---  1.5. insert data into fact table
+--  1.4. create partioning function
+--  1.5. call function for ticket data
+--  1.6. insert data into fact table
 -- 2. process DB1B Coupon data
 --  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
 --  2.2. ingest coupon csv data
 --  2.3. create air_oai_facts.airfare_survey_coupon
---  2.4. create partioning
+--  2.4. call function for coupon data
 --  2.5. insert data into fact table
 -- 3. process DB1B Market data
 --  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
---  3.1. ingest market csv data
---  3.2. create table airfare_survey_market
---  3.4. create partioning
+--  3.2. ingest market csv data
+--  3.3. create table airfare_survey_market
+--  3.4. call function for market data
 --  3.5. insert data into fact table
 -- 4. add keys and indexes
 -- 5. create presentation layer views
