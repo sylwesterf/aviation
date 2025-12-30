@@ -1,4 +1,4 @@
--- T100 (Market and Segment) (US DoT data)
+-- T100 (Market and Segment) (US DoT data) 
 -- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Air Carrier Statistics (Form 41 Traffic)- All Carriers Database > T-100 Market (All Carriers)
 -- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Air Carrier Statistics (Form 41 Traffic)- All Carriers Database > T-100 Segment (All Carriers)	
 -- https://www.transtats.bts.gov/Tables.asp?QO_VQ=EEE&QO_anzr=Nv4%FDPn44vr4%FDf6n6v56vp5%FD%FLS14z%FDHE%FDg4nssvp%FM-%FDNyy%FDPn44vr45&QO_fu146_anzr=Nv4%FDPn44vr45
@@ -71,7 +71,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, distance_group_id 			int4
 	, service_class_code 			varchar(5)
 	, data_source_code 				varchar(5)
-	, filler_txt 					varchar(10)
+	, filler_txt 					varchar(10) 
 );
 
 -- 1.2. ingest t100 market csv data
@@ -81,10 +81,19 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 -- 1.2.2. AWS Aurora data load - one file
 --TODO SELECT aws_s3.table_import_from_s3()
 -- 1.2.3. AWS Aurora data load - mutliple files via manifest
---TODO 
 CALL import_data_from_manifest(
-
+    0, 
+    'air_oai_facts.f41_traffic_t100_market_archive',  	-- target_table
+    'T100/market/manifest_t100_market.csv',      						-- manifest_file
+    'src-aviation',                              		-- source_bucket
+    'us-west-2',                                 		-- region
+    '(FORMAT CSV, DELIMITER '','', HEADER)'      		-- format_options
+	,null 													-- max_files_to_import 
 );
+
+-- to load data with and withoud 'filler_txt' column -- 10.120.965 rows.
+-- ALTER TABLE air_oai_facts.f41_traffic_t100_market_archive DROP COLUMN filler_txt;
+
 
 -- 1.3. create a materialized view to transform the data
 drop materialized view if EXISTS air_oai_facts.airline_traffic_market_integrate_mv;
@@ -284,8 +293,17 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 -- 1.2.3. AWS Aurora data load - mutliple files via manifest
 --TODO 
 CALL import_data_from_manifest(
-
+    0, 
+    'air_oai_facts.f41_traffic_t100_segment_archive',  	-- target_table
+    'T100/segment/manifest_t100_segment.csv',      						-- manifest_file
+    'src-aviation',                              		-- source_bucket
+    'us-west-2',                                 		-- region
+    '(FORMAT CSV, DELIMITER '','', HEADER)'      		-- format_options
+	,100													-- max_files_to_import 
 );
+
+-- to load data with and withoud 'filler_txt' column -- 13.512.137 rows.
+-- ALTER TABLE air_oai_facts.f41_traffic_t100_segment_archive DROP COLUMN filler_txt;
 
 -- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
 drop materialized view air_oai_facts.f41_traffic_t100_segment_load_mv;
@@ -301,17 +319,17 @@ SELECT scheduled_departures_qty
 	, ramp_to_ramp_min
 	, air_time_min
 	, airline_unique_oai_code
-	, airline_usdot_id
+	-- , airline_usdot_id //repeated
 	, case when airline_oai_code = '5G' and airline_usdot_id is null then 21181
 	  when airline_oai_code = '0OQ' and airline_usdot_id is null then 21287
 	  when airline_oai_code = 'AQ' and airline_usdot_id is null then 19678
 	  when airline_oai_code = 'KH' and airline_usdot_id = 19678 then 21634
-	  airline_oai_code = 'K8' and airline_usdot_id is null then 20310
-	  airline_oai_code = 'XP' and airline_usdot_id is null then 20207
+	  when airline_oai_code = 'K8' and airline_usdot_id is null then 20310
+	  when airline_oai_code = 'XP' and airline_usdot_id is null then 20207
 	  when airline_oai_code = '2HQ' is not null and airline_usdot_id is null then 21712
 	  else airline_usdot_id end::integer as airline_usdot_id
 	, airline_unique_name
-	, entity_unique_oai_code
+	-- , entity_unique_oai_code //repeated
 	, case when airline_oai_code = '5G' and airline_usdot_id is null then '71032'
 	  when airline_oai_code = '0OQ' and airline_usdot_id is null then '71056'
 	  when airline_oai_code = 'AQ' and (airline_usdot_id is null or airline_usdot_id = 19678)
@@ -332,10 +350,10 @@ SELECT scheduled_departures_qty
 	    and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '11047'
 	 else entity_unique_oai_code end::varchar(15) as entity_unique_oai_code
 	, operating_region_code
-	, airline_oai_code
+	--, airline_oai_code   //repeated
 	, case when airline_oai_code = '39Q' and airline_usdot_id = 21894 then 'AN'
 	  when airline_oai_code = '3GQ' and airline_usdot_id = 21869 then '36Q'
-	  when airline_oai_code = 'A0' and airline_usdot_id = 20234 and unique_entity_oai_code = '9486F' then '8R'
+	  when airline_oai_code = 'A0' and airline_usdot_id = 20234 and entity_unique_oai_code = '9486F' then '8R' --changed 
 	  else airline_oai_code end::varchar(5) as airline_oai_code
 	, airline_name
 	, airline_old_group_nbr
@@ -634,8 +652,8 @@ alter table air_oai_facts.airline_traffic_segment add constraint airline_traffic
 foreign key (arrive_airport_history_key) references air_oai_dims.airport_history (airport_history_key);
 
 -- 8. create presentation layer views
--- drop view if exists aviation.aircraft_configurations_v;
-create or replace view aviation.aircraft_configurations_v as
+--drop view if exists airlines_pg.aircraft_configurations_v;
+create or replace view airlines_pg.aircraft_configurations_v as
 SELECT aircraft_configuration_ref
 	 , aircraft_configuration_descr
 FROM air_oai_dims.aircraft_configurations;
