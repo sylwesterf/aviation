@@ -83,28 +83,29 @@ CALL import_data_from_manifest(
 create table air_oai_facts.airfare_survey_itinerary
 ( 
 	itinerary_oai_id								bigint  not null
-	 , year_quarter_start_date						date	not null
-	 , reporting_airline_entity_id					smallint not null
-	 , reporting_airline_entity_key					char(32) not null
-	 , depart_airport_history_id					integer	not null
-	 , depart_airport_history_key					char(32) not null
-	 , round_trip_fare_ind            				smallint null
-	 , online_purchase_ind							smallint null
-	 , bulk_fare_ind								smallint null
-	 , fare_credibility_ind							smallint null
-	 , distance_group_oai_id						smallint null
-	 , geographic_type_oai_id						smallint null
-	 , coupon_qty									smallint null
-	 , passenger_qty           						smallint null
-	 , distance_smi									integer null
-	 , flown_distance_smi							integer null
-	 , fare_per_person_usd							integer null
-	 , fare_per_mile_usd							numeric(10,5) null
-	 , created_by 									varchar(32) DEFAULT 'CURRENT_USER' NOT NULL
-	 , created_tmst 								timestamp(0) DEFAULT CURRENT_TIMESTAMP NOT NULL
-	 , updated_by 									varchar(32)
-	 , updated_tsmt 								timestamp(0)
-	 , constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
+	, year_quarter_start_date						date	not null
+	, year_quarter_nbr								integer not null
+	, reporting_airline_entity_id					smallint not null
+	, reporting_airline_entity_key					char(32) not null
+	, depart_airport_history_id						integer	not null
+	, depart_airport_history_key					char(32) not null
+	, round_trip_fare_ind            				smallint null
+	, online_purchase_ind							smallint null
+	, bulk_fare_ind									smallint null
+	, fare_credibility_ind							smallint null
+	, distance_group_oai_id							smallint null
+	, geographic_type_oai_id						smallint null
+	, coupon_qty									smallint null
+	, passenger_qty           						smallint null
+	, distance_smi									integer null
+	, flown_distance_smi							integer null
+	, fare_per_person_usd							integer null
+	, fare_per_mile_usd								numeric(10,5) null
+	, created_by 									varchar(32) DEFAULT 'CURRENT_USER' NOT NULL
+	, created_tmst 									timestamp(0) DEFAULT CURRENT_TIMESTAMP NOT NULL
+	, updated_by 									varchar(32)
+	, updated_tsmt 									timestamp(0)
+	, constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
 
@@ -181,31 +182,52 @@ WITH filtered_airline_entities AS (
     WHERE operating_region_code = 'Domestic'
 )
 INSERT INTO air_oai_facts.airfare_survey_itinerary
-	( itinerary_oai_id, year_quarter_start_date
-	, reporting_airline_entity_id, reporting_airline_entity_key
-	, depart_airport_history_id, depart_airport_history_key
-	, round_trip_fare_ind, online_purchase_ind, bulk_fare_ind, fare_credibility_ind
-	, distance_group_oai_id, geographic_type_oai_id
-	, coupon_qty, passenger_qty, distance_smi, flown_distance_smi
-	, fare_per_person_usd, fare_per_mile_usd
-	, created_by, created_tmst)
+( 
+	itinerary_oai_id
+	, year_quarter_start_date
+	, year_quarter_nbr
+	, reporting_airline_entity_id
+	, reporting_airline_entity_key
+	, depart_airport_history_id
+	, depart_airport_history_key
+	, round_trip_fare_ind
+	, online_purchase_ind
+	, bulk_fare_ind
+	, fare_credibility_ind
+	, distance_group_oai_id
+	, geographic_type_oai_id
+	, coupon_qty
+	, passenger_qty
+	, distance_smi
+	, flown_distance_smi
+	, fare_per_person_usd
+	, fare_per_mile_usd
+	, created_by
+	, created_tmst
+)
 SELECT asf.itinerary_oai_id
-	 , ac.year_quarter_from_date  as year_quarter_start_date
-	 , (extract(year from ac.year_quarter_start_date)::int * 10
-        + ((extract(month from ac.year_quarter_start_date)::int - 1)/3 + 1)
-       ) as year_quarter_nbr
-     , ae.airline_entity_id as reporting_airline_entity_id
-     , ae.airline_entity_key as reporting_airline_entity_key
-     , ah.airport_history_id as depart_airport_history_id
-     , ah.airport_history_key as depart_airport_history_key
-     , round_trip_ind, online_ind, bulk_fare_ind, fare_credibility_ind
-     , distance_group_oai_id, geographic_type_oai_id
-	 , coupon_qty, passenger_qty, distance_smi, flown_distance_smi
-	 , fare_per_person_amount_usd, fare_per_smi
-	 , current_user, now()
+	, ac.year_quarter_from_date  as year_quarter_start_date
+	, agq.year_quarter_nbr
+    , ae.airline_entity_id as reporting_airline_entity_id
+    , ae.airline_entity_key as reporting_airline_entity_key
+    , ah.airport_history_id as depart_airport_history_id
+    , ah.airport_history_key as depart_airport_history_key
+    , round_trip_ind
+	, online_ind
+	, bulk_fare_ind
+	, fare_credibility_ind
+    , distance_group_oai_id
+	, geographic_type_oai_id
+	, coupon_qty
+	, passenger_qty
+	, distance_smi
+	, flown_distance_smi
+	, fare_per_person_amount_usd
+	, fare_per_smi
+	, current_user
+	, now()
 FROM air_oai_facts.airfare_survey_ticket_load asf
--- air_oai_facts.airfare_survey_ticket_fdw asf
-join calendar_pg.gregorian_year_quarter  ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
+join calendar_pg.gregorian_year_quarter ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
 left join filtered_airline_entities ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
 left join air_oai_dims.airport_history ah
@@ -280,6 +302,7 @@ create table air_oai_facts.airfare_survey_coupon
 	itinerary_oai_id             		bigint 		not null
 	, flight_pass_seq					integer 	not null
 	, year_quarter_start_date			date		not null
+	, year_quarter_nbr					integer 	not null
 	, market_oai_id						bigint 		not null
 	, ticketing_airline_entity_id		smallint	not null
 	, ticketing_airline_entity_key		char(32)	not null
@@ -324,22 +347,39 @@ WITH filtered_airline_entities AS (
     WHERE operating_region_code = 'Domestic'
 )
 INSERT INTO air_oai_facts.airfare_survey_coupon
-	(itinerary_oai_id, flight_pass_seq, year_quarter_start_date, market_oai_id
-	, ticketing_airline_entity_id, ticketing_airline_entity_key
-	, operating_airline_entity_id, operating_airline_entity_key
-	, reporting_airline_entity_id, reporting_airline_entity_key
-	, depart_airport_history_id, depart_airport_history_key
-	, arrive_airport_history_id, arrive_airport_history_key
-	, trip_break_code, gateway_ind, distance_group_oai_id, airfare_class_code
-	, itinerary_geographic_type_oai_id, coupon_geographic_type_oai_id
-	, flight_pass_type, flight_pass_qty, passengers_qty, distance_smi
-	, created_by, created_tmst)
+(
+	itinerary_oai_id
+	, flight_pass_seq
+	, year_quarter_start_date
+	, year_quarter_nbr
+	, market_oai_id
+	, ticketing_airline_entity_id
+	, ticketing_airline_entity_key
+	, operating_airline_entity_id
+	, operating_airline_entity_key
+	, reporting_airline_entity_id
+	, reporting_airline_entity_key
+	, depart_airport_history_id
+	, depart_airport_history_key
+	, arrive_airport_history_id
+	, arrive_airport_history_key
+	, trip_break_code
+	, gateway_ind
+	, distance_group_oai_id
+	, airfare_class_code
+	, itinerary_geographic_type_oai_id
+	, coupon_geographic_type_oai_id
+	, flight_pass_type
+	, flight_pass_qty
+	, passengers_qty
+	, distance_smi
+	, created_by
+	, created_tmst
+)
 SELECT ac.itinerary_oai_id
      , ac.flight_pass_seq
      , aq.year_quarter_from_date as year_quarter_start_date
-	 , (extract(year from aq.year_quarter_start_date)::int * 10
-        + ((extract(month from aq.year_quarter_start_date)::int - 1)/3 + 1)
-       ) as year_quarter_nbr
+	 , agq.year_quarter_nbr
 	 , ac.market_oai_id
 	 , aet.airline_entity_id as ticketing_airline_entity_id
 	 , aet.airline_entity_key as ticketing_airline_entity_key
@@ -450,6 +490,7 @@ create table air_oai_facts.airfare_survey_market
 	itinerary_oai_id             		bigint 		not null
 	, market_oai_id						bigint 		not null
 	, year_quarter_start_date			date		not null
+	, year_quarter_nbr					integer 	not null
 	, ticketing_airline_entity_id		smallint	not null
 	, ticketing_airline_entity_key		char(32)	not null
 	, ticketing_airline_change_ind		smallint	not null
@@ -499,23 +540,44 @@ WITH filtered_airline_entities AS (
     WHERE operating_region_code = 'Domestic'
 )
 INSERT INTO air_oai_facts.airfare_survey_market
-	( itinerary_oai_id, market_oai_id, year_quarter_start_date
-	, ticketing_airline_entity_id, ticketing_airline_entity_key, ticketing_airline_change_ind, ticketing_airlines_group_code
-	, operating_airline_entity_id, operating_airline_entity_key, operating_airline_change_ind, operating_airlines_group_code
-	, reporting_airline_entity_id, reporting_airline_entity_key
-	, depart_airport_history_id, depart_airport_history_key
-	, arrive_airport_history_id, arrive_airport_history_key
-	, airports_group_oai_code, world_areas_group_oai_code
-	, itinerary_geograhic_type_oai_id, market_geograhic_type_oai_id, market_distance_group_oai_id
-	, bulk_fare_ind, market_coupon_qty, passenger_qty, market_fare_amount_usd
-	, market_distance_smi, market_flown_distance_smi, non_stop_distance_smi
-	, created_by, created_tmst)
+( 
+	itinerary_oai_id
+	, market_oai_id
+	, year_quarter_start_date
+	, year_quarter_nbr
+	, ticketing_airline_entity_id
+	, ticketing_airline_entity_key
+	, ticketing_airline_change_ind
+	, ticketing_airlines_group_code
+	, operating_airline_entity_id
+	, operating_airline_entity_key
+	, operating_airline_change_ind
+	, operating_airlines_group_code
+	, reporting_airline_entity_id
+	, reporting_airline_entity_key
+	, depart_airport_history_id
+	, depart_airport_history_key
+	, arrive_airport_history_id
+	, arrive_airport_history_key
+	, airports_group_oai_code
+	, world_areas_group_oai_code
+	, itinerary_geograhic_type_oai_id
+	, market_geograhic_type_oai_id
+	, market_distance_group_oai_id
+	, bulk_fare_ind
+	, market_coupon_qty
+	, passenger_qty
+	, market_fare_amount_usd
+	, market_distance_smi
+	, market_flown_distance_smi
+	, non_stop_distance_smi
+	, created_by
+	, created_tmst
+)
 SELECT am.itinerary_oai_id
 	 , am.market_oai_id
 	 , agq.year_quarter_from_date as year_quarter_start_date
-	 , (extract(year from agq.year_quarter_start_date)::int * 10
-        + ((extract(month from agq.year_quarter_start_date)::int - 1)/3 + 1)
-       ) as year_quarter_nbr
+	 , agq.year_quarter_nbr
      , aet.airline_entity_id as ticketing_airline_entity_id
      , aet.airline_entity_key as ticketing_airline_entity_key
 	 , am.ticketing_airline_change_ind
