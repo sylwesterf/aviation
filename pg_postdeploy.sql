@@ -37,8 +37,8 @@ select count(*) from air_oai_facts.airline_traffic_segment; -- 44289
 select count(*) from air_oai_facts.f41_traffic_t100_segment_archive; -- 44941
 
 -- 7. clean-up
-drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
 drop materialized view if exists air_oai_facts.f41_traffic_t100_segment_load_mv;
+drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
 drop materialized view if exists air_oai_facts.airline_traffic_market_integrate_mv;
 drop table if exists air_oai_facts.f41_traffic_t100_market_archive;
 drop table if exists air_oai_facts.f41_traffic_t100_segment_archive;
@@ -66,7 +66,9 @@ select count(*) from air_oai_facts.airline_flights_scheduled; -- 7142354
 
 
 -- 8. Clean-up
--- TODO
+drop materialized view if exists air_oai_facts.airline_flight_performance_integrated_mv cascade;
+drop materialized view if exists air_oai_facts.airline_flight_performance_mv cascade;
+drop table if exists air_oai_facts.airline_flight_performance_fdw cascade;
 
 ---------------------------------------------------------
 ----------------------- db1b -----------------------------
@@ -84,7 +86,9 @@ select year_quarter_start_date, count(*) from air_oai_facts.airfare_survey_itine
 -- select market_oai_id, count(*) from airlines_pg.airfare_survey_market_v group by 1 having count(*) > 1 order by count(*) desc;
 
 -- 7. Clean-up
---TODO
+drop table if exists air_oai_facts.airfare_survey_ticket_load;
+drop table if exists air_oai_facts.airfare_survey_coupon_load;
+drop table if exists air_oai_facts.airfare_survey_market_load;
 
 ---------------------------------------------------------
 ----------------------- fin -----------------------------
