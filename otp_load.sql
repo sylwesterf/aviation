@@ -25,6 +25,7 @@
 ----------------------------------------------------
 
 -- 1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
+drop table if exists air_oai_facts.airline_flight_performance_fdw cascade;
 CREATE TABLE air_oai_facts.airline_flight_performance_fdw
 (
     year_nbr                          SMALLINT NULL,
@@ -156,7 +157,7 @@ CALL import_data_from_manifest(
 );
 
 -- 3.1. define materialized view for initial data quality work (removed spaces)
-drop materialized view if exists air_oai_facts.airline_flight_performance_mv;
+drop materialized view if exists air_oai_facts.airline_flight_performance_mv cascade;
 create materialized view air_oai_facts.airline_flight_performance_mv 
 as 
 select flight_date
@@ -269,7 +270,7 @@ create index airline_flight_performance_mv_flight_date_idx on air_oai_facts.airl
 
 -- 3.2. define a "final" materialized view with some data transformations (timezone, data types)
 -- we'll load the data into individual fact tables from our materialized view 
-drop materialized view if exists air_oai_facts.airline_flight_performance_integrated_mv;
+drop materialized view if exists air_oai_facts.airline_flight_performance_integrated_mv cascade;
 create materialized view air_oai_facts.airline_flight_performance_integrated_mv 
 as
 select md5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::text||'|'||fp.depart_airport_oai_code)::char(32) as flight_key
@@ -457,7 +458,7 @@ left outer join
 
 
 -- 4.1. air_oai_facts.airline_flights_completed 
-drop table if exists air_oai_facts.airline_flights_completed;
+drop table if exists air_oai_facts.airline_flights_completed cascade;
 create table air_oai_facts.airline_flights_completed 
 as
 SELECT flight_key --, flight_key_comp
@@ -546,7 +547,7 @@ where cancelled_ind = 0 and diverted_ind = 0;
 
 
 -- 4.2. air_oai_facts.airline_flights_cancelled 
-drop table if exists air_oai_facts.airline_flights_cancelled;
+drop table if exists air_oai_facts.airline_flights_cancelled cascade;
 create table air_oai_facts.airline_flights_cancelled 
 as
 SELECT flight_key --, flight_key_comp
@@ -602,7 +603,7 @@ where cancelled_ind = 1;
 
 
 -- 4.3. air_oai_facts.airline_flights_diverted
-drop table if exists air_oai_facts.airline_flights_diverted;
+drop table if exists air_oai_facts.airline_flights_diverted cascade;
 create table air_oai_facts.airline_flights_diverted 
 as
 SELECT flight_key --, flight_key_comp
@@ -671,7 +672,7 @@ where diverted_ind = 1;
 
 
 -- 4.4. air_oai_facts.airline_flights_diverted_legs 
-drop table if exists air_oai_facts.airline_flights_diverted_legs;
+drop table if exists air_oai_facts.airline_flights_diverted_legs cascade;
 create table air_oai_facts.airline_flights_diverted_legs as
 SELECT flight_key --, flight_key_comp
      , 1::smallint as diversion_nbr
@@ -861,7 +862,7 @@ and diverted5_airport_history_id is not null;
 
 -- 4.5. air_oai_facts.airline_flights_scheduled
 -- 4.5.1. base data insert (completed flights)
-drop table if exists air_oai_facts.airline_flights_scheduled;
+drop table if exists air_oai_facts.airline_flights_scheduled cascade;
 create table air_oai_facts.airline_flights_scheduled 
 as 
 SELECT flight_key --, flight_key_comp
@@ -904,29 +905,33 @@ SELECT flight_key --, flight_key_comp
 FROM air_oai_facts.airline_flight_performance_integrated_mv
 where cancelled_ind = 0 and diverted_ind = 0;
 
--- 4.5.2. update flight status
+-- 4.5.2. update flight status in airline_flights_scheduled 
+-- derived from airline_flights_cancelled and airline_flights_diverted
+/*
 update air_oai_facts.airline_flights_scheduled
 set updated_by = current_user
 	, updated_ts = now()
     , flight_status = a.flight_status
 from (select flight_key, flight_status from air_oai_facts.airline_flights_cancelled) a
-where air_oai_facts.airline_flights_scheduled_new.flight_key = a.flight_key; -- zero
+where air_oai_facts.airline_flights_scheduled.flight_key = a.flight_key; -- zero
 
 update air_oai_facts.airline_flights_scheduled
 set updated_by = current_user
 	, updated_ts = now()
     , flight_status = a.flight_status
 from (select flight_key, flight_status from air_oai_facts.airline_flights_diverted) a
-where air_oai_facts.airline_flights_scheduled_new.flight_key = a.flight_key; -- zero
+where air_oai_facts.airline_flights_scheduled.flight_key = a.flight_key; -- zero
+*/
 
+-- derived from airline_flights_completed
 update air_oai_facts.airline_flights_scheduled
 set updated_by = current_user
 	, updated_ts = now()
     , flight_status = a.flight_status
 from (select flight_key, flight_status from air_oai_facts.airline_flights_completed) a
-where air_oai_facts.airline_flights_scheduled_new.flight_key = a.flight_key; -- 7,142,354
+where air_oai_facts.airline_flights_scheduled.flight_key = a.flight_key; -- all
 
--- 4.5.3. insert cancelled flights
+-- 4.5.3. insert cancelled flights into airline_flights_scheduled
 INSERT INTO aviation.air_oai_facts.airline_flights_scheduled
 SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
     , flight_nbr, flight_count, tail_nbr
@@ -939,8 +944,8 @@ SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airl
     , created_by, created_ts, updated_by, updated_ts
 FROM air_oai_facts.airline_flights_cancelled;
 
--- 4.5.4. insert diverted flights
-INSERT INTO aviation.air_oai_facts.airline_flights_scheduled_new
+-- 4.5.4. insert diverted flights into airline_flights_scheduled
+INSERT INTO aviation.air_oai_facts.airline_flights_scheduled
 SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
     , flight_nbr, flight_count, tail_nbr
     , depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
@@ -950,7 +955,7 @@ SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airl
     , report_depart_tmstz_lcl, report_depart_tmstz_utc, report_arrive_tmstz_lcl, report_arrive_tmstz_utc
     , report_elapsed_time_min, flight_status
     , created_by, created_ts, updated_by, updated_ts
-FROM air_oai_facts.airline_flights_diverted; -- 17,791
+FROM air_oai_facts.airline_flights_diverted;
 
 -- 5. add keys and indexes
 -- air_oai_facts.airline_flights_completed
@@ -1156,7 +1161,7 @@ SELECT flight_key, flight_date
 	, airborne_time_min, taxi_out_min, taxi_in_min
 	, first_gate_depart_tmstz_lcl, first_gate_depart_tmstz_utc
 	, total_ground_time, longest_ground_time
-FROM airlines_pg.air_oai_facts.airline_flights_diverted;
+FROM air_oai_facts.airline_flights_diverted;
 
 -- drop view if exists airlines_pg.airline_flights_diverted_legs_v:
 create or replace view airlines_pg.airline_flights_diverted_legs_v as
