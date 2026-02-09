@@ -11,20 +11,20 @@
 --  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
 --  1.2. ingest ticket csv data
 --  1.3. create fact table air_oai_facts.airfare_survey_itinerary
---  1.4. create partioning function
---  1.5. call function for ticket data
+--  1.4. create stored procedure
+--  1.5. call SP for ticket data
 --  1.6. insert data into fact table
 -- 2. process DB1B Coupon data
 --  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
 --  2.2. ingest coupon csv data
 --  2.3. create air_oai_facts.airfare_survey_coupon
---  2.4. call function for coupon data
+--  2.4. call SP for coupon data
 --  2.5. insert data into fact table
 -- 3. process DB1B Market data
 --  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
 --  3.2. ingest market csv data
 --  3.3. create table airfare_survey_market
---  3.4. call function for market data
+--  3.4. call SP for market data
 --  3.5. insert data into fact table
 -- 4. add keys and indexes
 -- 5. create presentation layer views
@@ -109,16 +109,15 @@ create table air_oai_facts.airfare_survey_itinerary
 ) partition by range (year_quarter_start_date);
 
 
--- 1.4. create partitioning function
+-- 1.4. create SP
 
-CREATE OR REPLACE FUNCTION air_oai_facts.create_quarter_partitions(
-    p_parent_table   text,  -- fully qualified parent table, e.g. 'air_oai_facts.airfare_survey_itinerary'
-    p_child_prefix   text,  -- fully qualified prefix for child partitions, e.g. 'air_oai_facts.airfare_survey_itinerary_'
-    p_start_year     int,
-    p_end_year       int,
-    p_last_year_max_qtr int  -- max quarter to create for the last year (e.g. 1 for 2024Q1)
+CREATE OR REPLACE PROCEDURE air_oai_facts.create_quarter_partitions(
+    IN p_parent_table      text,  -- fully qualified parent table, e.g. 'air_oai_facts.airfare_survey_itinerary'
+    IN p_child_prefix      text,  -- fully qualified prefix for child partitions, e.g. 'air_oai_facts.airfare_survey_itinerary_'
+    IN p_start_year        int,
+    IN p_end_year          int,
+    IN p_last_year_max_qtr int    -- max quarter to create for the last year (e.g. 1 for 2024Q1)
 )
-RETURNS void
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -166,8 +165,8 @@ BEGIN
 END;
 $$;
 
--- 1.5. call function for itinerary data
-SELECT air_oai_facts.create_quarter_partitions(
+-- 1.5. call procedure for itinerary data
+CALL air_oai_facts.create_quarter_partitions(
     'air_oai_facts.airfare_survey_itinerary',  -- parent table
     'air_oai_facts.airfare_survey_itinerary_', -- child prefix
     1993,                                      -- start year
@@ -207,7 +206,7 @@ INSERT INTO air_oai_facts.airfare_survey_itinerary
 )
 SELECT asf.itinerary_oai_id
 	, ac.year_quarter_from_date  as year_quarter_start_date
-	, agq.year_quarter_nbr
+	, ac.year_quarter_nbr
     , ae.airline_entity_id as reporting_airline_entity_id
     , ae.airline_entity_key as reporting_airline_entity_key
     , ah.airport_history_id as depart_airport_history_id
@@ -331,8 +330,8 @@ create table air_oai_facts.airfare_survey_coupon
 	, constraint airfare_survey_coupon_pk primary key (itinerary_oai_id, flight_pass_seq, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 2.4. call function for coupon data
-SELECT air_oai_facts.create_quarter_partitions(
+-- 2.4. call procedure for coupon data
+CALL air_oai_facts.create_quarter_partitions(
     'air_oai_facts.airfare_survey_coupon',
     'air_oai_facts.airfare_survey_coupon_',
     1993,
@@ -379,7 +378,7 @@ INSERT INTO air_oai_facts.airfare_survey_coupon
 SELECT ac.itinerary_oai_id
      , ac.flight_pass_seq
      , aq.year_quarter_from_date as year_quarter_start_date
-	 , agq.year_quarter_nbr
+	 , aq.year_quarter_nbr
 	 , ac.market_oai_id
 	 , aet.airline_entity_id as ticketing_airline_entity_id
 	 , aet.airline_entity_key as ticketing_airline_entity_key
@@ -395,8 +394,8 @@ SELECT ac.itinerary_oai_id
 	 , ac.gateway_ind
 	 , ac.distance_group_id
 	 , ac.airfare_class_code
-	 , ac.itinerary_geo_type_id as itinerary_geographic_type_id
-	 , ac.coupon_geo_type_id as coupon_geographic_type_id
+	 , ac.itinerary_geo_type_id as itinerary_geographic_type_oai_id
+	 , ac.coupon_geo_type_id as coupon_geographic_type_oai_id
 	 , ac.flight_pass_type
 	 , ac.flight_pass_qty
 	 , ac.passengers_qty
@@ -524,8 +523,8 @@ create table air_oai_facts.airfare_survey_market
 	, constraint airfare_survey_market_pk primary key (itinerary_oai_id, market_oai_id, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 3.4. call function for market data
-SELECT air_oai_facts.create_quarter_partitions(
+-- 3.4. call procedure for market data
+CALL air_oai_facts.create_quarter_partitions(
     'air_oai_facts.airfare_survey_market',
     'air_oai_facts.airfare_survey_market_',
     1993,
@@ -624,7 +623,7 @@ where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.
 
 -- 4. create extra primary key and indexes
 create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_airline_entity_id);
-create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (arrive_airport_history_id);
+create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (depart_airport_history_id);
 create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_quarter_start_date);
 
 -- 5. create presentation layer views
