@@ -11,9 +11,8 @@
 --  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
 --  1.2. ingest ticket csv data
 --  1.3. create fact table air_oai_facts.airfare_survey_itinerary
---  1.4. create stored procedure
---  1.5. call SP for ticket data
---  1.6. insert data into fact table
+--  1.4. call SP for ticket data
+--  1.5. insert data into fact table
 -- 2. process DB1B Coupon data
 --  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
 --  2.2. ingest coupon csv data
@@ -109,63 +108,8 @@ create table air_oai_facts.airfare_survey_itinerary
 ) partition by range (year_quarter_start_date);
 
 
--- 1.4. create SP
 
-CREATE OR REPLACE PROCEDURE air_oai_facts.create_quarter_partitions(
-    IN p_parent_table      text,  -- fully qualified parent table, e.g. 'air_oai_facts.airfare_survey_itinerary'
-    IN p_child_prefix      text,  -- fully qualified prefix for child partitions, e.g. 'air_oai_facts.airfare_survey_itinerary_'
-    IN p_start_year        int,
-    IN p_end_year          int,
-    IN p_last_year_max_qtr int    -- max quarter to create for the last year (e.g. 1 for 2024Q1)
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    year_val    int;
-    quarter_val int;
-    start_date  date;
-    end_date    date;
-    table_name  text;
-    sql_stmt    text;
-BEGIN
-    FOR year_val IN p_start_year..p_end_year LOOP
-        FOR quarter_val IN 1..4 LOOP
-            
-            -- Optional: cap quarters in the last year
-            IF year_val = p_end_year AND quarter_val > p_last_year_max_qtr THEN
-                CONTINUE;
-            END IF;
-
-            -- Calculate start date of quarter
-            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-
-            -- Calculate end date = first day of next quarter
-            IF quarter_val = 4 THEN
-                end_date := make_date(year_val + 1, 1, 1);
-            ELSE
-                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
-            END IF;
-
-            -- Build partition table name
-            table_name := p_child_prefix || year_val || 'Q' || quarter_val;
-
-            -- Build and execute CREATE TABLE statement
-            sql_stmt := format(
-                'CREATE TABLE %I PARTITION OF %s FOR VALUES FROM (%L) TO (%L);',
-                table_name,
-                p_parent_table,
-                start_date,
-                end_date
-            );
-
-            RAISE NOTICE '%', sql_stmt;
-            EXECUTE sql_stmt;
-        END LOOP;
-    END LOOP;
-END;
-$$;
-
--- 1.5. call procedure for itinerary data
+-- 1.4. call procedure for itinerary data
 CALL air_oai_facts.create_quarter_partitions(
     'air_oai_facts.airfare_survey_itinerary',  -- parent table
     'air_oai_facts.airfare_survey_itinerary_', -- child prefix
@@ -174,7 +118,7 @@ CALL air_oai_facts.create_quarter_partitions(
     1                                          -- max quarter for 2024
 );
 
--- 1.6. insert data into fact table
+-- 1.5. insert data into fact table
 WITH filtered_airline_entities AS (
     SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
     FROM air_oai_dims.airline_entities

@@ -6,6 +6,7 @@
 -- 3. create pg metadata views
 -- 4. define stored procedures
 -- 5. load the shape file for time zone boundaries
+-- 6. create auxiliary store procedures (air_oai_facts.create_quarter_partitions)
 ----------------------------------------------------
 
 -- 0. create aviation database and user
@@ -221,6 +222,82 @@ CALL import_data_from_manifest(
 );
 select * from test;
 drop table test;
+
+-- 6. create auxiliary store procedures (air_oai_facts.create_quarter_partitions)
+
+CREATE OR REPLACE PROCEDURE air_oai_facts.create_quarter_partitions(
+    IN p_parent_table text  -- fully qualified parent table, e.g. 'air_oai_facts.airfare_survey_itinerary'
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    year_val           int;
+    quarter_val        int;
+    start_date         date;
+    end_date           date;
+    table_name         text;
+    sql_stmt           text;
+    v_start_year       int;
+    v_end_year         int;
+    v_last_year_max_qtr int;
+    v_schema_name      text;
+    v_parent_basename  text;
+BEGIN
+    
+    SELECT
+        MIN(EXTRACT(YEAR FROM year_quarter_start_date))::int,
+        MAX(EXTRACT(YEAR FROM year_quarter_start_date))::int
+    INTO v_start_year, v_end_year
+    FROM air_oai_facts.airfare_survey_ticket_load;
+
+    SELECT
+        EXTRACT(YEAR FROM MAX(year_quarter_start_date))::int,
+        MAX(EXTRACT(QUARTER FROM year_quarter_start_date))::int
+    INTO v_end_year, v_last_year_max_qtr
+    FROM air_oai_facts.airfare_survey_ticket_load;
+
+    -- Derivar nombre base de la tabla padre (sin esquema)
+    -- Ej.: 'air_oai_facts.airfare_survey_itinerary' -> 'airfare_survey_itinerary'
+    v_schema_name := split_part(p_parent_table, '.', 1);
+    v_parent_basename := split_part(p_parent_table, '.', 2);
+
+    FOR year_val IN v_start_year..v_end_year LOOP
+        FOR quarter_val IN 1..4 LOOP
+
+            IF year_val = v_end_year AND quarter_val > v_last_year_max_qtr THEN
+                CONTINUE;
+            END IF;
+
+            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
+
+            IF quarter_val = 4 THEN
+                end_date := make_date(year_val + 1, 1, 1);
+            ELSE
+                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
+            END IF;
+
+            -- Partition Name
+            table_name := format('%I.%I_%sQ%s',
+                                 v_schema_name,
+                                 v_parent_basename,
+                                 year_val,
+                                 quarter_val);
+
+            -- Create the partition
+            sql_stmt := format(
+                'CREATE TABLE %s PARTITION OF %s FOR VALUES FROM (%L) TO (%L);',
+                table_name,
+                p_parent_table,
+                start_date,
+                end_date
+            );
+
+            RAISE NOTICE '%', sql_stmt;
+            EXECUTE sql_stmt;
+        END LOOP;
+    END LOOP;
+END;
+$$;
 
 -- 5. load the shape file for time zone boundaries
 
