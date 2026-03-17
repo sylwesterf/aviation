@@ -111,11 +111,8 @@ create table air_oai_facts.airfare_survey_itinerary
 
 -- 1.4. call procedure for itinerary data
 CALL air_oai_facts.create_quarter_partitions(
-    'air_oai_facts.airfare_survey_itinerary',  -- parent table
-    'air_oai_facts.airfare_survey_itinerary_', -- child prefix
-    1993,                                      -- start year
-    2024,                                      -- end year
-    1                                          -- max quarter for 2024
+    'air_oai_facts.airfare_survey_itinerary',
+	'air_oai_facts.airfare_survey_ticket_load'
 );
 
 -- 1.5. insert data into fact table
@@ -277,10 +274,7 @@ create table air_oai_facts.airfare_survey_coupon
 -- 2.4. call procedure for coupon data
 CALL air_oai_facts.create_quarter_partitions(
     'air_oai_facts.airfare_survey_coupon',
-    'air_oai_facts.airfare_survey_coupon_',
-    1993,
-    2024,
-    1
+    'air_oai_facts.airfare_survey_coupon_load'
 );
 
 -- 2.5. insert data into fact table
@@ -470,7 +464,7 @@ create table air_oai_facts.airfare_survey_market
 -- 3.4. call procedure for market data
 CALL air_oai_facts.create_quarter_partitions(
     'air_oai_facts.airfare_survey_market',
-    'air_oai_facts.airfare_survey_market_',
+    'air_oai_facts.airfare_survey_market_load',
     1993,
     2024,
     1

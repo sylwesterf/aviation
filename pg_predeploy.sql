@@ -223,69 +223,102 @@ CALL import_data_from_manifest(
 select * from test;
 drop table test;
 
--- 6. create auxiliary store procedures (air_oai_facts.create_quarter_partitions)
+-- 6. create auxiliary store procedures (create_quarter_partitions)
 
-CREATE OR REPLACE PROCEDURE air_oai_facts.create_quarter_partitions(
-    IN p_parent_table text  -- fully qualified parent table, e.g. 'air_oai_facts.airfare_survey_itinerary'
+CREATE OR REPLACE PROCEDURE create_quarter_partitions(
+    IN p_parent_table text,   -- e.g. 'air_oai_facts.airfare_survey_itinerary'
+    IN p_source_table text    -- e.g. 'air_oai_facts.airfare_survey_ticket_load'
 )
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    year_val           int;
-    quarter_val        int;
-    start_date         date;
-    end_date           date;
-    table_name         text;
-    sql_stmt           text;
-    v_start_year       int;
-    v_end_year         int;
+    v_min_year          int;
+    v_max_year          int;
     v_last_year_max_qtr int;
-    v_schema_name      text;
-    v_parent_basename  text;
+
+    year_val    int;
+    quarter_val int;
+    start_date  date;
+    end_date    date;
+    table_name  text;
+    sql_stmt    text;
 BEGIN
-    
-    SELECT
-        MIN(EXTRACT(YEAR FROM year_quarter_start_date))::int,
-        MAX(EXTRACT(YEAR FROM year_quarter_start_date))::int
-    INTO v_start_year, v_end_year
-    FROM air_oai_facts.airfare_survey_ticket_load;
+    /*
+      1) Determine minimum and maximum year from the year_quarter_start_date
+         column in the source table.
+         IMPORTANT: it is assumed that p_source_table has the column
+         year_quarter_start_date (date).
+    */
+    EXECUTE format(
+        'SELECT 
+             min(EXTRACT(YEAR FROM year_quarter_start_date))::int,
+             max(EXTRACT(YEAR FROM year_quarter_start_date))::int
+         FROM %s',
+        p_source_table
+    )
+    INTO v_min_year, v_max_year;
 
-    SELECT
-        EXTRACT(YEAR FROM MAX(year_quarter_start_date))::int,
-        MAX(EXTRACT(QUARTER FROM year_quarter_start_date))::int
-    INTO v_end_year, v_last_year_max_qtr
-    FROM air_oai_facts.airfare_survey_ticket_load;
+    IF v_min_year IS NULL OR v_max_year IS NULL THEN
+        RAISE EXCEPTION
+            'No data found in % or column year_quarter_start_date is NULL',
+            p_source_table;
+    END IF;
 
-    -- Derivar nombre base de la tabla padre (sin esquema)
-    -- Ej.: 'air_oai_facts.airfare_survey_itinerary' -> 'airfare_survey_itinerary'
-    v_schema_name := split_part(p_parent_table, '.', 1);
-    v_parent_basename := split_part(p_parent_table, '.', 2);
+    /*
+      2) Determine the maximum quarter (1–4) for the maximum year.
+         Quarter formula: ((month - 1) / 3) + 1
+    */
+    EXECUTE format(
+        'SELECT max(((EXTRACT(MONTH FROM year_quarter_start_date)::int - 1) / 3) + 1)::int
+         FROM %s
+         WHERE EXTRACT(YEAR FROM year_quarter_start_date)::int = %s',
+        p_source_table,
+        v_max_year
+    )
+    INTO v_last_year_max_qtr;
 
-    FOR year_val IN v_start_year..v_end_year LOOP
+    IF v_last_year_max_qtr IS NULL THEN
+        RAISE EXCEPTION
+            'Could not determine the maximum quarter for year % in %',
+            v_max_year, p_source_table;
+    END IF;
+
+    /*
+      3) Create quarterly partitions from v_min_year to v_max_year
+         and quarters 1 to 4, limiting the last year to v_last_year_max_qtr.
+    */
+    FOR year_val IN v_min_year..v_max_year LOOP
         FOR quarter_val IN 1..4 LOOP
 
-            IF year_val = v_end_year AND quarter_val > v_last_year_max_qtr THEN
+            -- For the last year, do not create quarters beyond the detected maximum
+            IF year_val = v_max_year AND quarter_val > v_last_year_max_qtr THEN
                 CONTINUE;
             END IF;
 
+            -- Start date of the quarter
             start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
 
+            -- End date = first day of the next quarter
             IF quarter_val = 4 THEN
                 end_date := make_date(year_val + 1, 1, 1);
             ELSE
                 end_date := make_date(year_val, quarter_val * 3 + 1, 1);
             END IF;
 
-            -- Partition Name
-            table_name := format('%I.%I_%sQ%s',
-                                 v_schema_name,
-                                 v_parent_basename,
-                                 year_val,
-                                 quarter_val);
+            -- Partition table name:
+            --   schema same as parent
+            --   name = <parent_name>_<YYYY>Q<q>
+            table_name := format(
+                '%I.%I_%sQ%s',
+                split_part(p_parent_table, '.', 1),             -- parent schema
+                split_part(p_parent_table, '.', 2),             -- parent base name
+                year_val,
+                quarter_val
+            );
 
-            -- Create the partition
             sql_stmt := format(
-                'CREATE TABLE %s PARTITION OF %s FOR VALUES FROM (%L) TO (%L);',
+                'CREATE TABLE %s PARTITION OF %s
+                 FOR VALUES FROM (%L) TO (%L);',
                 table_name,
                 p_parent_table,
                 start_date,
