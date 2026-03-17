@@ -464,10 +464,7 @@ create table air_oai_facts.airfare_survey_market
 -- 3.4. call procedure for market data
 CALL air_oai_facts.create_quarter_partitions(
     'air_oai_facts.airfare_survey_market',
-    'air_oai_facts.airfare_survey_market_load',
-    1993,
-    2024,
-    1
+    'air_oai_facts.airfare_survey_market_load'
 );
 
 -- 3.5. insert data into fact table
