@@ -4,9 +4,10 @@
 -- 1. create schemas
 -- 2. create pg extensions 
 -- 3. create pg metadata views
--- 4. define stored procedures
+-- 4. define auxiliary stored procedures
+--  4.1. create data load stored procedure
+--  4.2. create partitioning stored procedure
 -- 5. load the shape file for time zone boundaries
--- 6. create auxiliary store procedures (air_oai_facts.create_quarter_partitions)
 ----------------------------------------------------
 
 -- 0. create aviation database and user
@@ -95,7 +96,8 @@ WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
 and c.relkind = 'r'
 ORDER BY 3,7 desc;
 
--- 4. define data load stored procedure - simplifies s3 data loads in aurora
+-- 4. define stored procedures - 
+-- 4.1. create data load stored procedure - simplifies s3 data loads in aurora
 CREATE OR REPLACE PROCEDURE import_data_from_manifest
 (OUT 
     files_imported INTEGER,
@@ -223,8 +225,7 @@ CALL import_data_from_manifest(
 select * from test;
 drop table test;
 
--- 6. create auxiliary store procedures (create_quarter_partitions)
-
+-- 4.2. create partitioning stored procedure for airfare survey data
 CREATE OR REPLACE PROCEDURE create_quarter_partitions(
     IN p_parent_table text,   -- e.g. 'air_oai_facts.airfare_survey_itinerary'
     IN p_source_table text    -- e.g. 'air_oai_facts.airfare_survey_ticket_load'
@@ -243,12 +244,8 @@ DECLARE
     table_name  text;
     sql_stmt    text;
 BEGIN
-    /*
-      1) Determine minimum and maximum year from the year_quarter_start_date
-         column in the source table.
-         IMPORTANT: it is assumed that p_source_table has the column
-         year_quarter_start_date (date).
-    */
+
+    -- Determine minimum and maximum year from the year_quarter_start_date    
     EXECUTE format(
         'SELECT 
              min(EXTRACT(YEAR FROM year_quarter_start_date))::int,
@@ -264,12 +261,9 @@ BEGIN
             p_source_table;
     END IF;
 
-    /*
-      2) Determine the maximum quarter (1–4) for the maximum year.
-         Quarter formula: ((month - 1) / 3) + 1
-    */
+    -- Determine the maximum quarter (1–4) for the maximum year.
     EXECUTE format(
-        'SELECT max(((EXTRACT(MONTH FROM year_quarter_start_date)::int - 1) / 3) + 1)::int
+        'SELECT max(EXTRACT(QUARTER FROM year_quarter_start_date))
          FROM %s
          WHERE EXTRACT(YEAR FROM year_quarter_start_date)::int = %s',
         p_source_table,
@@ -283,10 +277,7 @@ BEGIN
             v_max_year, p_source_table;
     END IF;
 
-    /*
-      3) Create quarterly partitions from v_min_year to v_max_year
-         and quarters 1 to 4, limiting the last year to v_last_year_max_qtr.
-    */
+    -- Create quarterly partitions from v_min_year to v_max_year and quarters 1 to 4
     FOR year_val IN v_min_year..v_max_year LOOP
         FOR quarter_val IN 1..4 LOOP
 

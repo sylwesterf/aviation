@@ -11,19 +11,19 @@
 --  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
 --  1.2. ingest ticket csv data
 --  1.3. create fact table air_oai_facts.airfare_survey_itinerary
---  1.4. call SP for ticket data
+--  1.4. call partitioning SP for ticket data
 --  1.5. insert data into fact table
 -- 2. process DB1B Coupon data
 --  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
 --  2.2. ingest coupon csv data
 --  2.3. create air_oai_facts.airfare_survey_coupon
---  2.4. call SP for coupon data
+--  2.4. call partitioning SP for coupon data
 --  2.5. insert data into fact table
 -- 3. process DB1B Market data
 --  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
 --  3.2. ingest market csv data
 --  3.3. create table airfare_survey_market
---  3.4. call SP for market data
+--  3.4. call partitioning SP for market data
 --  3.5. insert data into fact table
 -- 4. add keys and indexes
 -- 5. create presentation layer views
@@ -110,7 +110,7 @@ create table air_oai_facts.airfare_survey_itinerary
 
 
 -- 1.4. call procedure for itinerary data
-CALL air_oai_facts.create_quarter_partitions(
+CALL create_quarter_partitions(
     'air_oai_facts.airfare_survey_itinerary',
 	'air_oai_facts.airfare_survey_ticket_load'
 );
@@ -272,7 +272,7 @@ create table air_oai_facts.airfare_survey_coupon
 ) partition by range (year_quarter_start_date);
 
 -- 2.4. call procedure for coupon data
-CALL air_oai_facts.create_quarter_partitions(
+CALL create_quarter_partitions(
     'air_oai_facts.airfare_survey_coupon',
     'air_oai_facts.airfare_survey_coupon_load'
 );
@@ -462,7 +462,7 @@ create table air_oai_facts.airfare_survey_market
 ) partition by range (year_quarter_start_date);
 
 -- 3.4. call procedure for market data
-CALL air_oai_facts.create_quarter_partitions(
+CALL create_quarter_partitions(
     'air_oai_facts.airfare_survey_market',
     'air_oai_facts.airfare_survey_market_load'
 );
