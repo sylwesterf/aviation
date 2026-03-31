@@ -11,19 +11,19 @@
 --  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
 --  1.2. ingest ticket csv data
 --  1.3. create fact table air_oai_facts.airfare_survey_itinerary
---  1.4. create partioning
+--  1.4. call partitioning SP for ticket data
 --  1.5. insert data into fact table
 -- 2. process DB1B Coupon data
 --  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
 --  2.2. ingest coupon csv data
 --  2.3. create air_oai_facts.airfare_survey_coupon
---  2.4. create partioning
+--  2.4. call partitioning SP for coupon data
 --  2.5. insert data into fact table
 -- 3. process DB1B Market data
 --  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
---  3.1. ingest market csv data
---  3.2. create table airfare_survey_market
---  3.4. create partioning
+--  3.2. ingest market csv data
+--  3.3. create table airfare_survey_market
+--  3.4. call partitioning SP for market data
 --  3.5. insert data into fact table
 -- 4. add keys and indexes
 -- 5. create presentation layer views
@@ -82,70 +82,38 @@ CALL import_data_from_manifest(
 create table air_oai_facts.airfare_survey_itinerary
 ( 
 	itinerary_oai_id								bigint  not null
-	 , year_quarter_start_date						date	not null
-	 , reporting_airline_entity_id					smallint not null
-	 , reporting_airline_entity_key					char(32) not null
-	 , depart_airport_history_id					integer	not null
-	 , depart_airport_history_key					char(32) not null
-	 , round_trip_fare_ind            				smallint null
-	 , online_purchase_ind							smallint null
-	 , bulk_fare_ind								smallint null
-	 , fare_credibility_ind							smallint null
-	 , distance_group_oai_id						smallint null
-	 , geographic_type_oai_id						smallint null
-	 , coupon_qty									smallint null
-	 , passenger_qty           						smallint null
-	 , distance_smi									integer null
-	 , flown_distance_smi							integer null
-	 , fare_per_person_usd							integer null
-	 , fare_per_mile_usd							numeric(10,5) null
-	 , created_by 									varchar(32) DEFAULT 'CURRENT_USER' NOT NULL
-	 , created_tmst 								timestamp(0) DEFAULT CURRENT_TIMESTAMP NOT NULL
-	 , updated_by 									varchar(32)
-	 , updated_tsmt 								timestamp(0)
-	 , constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
+	, year_quarter_start_date						date	not null
+	, year_quarter_nbr								integer not null
+	, reporting_airline_entity_id					smallint not null
+	, reporting_airline_entity_key					char(32) not null
+	, depart_airport_history_id						integer	not null
+	, depart_airport_history_key					char(32) not null
+	, round_trip_fare_ind            				smallint null
+	, online_purchase_ind							smallint null
+	, bulk_fare_ind									smallint null
+	, fare_credibility_ind							smallint null
+	, distance_group_oai_id							smallint null
+	, geographic_type_oai_id						smallint null
+	, coupon_qty									smallint null
+	, passenger_qty           						smallint null
+	, distance_smi									integer null
+	, flown_distance_smi							integer null
+	, fare_per_person_usd							integer null
+	, fare_per_mile_usd								numeric(10,5) null
+	, created_by 									varchar(32) DEFAULT 'CURRENT_USER' NOT NULL
+	, created_tmst 									timestamp(0) DEFAULT CURRENT_TIMESTAMP NOT NULL
+	, updated_by 									varchar(32)
+	, updated_tsmt 									timestamp(0)
+	, constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 1.4. create partioning
-DO $$
-DECLARE
-    year_val INT;
-    quarter_val INT;
-    start_date DATE;
-    end_date DATE;
-    table_name TEXT;
-    sql_stmt TEXT;
-BEGIN
-    FOR year_val IN 1993..2024 LOOP
-        FOR quarter_val IN 1..4 LOOP
-            -- Skip future quarters in 2024
-            IF (year_val = 2024 AND quarter_val > 1) THEN
-                CONTINUE;
-            END IF;
-            
-            -- Calculate start and end dates for the quarter
-            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-            
-            -- Calculate end date (first day of next quarter minus 1 day)
-            IF quarter_val = 4 THEN
-                end_date := make_date(year_val + 1, 1, 1);
-            ELSE
-                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
-            END IF;
-            
-            -- Create table name
-            table_name := 'air_oai_facts.airfare_survey_itinerary_' || year_val || 'Q' || quarter_val;
-            
-            -- Build and execute SQL statement
-            sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_itinerary FOR VALUES FROM (''' || 
-                       start_date || ''') TO (''' || end_date || ''');';
-            
-            RAISE NOTICE '%', sql_stmt;
-            EXECUTE sql_stmt;
-        END LOOP;
-    END LOOP;
-END $$;
+
+
+-- 1.4. call procedure for itinerary data
+CALL create_quarter_partitions(
+    'air_oai_facts.airfare_survey_itinerary',
+	'air_oai_facts.airfare_survey_ticket_load'
+);
 
 -- 1.5. insert data into fact table
 WITH filtered_airline_entities AS (
@@ -154,28 +122,52 @@ WITH filtered_airline_entities AS (
     WHERE operating_region_code = 'Domestic'
 )
 INSERT INTO air_oai_facts.airfare_survey_itinerary
-	( itinerary_oai_id, year_quarter_start_date
-	, reporting_airline_entity_id, reporting_airline_entity_key
-	, depart_airport_history_id, depart_airport_history_key
-	, round_trip_fare_ind, online_purchase_ind, bulk_fare_ind, fare_credibility_ind
-	, distance_group_oai_id, geographic_type_oai_id
-	, coupon_qty, passenger_qty, distance_smi, flown_distance_smi
-	, fare_per_person_usd, fare_per_mile_usd
-	, created_by, created_tmst)
+( 
+	itinerary_oai_id
+	, year_quarter_start_date
+	, year_quarter_nbr
+	, reporting_airline_entity_id
+	, reporting_airline_entity_key
+	, depart_airport_history_id
+	, depart_airport_history_key
+	, round_trip_fare_ind
+	, online_purchase_ind
+	, bulk_fare_ind
+	, fare_credibility_ind
+	, distance_group_oai_id
+	, geographic_type_oai_id
+	, coupon_qty
+	, passenger_qty
+	, distance_smi
+	, flown_distance_smi
+	, fare_per_person_usd
+	, fare_per_mile_usd
+	, created_by
+	, created_tmst
+)
 SELECT asf.itinerary_oai_id
-	 , ac.year_quarter_from_date  as year_quarter_start_date
-     , ae.airline_entity_id as reporting_airline_entity_id
-     , ae.airline_entity_key as reporting_airline_entity_key
-     , ah.airport_history_id as depart_airport_history_id
-     , ah.airport_history_key as depart_airport_history_key
-     , round_trip_ind, online_ind, bulk_fare_ind, fare_credibility_ind
-     , distance_group_oai_id, geographic_type_oai_id
-	 , coupon_qty, passenger_qty, distance_smi, flown_distance_smi
-	 , fare_per_person_amount_usd, fare_per_smi
-	 , current_user, now()
+	, ac.year_quarter_from_date  as year_quarter_start_date
+	, ac.year_quarter_nbr
+    , ae.airline_entity_id as reporting_airline_entity_id
+    , ae.airline_entity_key as reporting_airline_entity_key
+    , ah.airport_history_id as depart_airport_history_id
+    , ah.airport_history_key as depart_airport_history_key
+    , round_trip_ind
+	, online_ind
+	, bulk_fare_ind
+	, fare_credibility_ind
+    , distance_group_oai_id
+	, geographic_type_oai_id
+	, coupon_qty
+	, passenger_qty
+	, distance_smi
+	, flown_distance_smi
+	, fare_per_person_amount_usd
+	, fare_per_smi
+	, current_user
+	, now()
 FROM air_oai_facts.airfare_survey_ticket_load asf
--- air_oai_facts.airfare_survey_ticket_fdw asf
-join calendar_pg.gregorian_year_quarter  ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
+join calendar_pg.gregorian_year_quarter ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
 left join filtered_airline_entities ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
 left join air_oai_dims.airport_history ah
@@ -250,6 +242,7 @@ create table air_oai_facts.airfare_survey_coupon
 	itinerary_oai_id             		bigint 		not null
 	, flight_pass_seq					integer 	not null
 	, year_quarter_start_date			date		not null
+	, year_quarter_nbr					integer 	not null
 	, market_oai_id						bigint 		not null
 	, ticketing_airline_entity_id		smallint	not null
 	, ticketing_airline_entity_key		char(32)	not null
@@ -278,46 +271,11 @@ create table air_oai_facts.airfare_survey_coupon
 	, constraint airfare_survey_coupon_pk primary key (itinerary_oai_id, flight_pass_seq, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 2.4. create partioning
-DO $$
-DECLARE
-    year_val INT;
-    quarter_val INT;
-    start_date DATE;
-    end_date DATE;
-    table_name TEXT;
-    sql_stmt TEXT;
-BEGIN
-    FOR year_val IN 1993..2024 LOOP
-        FOR quarter_val IN 1..4 LOOP
-            -- Skip future quarters in 2024
-            IF (year_val = 2024 AND quarter_val > 1) THEN
-                CONTINUE;
-            END IF;
-            
-            -- Calculate start and end dates for the quarter
-            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-            
-            -- Calculate end date (first day of next quarter minus 1 day)
-            IF quarter_val = 4 THEN
-                end_date := make_date(year_val + 1, 1, 1);
-            ELSE
-                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
-            END IF;
-            
-            -- Create table name
-            table_name := 'air_oai_facts.airfare_survey_coupon_' || year_val || 'Q' || quarter_val;
-            
-            -- Build and execute SQL statement
-            sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_coupon FOR VALUES FROM (''' || 
-                       start_date || ''') TO (''' || end_date || ''');';
-            
-            RAISE NOTICE '%', sql_stmt;
-            EXECUTE sql_stmt;
-        END LOOP;
-    END LOOP;
-END $$;
+-- 2.4. call procedure for coupon data
+CALL create_quarter_partitions(
+    'air_oai_facts.airfare_survey_coupon',
+    'air_oai_facts.airfare_survey_coupon_load'
+);
 
 -- 2.5. insert data into fact table
 WITH filtered_airline_entities AS (
@@ -326,19 +284,39 @@ WITH filtered_airline_entities AS (
     WHERE operating_region_code = 'Domestic'
 )
 INSERT INTO air_oai_facts.airfare_survey_coupon
-	(itinerary_oai_id, flight_pass_seq, year_quarter_start_date, market_oai_id
-	, ticketing_airline_entity_id, ticketing_airline_entity_key
-	, operating_airline_entity_id, operating_airline_entity_key
-	, reporting_airline_entity_id, reporting_airline_entity_key
-	, depart_airport_history_id, depart_airport_history_key
-	, arrive_airport_history_id, arrive_airport_history_key
-	, trip_break_code, gateway_ind, distance_group_oai_id, airfare_class_code
-	, itinerary_geographic_type_oai_id, coupon_geographic_type_oai_id
-	, flight_pass_type, flight_pass_qty, passengers_qty, distance_smi
-	, created_by, created_tmst)
+(
+	itinerary_oai_id
+	, flight_pass_seq
+	, year_quarter_start_date
+	, year_quarter_nbr
+	, market_oai_id
+	, ticketing_airline_entity_id
+	, ticketing_airline_entity_key
+	, operating_airline_entity_id
+	, operating_airline_entity_key
+	, reporting_airline_entity_id
+	, reporting_airline_entity_key
+	, depart_airport_history_id
+	, depart_airport_history_key
+	, arrive_airport_history_id
+	, arrive_airport_history_key
+	, trip_break_code
+	, gateway_ind
+	, distance_group_oai_id
+	, airfare_class_code
+	, itinerary_geographic_type_oai_id
+	, coupon_geographic_type_oai_id
+	, flight_pass_type
+	, flight_pass_qty
+	, passengers_qty
+	, distance_smi
+	, created_by
+	, created_tmst
+)
 SELECT ac.itinerary_oai_id
      , ac.flight_pass_seq
      , aq.year_quarter_from_date as year_quarter_start_date
+	 , aq.year_quarter_nbr
 	 , ac.market_oai_id
 	 , aet.airline_entity_id as ticketing_airline_entity_id
 	 , aet.airline_entity_key as ticketing_airline_entity_key
@@ -349,13 +327,13 @@ SELECT ac.itinerary_oai_id
 	 , ahd.airport_history_id as depart_airport_history_id
 	 , ahd.airport_history_key as depart_airport_history_key
 	 , aha.airport_history_id as arrive_airport_history_id
-	 , ahd.airport_history_key as arrive_airport_history_key
+	 , aha.airport_history_key as arrive_airport_history_key
 	 , case when ac.trip_break_code = 'X' then 1 else 0 end::smallint as trip_break_code
 	 , ac.gateway_ind
 	 , ac.distance_group_id
 	 , ac.airfare_class_code
-	 , ac.itinerary_geo_type_id as itinerary_geographic_type_id
-	 , ac.coupon_geo_type_id as coupon_geographic_type_id
+	 , ac.itinerary_geo_type_id as itinerary_geographic_type_oai_id
+	 , ac.coupon_geo_type_id as coupon_geographic_type_oai_id
 	 , ac.flight_pass_type
 	 , ac.flight_pass_qty
 	 , ac.passengers_qty
@@ -443,12 +421,13 @@ CALL import_data_from_manifest(
 	3 											 -- max_files_to_import 
 );
 
--- 3.2. create fact table
+-- 3.3. create fact table
 create table air_oai_facts.airfare_survey_market
 ( 
 	itinerary_oai_id             		bigint 		not null
 	, market_oai_id						bigint 		not null
 	, year_quarter_start_date			date		not null
+	, year_quarter_nbr					integer 	not null
 	, ticketing_airline_entity_id		smallint	not null
 	, ticketing_airline_entity_key		char(32)	not null
 	, ticketing_airline_change_ind		smallint	not null
@@ -482,46 +461,11 @@ create table air_oai_facts.airfare_survey_market
 	, constraint airfare_survey_market_pk primary key (itinerary_oai_id, market_oai_id, year_quarter_start_date)
 ) partition by range (year_quarter_start_date);
 
--- 3.4. create partioning
-DO $$
-DECLARE
-    year_val INT;
-    quarter_val INT;
-    start_date DATE;
-    end_date DATE;
-    table_name TEXT;
-    sql_stmt TEXT;
-BEGIN
-    FOR year_val IN 1993..2024 LOOP
-        FOR quarter_val IN 1..4 LOOP
-            -- Skip future quarters in 2024
-            IF (year_val = 2024 AND quarter_val > 1) THEN
-                CONTINUE;
-            END IF;
-            
-            -- Calculate start and end dates for the quarter
-            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-            
-            -- Calculate end date (first day of next quarter minus 1 day)
-            IF quarter_val = 4 THEN
-                end_date := make_date(year_val + 1, 1, 1);
-            ELSE
-                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
-            END IF;
-            
-            -- Create table name
-            table_name := 'air_oai_facts.airfare_survey_market_' || year_val || 'Q' || quarter_val;
-            
-            -- Build and execute SQL statement
-            sql_stmt := 'CREATE TABLE ' || table_name || 
-                       ' PARTITION OF air_oai_facts.airfare_survey_market FOR VALUES FROM (''' || 
-                       start_date || ''') TO (''' || end_date || ''');';
-            
-            RAISE NOTICE '%', sql_stmt;
-            EXECUTE sql_stmt;
-        END LOOP;
-    END LOOP;
-END $$;
+-- 3.4. call procedure for market data
+CALL create_quarter_partitions(
+    'air_oai_facts.airfare_survey_market',
+    'air_oai_facts.airfare_survey_market_load'
+);
 
 -- 3.5. insert data into fact table
 WITH filtered_airline_entities AS (
@@ -530,20 +474,44 @@ WITH filtered_airline_entities AS (
     WHERE operating_region_code = 'Domestic'
 )
 INSERT INTO air_oai_facts.airfare_survey_market
-	( itinerary_oai_id, market_oai_id, year_quarter_start_date
-	, ticketing_airline_entity_id, ticketing_airline_entity_key, ticketing_airline_change_ind, ticketing_airlines_group_code
-	, operating_airline_entity_id, operating_airline_entity_key, operating_airline_change_ind, operating_airlines_group_code
-	, reporting_airline_entity_id, reporting_airline_entity_key
-	, depart_airport_history_id, depart_airport_history_key
-	, arrive_airport_history_id, arrive_airport_history_key
-	, airports_group_oai_code, world_areas_group_oai_code
-	, itinerary_geograhic_type_oai_id, market_geograhic_type_oai_id, market_distance_group_oai_id
-	, bulk_fare_ind, market_coupon_qty, passenger_qty, market_fare_amount_usd
-	, market_distance_smi, market_flown_distance_smi, non_stop_distance_smi
-	, created_by, created_tmst)
+( 
+	itinerary_oai_id
+	, market_oai_id
+	, year_quarter_start_date
+	, year_quarter_nbr
+	, ticketing_airline_entity_id
+	, ticketing_airline_entity_key
+	, ticketing_airline_change_ind
+	, ticketing_airlines_group_code
+	, operating_airline_entity_id
+	, operating_airline_entity_key
+	, operating_airline_change_ind
+	, operating_airlines_group_code
+	, reporting_airline_entity_id
+	, reporting_airline_entity_key
+	, depart_airport_history_id
+	, depart_airport_history_key
+	, arrive_airport_history_id
+	, arrive_airport_history_key
+	, airports_group_oai_code
+	, world_areas_group_oai_code
+	, itinerary_geograhic_type_oai_id
+	, market_geograhic_type_oai_id
+	, market_distance_group_oai_id
+	, bulk_fare_ind
+	, market_coupon_qty
+	, passenger_qty
+	, market_fare_amount_usd
+	, market_distance_smi
+	, market_flown_distance_smi
+	, non_stop_distance_smi
+	, created_by
+	, created_tmst
+)
 SELECT am.itinerary_oai_id
 	 , am.market_oai_id
 	 , agq.year_quarter_from_date as year_quarter_start_date
+	 , agq.year_quarter_nbr
      , aet.airline_entity_id as ticketing_airline_entity_id
      , aet.airline_entity_key as ticketing_airline_entity_key
 	 , am.ticketing_airline_change_ind
@@ -589,10 +557,9 @@ where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.
 	AND agq.year_quarter_from_date between aer.source_from_date and coalesce(aer.source_thru_date, current_date);
 
 -- 4. create extra primary key and indexes
-alter table air_oai_facts.airfare_survey_itinerary add constraint airfare_survey_itinerary_pk primary key (itinerary_id);
-create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_carrier_iata_cd);
-create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (orig_airport_iata_cd);
-create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_nbr, quarter_nbr);
+create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_airline_entity_id);
+create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (depart_airport_history_id);
+create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_quarter_start_date);
 
 -- 5. create presentation layer views
 -- drop view if exists airlines_pg.airfare_survey_itinerary_v:
