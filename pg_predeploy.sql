@@ -32,8 +32,8 @@ select default_iam_role();
 create table test (id int, descr varchar(10));
 COPY test
 FROM 's3://src-aviation/test/test_file_1.csv'
-IGNOREHEADER 1 
 FORMAT CSV
+IGNOREHEADER 1
 IAM_ROLE default;
 select * from test;
 drop table test;
