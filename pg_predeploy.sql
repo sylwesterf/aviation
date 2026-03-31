@@ -2,16 +2,13 @@
 -- STEPS:
 -- 0. create aviation database
 -- 1. create schemas
--- 2. create pg extensions 
--- 3. create pg metadata views
--- 4. define auxiliary stored procedures
---  4.1. create data load stored procedure
---  4.2. create partitioning stored procedure
--- 5. load the shape file for time zone boundaries
+-- 2. create pg metadata views
+-- 3. load the shape file for time zone boundaries
 ----------------------------------------------------
 
 -- 0. create aviation database and user
---CREATE user aviation WITH PASSWORD 'password';
+--CREATE USER aviation CREATEUSER PASSWORD 'password';
+--ALTER USER aviation CREATEUSER;
 CREATE DATABASE aviation OWNER aviation;
 
 -- 1. create schemas
@@ -29,27 +26,28 @@ comment on schema cal_gen is 'Gregorian calendar generation views to be able to 
 comment on schema calendar_pg is 'Gregorian calendar data as well as time transformation for ROLAP analysis.';
 comment on schema geography is 'geo-political dimension and spatial data in support of aviation analysis.';
 
--- 2. create extensions 
-GRANT rds_superuser TO aviation;
-CREATE EXTENSION IF NOT EXISTS POSTGIS; -- extension needed for geometry data type in one of the tables in air_oai_dims
-CREATE EXTENSION IF NOT EXISTS aws_s3 CASCADE; -- adds functions for importing data from an Amazon S3 (in Aurora)
-
--- test aws_s3 extension and rds-s3 connectivity (via table_import_from_s3 call)
+-- verify default role
+select default_iam_role();
+-- test the copy data command
 create table test (id int, descr varchar(10));
-SELECT aws_s3.table_import_from_s3('test','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', 'test/test_file_1.csv', 'us-west-2'));
+COPY test
+FROM 's3://src-aviation/test/test_file_1.csv'
+IGNOREHEADER 1 
+FORMAT CSV
+IAM_ROLE default;
 select * from test;
 drop table test;
 
--- 3. create pg metadata views
+-- 2. create pg metadata views
 -- database_schema_descriptions_v
 CREATE OR REPLACE VIEW database_schema_descriptions_v 
 AS  
 SELECT n.oid as schema_oid
-     , max(n.nspname) AS schema_name
+     , n.nspname AS schema_name
      , sum(sum_object_size_mb)::numeric(12,4) as sum_object_size_mb
      , sum(sum_total_size_mb - sum_object_size_mb)::numeric(12,4) as sum_index_size_mb
      , sum(sum_total_size_mb)::numeric(12,4) as sum_total_size_mb
-     , max(d.description) as schema_descr
+     , d.description as schema_descr
 FROM pg_namespace 			n
 LEFT JOIN pg_description 	d ON n.oid = d.objoid
 LEFT JOIN (
@@ -59,7 +57,7 @@ LEFT JOIN (
 	FROM pg_class GROUP BY relnamespace
 	) 						c ON n.oid = c.relnamespace
 WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
-GROUP BY n.oid
+GROUP BY n.oid, n.nspname, d.description
 ORDER BY n.nspname;
 
 -- database_objects_v
@@ -68,7 +66,6 @@ AS
 SELECT current_database() AS database_name
      , n.nspname AS schema_name
      , c.relname AS object_name
-     , u.rolname AS owner_name
      , c.relkind
      , CASE WHEN (c.relkind = 'r'::char(1)) THEN 'table'
             WHEN (c.relkind = 'v'::char(1)) THEN 'view'
@@ -82,7 +79,6 @@ SELECT current_database() AS database_name
      , d.description AS object_descr
 FROM pg_class c
 JOIN pg_namespace n ON c.relnamespace = n.oid
-JOIN pg_authid u ON c.relowner = u.oid
 LEFT JOIN (
 	SELECT pg_description.objoid, pg_description.classoid, pg_description.objsubid, pg_description.description
 	FROM  pg_description WHERE pg_description.objsubid = 0
@@ -94,236 +90,9 @@ LEFT JOIN (
 	) a ON c.oid = a.attrelid
 WHERE n.nspname not in ('pg_catalog','information_schema','pg_toast')
 and c.relkind = 'r'
-ORDER BY 3,7 desc;
-
--- 4. define stored procedures - 
--- 4.1. create data load stored procedure - simplifies s3 data loads in aurora
-CREATE OR REPLACE PROCEDURE import_data_from_manifest
-(OUT 
-    files_imported INTEGER,
-    target_table TEXT,
-    manifest_file TEXT,
-    source_bucket TEXT,
-    region TEXT DEFAULT 'us-west-2',
-    format_options TEXT DEFAULT '(FORMAT CSV, DELIMITER '','', HEADER)',
-	max_files_to_import INTEGER DEFAULT NULL 
-) AS $$
-DECLARE
-    uri_record RECORD;
-    temp_table_name TEXT := 'temp_manifest_' || md5(random()::text);
-    error_count INTEGER := 0;
-    total_files INTEGER;
-    start_time TIMESTAMP;
-    end_time TIMESTAMP;
-BEGIN
-    files_imported := 0;
-    start_time := clock_timestamp();
-    
-    RAISE NOTICE '--- Starting import from manifest % to table % ---', manifest_file, target_table;
-    
-    -- Create a temporary table to store the manifest file contents
-    EXECUTE format('CREATE TEMPORARY TABLE %s (file_uri TEXT)', quote_ident(temp_table_name));
-    
-    -- Import the manifest file into the temporary table
-    PERFORM aws_s3.table_import_from_s3(
-        temp_table_name,
-        'file_uri',
-        '(FORMAT CSV, HEADER true)',
-        aws_commons.create_s3_uri(
-            source_bucket,
-            manifest_file,
-            region
-        )
-    );
-    
-    -- Get total number of files to import
-    EXECUTE format('SELECT COUNT(*) FROM %s WHERE TRIM(file_uri) <> %L', quote_ident(temp_table_name), '')
-        INTO total_files;
-    RAISE NOTICE 'Found % files to import in manifest', total_files;
-	
-	-- Ensure max_files_to_import does not exceed total_files
-	IF max_files_to_import IS NOT NULL AND max_files_to_import > total_files THEN
-    RAISE NOTICE 'Requested max_files_to_import (%) is greater than files available (%). Setting max_files_to_import = %', 
-        max_files_to_import, total_files, total_files;
-    max_files_to_import := total_files;
-	END IF;
-    
-	-- LIMIT the load to the requested number of files!
-    FOR uri_record IN EXECUTE format(
-    'SELECT TRIM(file_uri) AS file_uri FROM %s WHERE TRIM(file_uri) <> %L %s',
-    quote_ident(temp_table_name),
-    '',
-    CASE 
-        WHEN max_files_to_import IS NOT NULL 
-        THEN 'LIMIT ' || max_files_to_import
-        ELSE ''
-    END
-)
-LOOP
-
-        -- Import the file using the provided URI directly
-        BEGIN
-            PERFORM aws_s3.table_import_from_s3(
-                target_table,
-                '',  -- column names (empty means all columns)
-                format_options,
-                aws_commons.create_s3_uri(
-                    source_bucket,
-                    uri_record.file_uri,
-                    region
-                )
-            );
-            
-            files_imported := files_imported + 1;
-            RAISE NOTICE 'Imported file: %', uri_record.file_uri;
-            
-        EXCEPTION WHEN OTHERS THEN
-            error_count := error_count + 1;
-            RAISE WARNING 'Error importing file %: %', uri_record.file_uri, SQLERRM;
-        END;
-    END LOOP;
-    
-    -- Drop the temporary table
-    EXECUTE format('DROP TABLE IF EXISTS %s', quote_ident(temp_table_name));
-
-    end_time := clock_timestamp();
-    
-    -- Print summary information
-    RAISE NOTICE '--- Import Summary ---';
-    RAISE NOTICE 'Target table: %', target_table;
-    RAISE NOTICE 'Files successfully imported: %', files_imported;
-    RAISE NOTICE 'Files with errors: %', error_count;
-    RAISE NOTICE 'Total execution time: % seconds', EXTRACT(EPOCH FROM (end_time - start_time))::INTEGER;
-    RAISE NOTICE '---------------------';
-END;
-$$ LANGUAGE plpgsql;
-
--- sample procedure call
-create table test (id int, descr varchar(10));
--- load all files fom the manifest
-CALL import_data_from_manifest(
-    0, 
-    'test',  									-- target_table
-    'test/manifest_test.csv',      				-- manifest_file
-    'src-aviation',                              -- source_bucket
-    'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)',      -- format_options
-	null
-);
-select * from test;
-
--- load 2 files fom the manifest
-CALL import_data_from_manifest(
-    0, 
-    'test',  									-- target_table
-    'test/manifest_test.csv',      				-- manifest_file
-    'src-aviation',                              -- source_bucket
-    'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)',      -- format_options
-	2											-- max_files_to_import
-);
-select * from test;
-drop table test;
-
--- 4.2. create partitioning stored procedure for airfare survey data
-CREATE OR REPLACE PROCEDURE create_quarter_partitions(
-    IN p_parent_table text,   -- e.g. 'air_oai_facts.airfare_survey_itinerary'
-    IN p_source_table text    -- e.g. 'air_oai_facts.airfare_survey_ticket_load'
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_min_year          int;
-    v_max_year          int;
-    v_last_year_max_qtr int;
-
-    year_val    int;
-    quarter_val int;
-    start_date  date;
-    end_date    date;
-    table_name  text;
-    sql_stmt    text;
-BEGIN
-
-    -- Determine minimum and maximum year from the year_quarter_start_date    
-    EXECUTE format(
-        'SELECT 
-             min(EXTRACT(YEAR FROM year_quarter_start_date))::int,
-             max(EXTRACT(YEAR FROM year_quarter_start_date))::int
-         FROM %s',
-        p_source_table
-    )
-    INTO v_min_year, v_max_year;
-
-    IF v_min_year IS NULL OR v_max_year IS NULL THEN
-        RAISE EXCEPTION
-            'No data found in % or column year_quarter_start_date is NULL',
-            p_source_table;
-    END IF;
-
-    -- Determine the maximum quarter (1–4) for the maximum year.
-    EXECUTE format(
-        'SELECT max(EXTRACT(QUARTER FROM year_quarter_start_date))
-         FROM %s
-         WHERE EXTRACT(YEAR FROM year_quarter_start_date)::int = %s',
-        p_source_table,
-        v_max_year
-    )
-    INTO v_last_year_max_qtr;
-
-    IF v_last_year_max_qtr IS NULL THEN
-        RAISE EXCEPTION
-            'Could not determine the maximum quarter for year % in %',
-            v_max_year, p_source_table;
-    END IF;
-
-    -- Create quarterly partitions from v_min_year to v_max_year and quarters 1 to 4
-    FOR year_val IN v_min_year..v_max_year LOOP
-        FOR quarter_val IN 1..4 LOOP
-
-            -- For the last year, do not create quarters beyond the detected maximum
-            IF year_val = v_max_year AND quarter_val > v_last_year_max_qtr THEN
-                CONTINUE;
-            END IF;
-
-            -- Start date of the quarter
-            start_date := make_date(year_val, (quarter_val - 1) * 3 + 1, 1);
-
-            -- End date = first day of the next quarter
-            IF quarter_val = 4 THEN
-                end_date := make_date(year_val + 1, 1, 1);
-            ELSE
-                end_date := make_date(year_val, quarter_val * 3 + 1, 1);
-            END IF;
-
-            -- Partition table name:
-            --   schema same as parent
-            --   name = <parent_name>_<YYYY>Q<q>
-            table_name := format(
-                '%I.%I_%sQ%s',
-                split_part(p_parent_table, '.', 1),             -- parent schema
-                split_part(p_parent_table, '.', 2),             -- parent base name
-                year_val,
-                quarter_val
-            );
-
-            sql_stmt := format(
-                'CREATE TABLE %s PARTITION OF %s
-                 FOR VALUES FROM (%L) TO (%L);',
-                table_name,
-                p_parent_table,
-                start_date,
-                end_date
-            );
-
-            RAISE NOTICE '%', sql_stmt;
-            EXECUTE sql_stmt;
-        END LOOP;
-    END LOOP;
-END;
-$$;
-
--- 5. load the shape file for time zone boundaries
+ORDER BY 3,7 desc
+                                                                                                                                    
+-- 3. load the shape file for time zone boundaries
 
 /*
 In order to process the Flight Performance data, we need a valid time zone name for each airport.
