@@ -63,15 +63,12 @@ create table air_oai_dims.aircraft_types_fdw
     aircraft_type_thru_date        date
 );
 
--- Carga desde S3 (ajusta bucket y IAM_ROLE)
-create table test (id int, descr varchar(10));
-COPY test
-FROM 's3://src-aviation/test/test_file_1.csv'
-IGNOREHEADER 1 
-FORMAT CSV
+-- 2. Upload S3 bucket
+COPY air_oai_dims.aircraft_types_fdw
+FROM 's3://src-aviation/DIMS/CSV/T_AIRCRAFT_TYPES.csv'
+FORMAT AS CSV
+IGNOREHEADER 1
 IAM_ROLE default;
-select * from test;
-drop table test;
 
 drop table if exists air_oai_dims.aircraft_types;
 create table air_oai_dims.aircraft_types
