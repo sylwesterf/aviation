@@ -16,7 +16,7 @@ Of these many options for MSTR customers, we have selected a few that are popula
 
 PostgreSQL execution order:
 1. **pg_predeploy.sql** - creates database, schemas and auxiliary views and stored procedures
-2. **fin_load.sql** - generates date hierarchy tables (no source files)
+2. **cal_load.sql** - generates date hierarchy tables (no source files)
 3. **dim_load.sql** - creates and populates dimension tables
 4. **fin_load.sql** - extra dimension table data load
 5. **otp_load.sql** - loads Reporting Carrier On-Time Performance (OTP) data
