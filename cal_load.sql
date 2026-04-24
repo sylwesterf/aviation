@@ -11,48 +11,63 @@
 -------------------------------------------------------------------
 -- schema preparation (Redshift)
 -------------------------------------------------------------------
-create schema if not exists cal_gen;
-create schema if not exists calendar_pg;
+create schema cal_gen;
+create schema calendar_pg;
 
 -------------------------------------------------------------------
 -- 1. VIEWS IN cal_gen
 -------------------------------------------------------------------
 
 -- cal_gen.make_gregorian_year_v
+-- Create a number table
+create temp table numbers_0_3000 as
+select row_number() over (order by true) - 1 as n
+from svv_tables          
+limit 3001;    
+
 create or replace view cal_gen.make_gregorian_year_v as
-select year_nbr::smallint as year_nbr
-     , year_cd::char(4) as year_code
-     , case when mod(year_nbr,400) = 0 then 1
-            when mod(year_nbr,100) = 0 then 0
-            when mod(year_nbr,4) = 0 then 1
-            else 0 end::smallint as leap_year_ind
-     , (year_cd || '-01-01')::date as year_from_date
-     , (year_cd || '-12-31')::date as year_thru_date
-     , (year_cd || '-12-31')::date - (year_cd || '-01-01')::date as day_qty
-     , lag(year_nbr,1) over (order by year_nbr) as last_year_nbr
+select
+    year_nbr::smallint                                               as year_nbr,
+    lpad(year_nbr::varchar, 4, '0')::char(4)                         as year_code,
+    case
+        when mod(year_nbr, 400) = 0 then 1
+        when mod(year_nbr, 100) = 0 then 0
+        when mod(year_nbr, 4)   = 0 then 1
+        else 0
+    end::smallint                                                    as leap_year_ind,
+    (lpad(year_nbr::varchar, 4, '0') || '-01-01')::date              as year_from_date,
+    (lpad(year_nbr::varchar, 4, '0') || '-12-31')::date              as year_thru_date,
+    (lpad(year_nbr::varchar, 4, '0') || '-12-31')::date
+      - (lpad(year_nbr::varchar, 4, '0') || '-01-01')::date          as day_qty,
+    lag(year_nbr, 1) over (order by year_nbr)                        as last_year_nbr
 from (
-    select v1.column1::char(1) || v2.column1::char(1) || v3.column1::char(1) || v4.column1::char(1) as year_cd
-         , cast(v1.column1::char(1) || v2.column1::char(1) || v3.column1::char(1) || v4.column1::char(1) as smallint) as year_nbr
-    from       (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) v1
-    cross join (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) v2
-    cross join (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) v3
-    cross join (values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9)) v4
-) yoe
+    select n as year_nbr
+    from numbers_0_3000
+) y
 where year_nbr between 1000 and 3000
-order by 2;
+order by year_code;    
+
+
+
 
 -- cal_gen.make_hour_of_day_v
 create or replace view cal_gen.make_hour_of_day_v as
-select column1::integer as hour_of_day_nbr
-      , column2::char(2) as hour_of_day_code
-      , (column2::char(2)||':00'::char(3))::time as hour_of_day_time
-      , column3::char(2) as period_code
-from (values 
- ( 0,'00','am'),( 1,'01','am'),( 2,'02','am'),( 3,'03','am'),( 4,'04','am'),( 5,'05','am')
-,( 6,'06','am'),( 7,'07','am'),( 8,'08','am'),( 9,'09','am'),(10,'10','am'),(11,'11','am')
-,(12,'12','pm'),(13,'13','pm'),(14,'14','pm'),(15,'15','pm'),(16,'16','pm'),(17,'17','pm')
-,(18,'18','pm'),(19,'19','pm'),(20,'20','pm'),(21,'21','pm'),(22,'22','pm'),(23,'23','pm')
-) hod;
+with hours as (
+    select (row_number() over (order by true) - 1) as hour_of_day_nbr
+    from svv_tables
+    limit 24
+)
+select
+    h.hour_of_day_nbr::integer                                   as hour_of_day_nbr,
+    lpad(h.hour_of_day_nbr::varchar, 2, '0')::char(2)            as hour_of_day_code,
+    (lpad(h.hour_of_day_nbr::varchar, 2, '0') || ':00')::time    as hour_of_day_time,
+    case
+        when h.hour_of_day_nbr between  0 and 11 then 'am'
+        else 'pm'
+    end::char(2)                                                 as period_code
+from hours h
+order by hour_of_day_nbr;
+
 
 -- cal_gen.make_minute_of_hour_v
 create or replace view cal_gen.make_minute_of_hour_v as
