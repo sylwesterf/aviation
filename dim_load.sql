@@ -3,54 +3,49 @@
 -- https://transtats.bts.gov/Tables.asp?QO_VQ=IMI&QO_anzr=N8vn6v10%FDf722146%FDgnoyr5&QO_fu146_anzr=N8vn6v10%FDf722146%FDgnoyr5
 
 ----------------------------------------------------
--- STEPS:
--- 0. download and unzip individual pre-zipped data files: AircraftTypes, Carrier Decode, Master Coordinate, World Area Codes
--- 1. create aircraft types lookup 
---  1.1. create air_oai_dims.aircraft_types_fdw table in postgre
---  1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
---  1.3. create air_oai_dims.aircraft_types table in postgre
---  1.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
--- 2. create world areas lookup 
---  2.1. create air_oai_dims.wac_country_state_fdw table in postgre
---  2.2. copy world areas data into air_oai_dims.wac_country_state_fdw
---  2.3. create air_oai_dims.world_areas table in postgre
---  2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
--- 3. create airline entities lookup 
---  3.1. create air_oai_dims.carrier_decode_fdw table in postgre
---  3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
---  3.3. create air_oai_dims.world_areas table in postgre
---  3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
---  3.4.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
---  3.4.2 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
--- 4. create airport history lookup 
---  4.1. create air_oai_dims.master_cord_fdw table in postgre  
---  4.2. copy world areas data into air_oai_dims.master_cord_fdw
---  4.3. create air_oai_dims.airport_history table in postgre
---  4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
---  4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
---  (4.6) update the time zone boundaries in air_oai_dims.airport_history 
--- 5. create aircraft types group lookup 
---  5.1. create air_oai_dims.aircraft_type_groups
---  5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
--- 6. create airline entity group (new) lookup 
---  6.1. create air_oai_dims.airline_entity_new_groups
---  6.2. load air_oai_dims.airline_entity_new_groups from air_oai_dims.airline_entities
--- 7. create airport types group (legacy) lookup 
---  7.1. create air_oai_dims.airline_entity_legacy_groups
---  7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_entities
--- 8. create geographic types lookup (hardcoded)
--- 9. create airfare classes lookup (hardcoded)
--- 10. create traffic data sources lookup (hardcoded)
--- 11. define column comments
--- 12. create presentation layer views
+----------------------------------------------------
+-- MASTER INDEX (SCRIPT STEPS)
+-- 0. Prereq: download and unzip source data files
+-- 1. Aircraft Types:
+--    1.1. Create aircraft_types_fdw staging table
+--    1.2. COPY aircraft types data from S3
+--    1.3. Create aircraft_types final table
+--    1.4. Load aircraft_types from aircraft_types_fdw
+-- 2. World Areas:
+--    2.1. Create wac_country_state_fdw staging table
+--    2.2. COPY world areas data from S3
+--    2.3. Create world_areas final table
+--    2.4. Load world_areas from wac_country_state_fdw
+-- 3. Airline Entities:
+--    3.1. Create carrier_decode_fdw staging table
+--    3.2. COPY carrier decode data from S3
+--    3.3. Create airline_entities final table
+--    3.4. Load airline_entities (general + special case 3KQ)
+-- 4. Airport History:
+--    4.1. Create master_cord_fdw staging table
+--    4.2. COPY master coordinate data from S3
+--    4.3. Create airport_history final table
+--    4.4. Load airport_history from master_cord_fdw
+--    4.5. Update airport/world area keys in airport_history
+-- 5. Aircraft Type Groups: create and load lookup
+-- 6. Airline Entity New Groups: create and load lookup
+-- 7. Airline Entity Legacy Groups: create and load lookup
+-- 8. Geographic Types: create hardcoded lookup
+-- 9. Airfare Classes: create hardcoded lookup
+-- 10. Traffic Data Sources: create hardcoded lookup
+-- 11. Column comments (metadata)
+-- 12. Presentation views
 ----------------------------------------------------
 
--- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
 ----------------------------------------------------
 -- 1. AIRCRAFT TYPES
+-- 1.1. Create schema and aircraft_types_fdw staging table
+-- 1.2. COPY aircraft types data from S3 into staging
+-- 1.3. Create aircraft_types final table
+-- 1.4. Load aircraft_types from aircraft_types_fdw
 ----------------------------------------------------
 
--- 1. Schema
+-- 1.1. Schema and staging table
 CREATE SCHEMA IF NOT EXISTS air_oai_dims;
 
 drop table if exists air_oai_dims.aircraft_types_fdw;
@@ -66,13 +61,15 @@ create table air_oai_dims.aircraft_types_fdw
     aircraft_type_thru_date        date
 );
 
--- 2. Upload S3 bucket
+-- 1.2. Load staging from S3
 COPY air_oai_dims.aircraft_types_fdw
 FROM 's3://src-aviation/DIMS/CSV/T_AIRCRAFT_TYPES.csv'
 FORMAT AS CSV
 IGNOREHEADER 1
-IAM_ROLE default;
+IAM_ROLE default
+DATEFORMAT 'MM/DD/YYYY';
 
+-- 1.3. Final table
 drop table if exists air_oai_dims.aircraft_types;
 create table air_oai_dims.aircraft_types
 ( 
@@ -91,6 +88,7 @@ create table air_oai_dims.aircraft_types
     constraint aircraft_types_pk primary key (aircraft_type_oai_nbr)
 );
 
+-- 1.4. Load final table
 insert into air_oai_dims.aircraft_types
 ( 
     aircraft_type_oai_nbr,
@@ -118,8 +116,13 @@ from air_oai_dims.aircraft_types_fdw f;
 
 ----------------------------------------------------
 -- 2. WORLD AREAS
+-- 2.1. Create wac_country_state_fdw staging table
+-- 2.2. COPY world areas data from S3 into staging
+-- 2.3. Create world_areas final table with constraints
+-- 2.4. Load world_areas from wac_country_state_fdw
 ----------------------------------------------------
 
+-- 2.1. Staging table
 drop table if exists air_oai_dims.wac_country_state_fdw;
 create table air_oai_dims.wac_country_state_fdw
 ( 
@@ -141,6 +144,7 @@ create table air_oai_dims.wac_country_state_fdw
     world_area_latest_ind          smallint
 );
 
+-- 2.2. Load staging from S3
 copy air_oai_dims.wac_country_state_fdw
 from 's3://src-aviation/DIMS/CSV/T_WAC_COUNTRY_STATE.csv'
 iam_role default
@@ -150,6 +154,7 @@ dateformat 'auto'
 timeformat 'auto'
 acceptinvchars;
 
+-- 2.3. Final table
 drop table if exists air_oai_dims.world_areas;
 create table air_oai_dims.world_areas
 ( 
@@ -179,6 +184,7 @@ create table air_oai_dims.world_areas
     constraint world_areas_nk unique (world_area_oai_id, effective_from_date)
 );
 
+-- 2.4. Load final table
 insert into air_oai_dims.world_areas
 ( 
     world_area_oai_seq_id,
@@ -224,8 +230,13 @@ from air_oai_dims.wac_country_state_fdw;
 
 ----------------------------------------------------
 -- 3. AIRLINE ENTITIES
+-- 3.1. Create carrier_decode_fdw staging table
+-- 3.2. COPY carrier decode data from S3 into staging
+-- 3.3. Create airline_entities final table
+-- 3.4. Load airline_entities (normal + airline_oai_code = '3KQ')
 ----------------------------------------------------
 
+-- 3.1. Staging table
 drop table if exists air_oai_dims.carrier_decode_fdw;
 create table air_oai_dims.carrier_decode_fdw
 ( 
@@ -244,6 +255,7 @@ create table air_oai_dims.carrier_decode_fdw
     source_thru_date           date
 );
 
+-- 3.2. Load staging from S3
 copy air_oai_dims.carrier_decode_fdw
 from 's3://src-aviation/DIMS/CSV/T_CARRIER_DECODE.csv'
 iam_role default
@@ -253,6 +265,7 @@ dateformat 'auto'
 timeformat 'auto'
 acceptinvchars;
 
+-- 3.3. Final table
 drop table if exists air_oai_dims.airline_entities;
 create table air_oai_dims.airline_entities
 ( 
@@ -281,7 +294,7 @@ create table air_oai_dims.airline_entities
     constraint airline_entities_nk unique (airline_oai_code, entity_oai_code, source_from_date)
 );
 
--- 3.4.1 no '3KQ'
+-- 3.4.1 Load airline_entities excluding airline_oai_code = '3KQ'
 insert into air_oai_dims.airline_entities
 ( 
     airline_entity_key,
@@ -321,7 +334,7 @@ from air_oai_dims.carrier_decode_fdw f
 where f.airline_oai_code <> '3KQ'
 order by f.airline_usdot_id, f.airline_oai_code, f.entity_oai_code, f.source_from_date;
 
--- 3.4.2 only '3KQ'
+-- 3.4.2 Load airline_entities only for airline_oai_code = '3KQ'
 insert into air_oai_dims.airline_entities
 ( 
     airline_entity_key,
@@ -378,8 +391,14 @@ from (
 
 ----------------------------------------------------
 -- 4. AIRPORT HISTORY
+-- 4.1. Create master_cord_fdw staging table
+-- 4.2. COPY master coordinate data from S3 into staging
+-- 4.3. Create airport_history final table
+-- 4.4. Load airport_history from master_cord_fdw
+-- 4.5. Update world area keys in airport_history
 ----------------------------------------------------
 
+-- 4.1. Staging table
 drop table if exists air_oai_dims.master_cord_fdw;
 create table air_oai_dims.master_cord_fdw 
 ( 
@@ -417,6 +436,7 @@ create table air_oai_dims.master_cord_fdw
     airport_latest_ind                     smallint
 );
 
+-- 4.2. Load staging from S3
 copy air_oai_dims.master_cord_fdw
 from 's3://src-aviation/DIMS/CSV/T_MASTER_CORD.csv'
 iam_role default
@@ -426,6 +446,7 @@ dateformat 'auto'
 timeformat 'auto'
 acceptinvchars;
 
+-- 4.3. Final table
 drop table if exists air_oai_dims.airport_history;
 create table air_oai_dims.airport_history 
 ( 
@@ -458,7 +479,7 @@ create table air_oai_dims.airport_history
     country_name                        varchar(75) not null,
     latitude_decimal_nbr                numeric(9,7),
     longitude_decimal_nbr               numeric(10,7),
-    -- point_geom                        geometry  -- NO DISPONIBLE EN REDSHIFT
+    -- point_geom                        geometry  -- Not available in Redshift
     created_by                          varchar(32)  not null default current_user,
     created_tmst                        timestamp    not null default current_timestamp,
     updated_by                          varchar(32),
@@ -468,6 +489,7 @@ create table air_oai_dims.airport_history
     constraint airport_history_nk unique (airport_oai_code, effective_from_date)
 );
 
+-- 4.4. Load final table
 insert into air_oai_dims.airport_history
 ( 
     airport_history_key,
@@ -530,7 +552,7 @@ select md5(upper(m.airport_oai_code)||'~'||m.airport_effective_from_date::varcha
        current_timestamp
 from air_oai_dims.master_cord_fdw m;
 
--- 4.5 update world area keys
+-- 4.5. Update airport_history with world area keys
 update air_oai_dims.airport_history ah
 set airport_world_area_key      = abc.airport_world_area_key,
     market_city_world_area_key  = abc.market_city_world_area_key
@@ -552,6 +574,8 @@ where ah.airport_history_id = abc.airport_history_id
 
 ----------------------------------------------------
 -- 5. AIRCRAFT TYPE GROUPS
+-- 5.1. Create aircraft_type_groups lookup table
+-- 5.2. Load aircraft_type_groups from aircraft_types
 ----------------------------------------------------
 
 drop table if exists air_oai_dims.aircraft_type_groups;
@@ -605,6 +629,8 @@ from air_oai_dims.aircraft_types;
 
 ----------------------------------------------------
 -- 6. AIRLINE ENTITY NEW GROUPS
+-- 6.1. Create airline_entity_new_groups lookup table
+-- 6.2. Load airline_entity_new_groups from airline_entities
 ----------------------------------------------------
 
 drop table if exists air_oai_dims.airline_entity_new_groups;
@@ -656,6 +682,8 @@ from air_oai_dims.airline_entities;
 
 ----------------------------------------------------
 -- 7. AIRLINE ENTITY LEGACY GROUPS
+-- 7.1. Create airline_entity_legacy_groups lookup table
+-- 7.2. Load airline_entity_legacy_groups from airline_entities
 ----------------------------------------------------
 
 drop table if exists air_oai_dims.airline_entity_legacy_groups;
@@ -699,6 +727,7 @@ from air_oai_dims.airline_entities;
 
 ----------------------------------------------------
 -- 8. GEOGRAPHIC TYPES
+-- 8.1. Create hardcoded airline_geographic_types lookup
 ----------------------------------------------------
 
 drop table if exists air_oai_dims.airline_geographic_types;
@@ -717,6 +746,7 @@ order by 1;
 
 ----------------------------------------------------
 -- 9. AIRFARE CLASSES
+-- 9.1. Create hardcoded airfare_classes lookup
 ----------------------------------------------------
 
 drop table if exists air_oai_dims.airfare_classes;
@@ -741,8 +771,15 @@ union
 select 'Y'::char(1), 'Econ Unl'::varchar(35), 'Unrestricted Coach Class'::varchar(255)
 order by 1;
 
--- 11. define column comments
--- 1. AIRCRAFT_TYPES - Columns comments
+----------------------------------------------------
+-- 11. COLUMN COMMENTS (METADATA)
+-- 11.1. Comments for aircraft_types
+-- 11.2. Comments for world_areas
+-- 11.3. Comments for airline_entities
+-- 11.4. Comments for airport_history
+----------------------------------------------------
+
+-- 11.1. AIRCRAFT_TYPES - Columns comments
 COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_oai_nbr IS 'AC_TYPEID = Aircraft Type Identification Number. This Number Is Related To The Aircraft Group Number And Falls Within The Range Of A Group Number.';
 COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_group_oai_nbr IS 'AC_GROUP = Aircraft Type Group - This Number Gives The Group Or Classification Of Aircraft Engine And Type Of Aircraft.';
 COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_oai_type IS 'SSD_NAME = Aircraft Name.';
@@ -752,7 +789,7 @@ COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_brief_name IS 'SHORT
 COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_from_date IS 'BEGIN_DATE = The Date When The Aircraft Was Added To The Database.';
 COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_thru_date IS 'END_DATE = The Date Through Which Aircraft Type Remains In Effect.';
 
--- 2. WORLD_AREAS - Columns comments
+-- 11.2. WORLD_AREAS - Columns comments
 COMMENT ON COLUMN air_oai_dims.world_areas.world_area_key IS 'MD5-hashed unique key of [world_area_oai_id & ~ & effective_from_date]';
 COMMENT ON COLUMN air_oai_dims.world_areas.world_area_oai_id IS 'WAC = World Area Code.';
 COMMENT ON COLUMN air_oai_dims.world_areas.world_area_oai_seq_id IS 'WAC_SEQ_ID2 = Unique Identifier for a World Area Code (WAC) at a given point of time. WAC attributes may change over time. For example the country name associated with the WAC can change, but the WAC code stays the same.';
@@ -771,7 +808,7 @@ COMMENT ON COLUMN air_oai_dims.world_areas.effective_thru_date IS 'THRU_DATE = E
 COMMENT ON COLUMN air_oai_dims.world_areas.world_area_comments_text IS 'COMMENTS = Comments.';
 COMMENT ON COLUMN air_oai_dims.world_areas.world_area_latest_ind IS 'IS_LATEST = Indicates if this row contains the latest attributes for the World Area Code (1 = Yes).';
 
--- 3. AIRLINE_ENTITIES - Columns comments
+-- 11.3. AIRLINE_ENTITIES - Columns comments
 COMMENT ON COLUMN air_oai_dims.airline_entities.airline_entity_id IS 'PostgreSQL defined identity surrogate key for high performance joins. Start with 4000.';
 COMMENT ON COLUMN air_oai_dims.airline_entities.airline_entity_key IS 'md5 hash of natural key <carrier_oai_code|entity_oai_code|source_from_date>.';
 COMMENT ON COLUMN air_oai_dims.airline_entities.airline_usdot_id IS 'AIRLINE_ID = An identification number assigned by US DOT to identify a unique airline (carrier). A unique airline (carrier) is defined as one holding and reporting under the same DOT certificate regardless of its Code, Name, or holding company/corporation.';
@@ -789,7 +826,7 @@ COMMENT ON COLUMN air_oai_dims.airline_entities.operating_region_code IS 'REGION
 COMMENT ON COLUMN air_oai_dims.airline_entities.source_from_date IS 'START_DATE_SOURCE = Starting Date of Carrier Code.';
 COMMENT ON COLUMN air_oai_dims.airline_entities.source_thru_date IS 'THRU_DATE_SOURCE = Ending Date of Carrier Code (Active = NULL).';
 
--- 4. AIRPORT_HISTORY - Columns comments
+-- 11.4. AIRPORT_HISTORY - Columns comments
 COMMENT ON COLUMN air_oai_dims.airport_history.airport_oai_seq_id IS 'AIRPORT_SEQ_ID = An identification number assigned by US DOT to identify a unique airport at a given point of time. Airport attributes, such as airport name or coordinates, may change over time.';
 COMMENT ON COLUMN air_oai_dims.airport_history.airport_oai_id IS 'AIRPORT_ID = An identification number assigned by US DOT to identify a unique airport. Use this field for airport analysis across a range of years because an airport can change its airport code and airport codes can be reused.';
 COMMENT ON COLUMN air_oai_dims.airport_history.airport_oai_code IS 'AIRPORT = A three character alpha-numeric code issued by the U.S. Department of Transportation which is the official designation of the airport. The airport code is not always unique to a specific airport because airport codes can change or can be reused.';
@@ -811,9 +848,9 @@ COMMENT ON COLUMN air_oai_dims.airport_history.effective_thru_date IS 'AIRPORT_T
 COMMENT ON COLUMN air_oai_dims.airport_history.airport_closed_ind IS 'AIRPORT_IS_CLOSED = Indicates if the airport is closed (1 = Yes). If yes, the airport is closed is on the AirportEndDate.';
 COMMENT ON COLUMN air_oai_dims.airport_history.airport_latest_ind IS 'AIRPORT_IS_LATEST = Indicates if this row contains the latest attributes for the Airport (1 = Yes)';
 
-
 ----------------------------------------------------
 -- 10. TRAFFIC DATA SOURCES
+-- 10.1. Create hardcoded airline_traffic_data_sources lookup
 ----------------------------------------------------
 
 drop table if exists air_oai_dims.airline_traffic_data_sources;
@@ -835,8 +872,12 @@ order by 1;
 
 ----------------------------------------------------
 -- 12. PRESENTATION VIEWS
+-- 12.1. Create schema airlines_pg
+-- 12.2. Create views for dimensions and lookups
 ----------------------------------------------------
+
 CREATE SCHEMA IF NOT EXISTS airlines_pg;
+
 create or replace view airlines_pg.aircraft_types_v as
 select aircraft_type_oai_nbr,
        aircraft_group_oai_nbr,
