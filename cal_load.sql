@@ -1,3 +1,28 @@
+----------------------------------------------------
+-- INDEX OF SCRIPT STEPS
+----------------------------------------------------
+-- 1. Schema preparation (Redshift)
+-- 2. Generator views in cal_gen (date/time parts)
+--    2.1. Year generator (gregorian year)
+--    2.2. Hour of day generator
+--    2.3. Minute of hour generator
+--    2.4. Day of month generator
+--    2.5. Month of year generator
+--    2.6. Day of week generator
+--    2.7. Quarter of year generator
+--    2.8. Year–quarter generator
+--    2.9. Year–month generator
+--    2.10. Calendar date generator
+--    2.11. Year–week generator
+--    2.12. Calendar date–hour–minute generator
+--    2.13. Calendar date–hour generator
+-- 3. Calendar tables in calendar_pg (1900–2090)
+-- 4. Primary keys and (logical) indexes
+-- 5. Foreign keys
+-- 6. Cumulative tables (MTD, QTD, YTD, WTD)
+-- 7. Views in calendar_pg (reporting-friendly)
+----------------------------------------------------
+
 -- Create date dimension tables
 
 ----------------------------------------------------
@@ -22,8 +47,8 @@ CREATE SCHEMA calendar_pg;
 -- cal_gen.make_gregorian_year_v
 create temp table numbers_0_3000 as
 select row_number() over (order by true) - 1 as n
-from svv_tables          -- cualquier tabla suficientemente grande
-limit 3001;              -- de 0 a 3000
+from svv_tables          -- any sufficiently large table
+limit 3001;              -- from 0 to 3000
 
 
 create or replace view cal_gen.make_gregorian_year_v as
@@ -70,7 +95,7 @@ order by hour_of_day_nbr;
 -- cal_gen.make_minute_of_hour_v
 create or replace view cal_gen.make_minute_of_hour_v as
 with nums as (
-    -- genera 0..59 usando cualquier tabla "grande" del sistema
+    -- generate 0..59 using any sufficiently large system table
     select (row_number() over (order by true) - 1) as n
     from svv_tables
     limit 60
@@ -84,7 +109,7 @@ order by minute_of_hour_nbr;
 -- cal_gen.make_day_of_month_v
 create or replace view cal_gen.make_day_of_month_v as
 with nums as (
-    -- genera 1..35 usando cualquier tabla "grande" del sistema
+    -- generate 1..35 using any sufficiently large system table
     select row_number() over (order by true) as day_of_month_nbr
     from svv_tables
     limit 35
@@ -98,7 +123,7 @@ order by day_of_month_nbr;
 -- cal_gen.make_gregorian_month_of_year_v
 create or replace view cal_gen.make_gregorian_month_of_year_v as
 with months as (
-    -- genera 1..12 usando svv_tables solo como fuente de filas
+    -- generate 1..12 using svv_tables only as a row source
     select row_number() over (order by 1) as month_of_year_nbr
     from svv_tables
     limit 12
@@ -108,7 +133,7 @@ select
     , lpad(m.month_of_year_nbr::varchar, 2, '0')::char(2)           as month_of_year_code
     , ((m.month_of_year_nbr - 1) / 3 + 1)::smallint                 as quarter_of_year_nbr
 
-    -- días en mes de año no bisiesto (uso 2021 como año estándar)
+    -- days in a month for a non‑leap year (we use 2021 as a standard year)
     , extract(
           day from
           dateadd(
@@ -124,7 +149,7 @@ select
           )
       )::smallint                                                   as standard_year_day_qty
 
-    -- días en mes de año bisiesto (2020)
+    -- days in a month for a leap year (2020)
     , extract(
           day from
           dateadd(
@@ -165,16 +190,16 @@ with nums as (
     select 6
 ),
 days as (
-    -- 2024‑01‑07 es domingo; sumamos 0..6 días
+    -- 2024‑01‑07 is Sunday; we add 0..6 days
     select (date '2024-01-07' + n)::date as d
     from nums
 )
 select
-    -- común: domingo=1..sábado=7
+    -- common: Sunday=1..Saturday=7
     (extract(dow from d)::int + 1)::smallint                                as day_of_week_common_nbr,
-    -- iso: lunes=1..domingo=7
+    -- ISO: Monday=1..Sunday=7
     ((extract(dow from d)::int + 6) % 7 + 1)::smallint                      as day_of_week_iso_nbr,
-    -- redshift/pgsql: domingo=0..sábado=6
+    -- Redshift/pgsql: Sunday=0..Saturday=6
     extract(dow from d)::smallint                                           as day_of_week_pgsql_nbr,
     to_char(d, 'Dy')::char(3)                                               as day_of_week_abbr,
     rtrim(to_char(d, 'Day'))::varchar(10)                                   as day_of_week_name_eng
@@ -211,7 +236,7 @@ order by quarter_of_year_nbr;
 -- cal_gen.make_gregorian_year_quarter_v
 create or replace view cal_gen.make_gregorian_year_quarter_v as
 with year_month as (
-    -- A partir de años y meses derivamos una fecha (primer día de cada mes)
+    -- From years and months we derive a date (first day of each month)
     select
         y.year_nbr,
         y.year_code,
@@ -223,13 +248,13 @@ with year_month as (
     where y.year_nbr between 1000 and 3000
 ),
 year_quarter_base as (
-    -- Agrupamos de a 3 meses para obtener inicio/fin de trimestre
+    -- Group every 3 months to get quarter start/end
     select
         ym.year_nbr,
         ym.year_code,
         ((ym.month_of_year_nbr - 1) / 3 + 1)::smallint as quarter_of_year_nbr,
         min(ym.first_day_of_month)                      as year_quarter_from_date,
-        -- último día del trimestre: primer día del mes siguiente al último mes del trimestre - 1 día
+        -- last day of quarter: first day of next month after last month in quarter minus 1 day
         dateadd(
             day,
             -1,
@@ -277,11 +302,11 @@ from (
         (y.year_code || m.quarter_of_year_nbr::char(1))::integer as year_quarter_nbr,
         y.year_nbr                                               as year_nbr,
 
-        -- Primer día del mes
+        -- First day of month
         (y.year_code || '-' || m.month_of_year_code || '-01')::date
                                                                 as year_month_from_date,
 
-        -- Último día del mes: primer día del mes siguiente menos 1 día (con dateadd)
+        -- Last day of month: first day of next month minus 1 day (with dateadd)
         dateadd(
             day,
             -1,
@@ -300,7 +325,7 @@ order by 1;
 -- cal_gen.make_calendar_date_v
 create or replace view cal_gen.make_calendar_date_v as
 with
--- Generador de días entre 1000‑01‑01 y 3000‑12‑31
+-- Day generator between 1000‑01‑01 and 3000‑12‑31
 nums as (
     select 0 as n
     union all select 1
@@ -314,7 +339,7 @@ nums as (
     union all select 9
 ),
 seq as (
-    -- 10^5 = 100.000 días, suficiente para el rango 1000‑3000
+    -- 10^5 = 100,000 days, enough for range 1000‑3000
     select
         row_number() over (order by 1) - 1 as day_offset
     from nums a
@@ -643,7 +668,7 @@ alter table calendar_pg.hour_of_day
 alter table calendar_pg.minute_of_hour
   add constraint minute_of_hour_pk primary key (minute_of_hour_nbr);
 
--- ÍNDICES (declarativos; en Redshift son lógicos)
+-- INDEXES (declarative; in Redshift they are logical)
 CREATE UNIQUE INDEX gregorian_month_of_year_ak1
   ON calendar_pg.gregorian_month_of_year (month_of_year_code);
 
