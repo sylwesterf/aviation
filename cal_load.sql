@@ -1,30 +1,4 @@
-----------------------------------------------------
--- INDEX OF SCRIPT STEPS
-----------------------------------------------------
--- 1. Schema preparation (Redshift)
--- 2. Generator views in cal_gen (date/time parts)
---    2.1. Year generator (gregorian year)
---    2.2. Hour of day generator
---    2.3. Minute of hour generator
---    2.4. Day of month generator
---    2.5. Month of year generator
---    2.6. Day of week generator
---    2.7. Quarter of year generator
---    2.8. Year–quarter generator
---    2.9. Year–month generator
---    2.10. Calendar date generator
---    2.11. Year–week generator
---    2.12. Calendar date–hour–minute generator
---    2.13. Calendar date–hour generator
--- 3. Calendar tables in calendar_pg (1900–2090)
--- 4. Primary keys and (logical) indexes
--- 5. Foreign keys
--- 6. Cumulative tables (MTD, QTD, YTD, WTD)
--- 7. Views in calendar_pg (reporting-friendly)
-----------------------------------------------------
-
 -- Create date dimension tables
-
 ----------------------------------------------------
 -- STEPS:
 -- 1. Create cal_gen views that generate information about all date/time parts
@@ -32,17 +6,6 @@
 ----------------------------------------------------
 
 -- 1. Create cal_gen views that generate information about all date/time parts
--- cal_gen.make_gregorian_year_v;
--------------------------------------------------------------------
--- schema preparation (Redshift)
--------------------------------------------------------------------
-
-CREATE SCHEMA cal_gen;
-CREATE SCHEMA calendar_pg;
-
---------------
--- 1. VIEWS IN cal_gen
--------------------------------------------------------------------
 
 -- cal_gen.make_gregorian_year_v
 create temp table numbers_0_3000 as
@@ -705,6 +668,46 @@ create index if not exists gregorian_year_quarter_of_year_if2
 create index if not exists year_week_if1
   on calendar_pg.year_week (year_nbr);*/
 
+COMMENT ON TABLE calendar_pg.day_of_week IS 'Monday is the first day of the working week, ISO 2105/8601.';
+COMMENT ON COLUMN calendar_pg.day_of_week.day_of_week_iso_nbr IS 'ISO defines Monday as the first day of the week.';
+COMMENT ON COLUMN calendar_pg.day_of_week.day_of_week_common_nbr IS 'This number begins with Sunday as 1, and is in common usage.';
+COMMENT ON COLUMN calendar_pg.day_of_week.day_of_week_pgsql_nbr IS 'PostgreSQL functions list Sunday as 0, and Saturday as 6.';
+COMMENT ON COLUMN calendar_pg.day_of_week.day_of_week_abbr IS 'Standard abbreviation of the day of week (in English).';
+COMMENT ON COLUMN calendar_pg.day_of_week.day_of_week_name_eng IS 'The full name of the day of the week (in English).';
+
+COMMENT ON TABLE calendar_pg.gregorian_month_of_year IS 'Gregorian Years have 12 months, and have since it evolved from Roman years.';
+COMMENT ON COLUMN calendar_pg.gregorian_month_of_year.standard_year_day_qty IS 'The number of Days within this month for a Standard Year.';
+COMMENT ON COLUMN calendar_pg.gregorian_month_of_year.leap_year_day_qty IS 'The number of days within this month during a Leap Year.';
+COMMENT ON COLUMN calendar_pg.gregorian_month_of_year.month_of_year_name IS 'The word which identifies this month.';
+
+COMMENT ON TABLE calendar_pg.gregorian_quarter_of_year IS 'A quarter is a standard interval consisting of three months, and generally analogous to a "season", which is in keeping with the agricultural purpose of the calendar.';
+
+COMMENT ON TABLE calendar_pg.gregorian_year IS 'A year represents the number of orbits by the earth around the sun within the Common Era (CE), defined by Pope Gregory XIII in October 1582.';
+COMMENT ON COLUMN calendar_pg.gregorian_year.year_nbr IS 'A modern year is a four digit number.';
+
+COMMENT ON TABLE calendar_pg.gregorian_year_quarter IS 'This is the natural list of quarters within a specific year.';
+COMMENT ON COLUMN calendar_pg.gregorian_year_quarter.year_nbr IS 'The year containing this year-quarter.';
+
+COMMENT ON TABLE calendar_pg.gregorian_year_month IS 'This is the natural list of months within a specific year.';
+
+COMMENT ON TABLE calendar_pg.year_week IS 'This is the natural list of weeks within a specific year.';
+COMMENT ON COLUMN calendar_pg.year_week.year_week_nbr IS 'The numbered weeks within a year.';
+COMMENT ON COLUMN calendar_pg.year_week.year_nbr IS 'The year that contains this week.';
+
+COMMENT ON TABLE calendar_pg.calendar_date IS 'A calendar day represents the spin of the earth on its axis, providing a day and night cycle.';
+COMMENT ON COLUMN calendar_pg.calendar_date.day_of_week_iso_nbr IS 'ISO defines Monday as the first day of the week.';
+COMMENT ON COLUMN calendar_pg.calendar_date.year_week_nbr IS 'Weeks always have seven days, and each is assigned a number within a year; week 1 contains January 1 for that year.';
+
+COMMENT ON TABLE calendar_pg.hour_of_day IS 'Our 24-hour day comes from the ancient Egyptians who divided day-time into 10 hours they measured with devices such as shadow clocks, and added a twilight hour at the beginning and another one at the end of the day-time.';
+COMMENT ON COLUMN calendar_pg.hour_of_day.period_code IS 'This specifies a subdivision within a day, such as morning, afternoon, evening or night.';
+
+COMMENT ON TABLE calendar_pg.minute_of_hour IS 'The division of the hour into 60 minutes and of the minute into 60 seconds comes from ancient civilizations - Babylonians, Sumerians and Egyptians - who had different numbering systems; base 12 (duodecimal) and base 60 (sexagesimal) for mathematics.';
+
+COMMENT ON TABLE calendar_pg.calendar_date_hour_min IS 'A comprehensive timeline with minute-level granularity made by combining calendar dates, hours of the day, and minutes of the hour.';
+COMMENT ON COLUMN calendar_pg.calendar_date_hour_min.period_code IS 'This specifies a subdivision within a day, such as morning, afternoon, evening or night.';
+
+COMMENT ON TABLE calendar_pg.calendar_date_hour IS 'A series of timestamps with hourly granularity by combining calendar dates and hours of the day.';
+
 -------------------------------------------------------------------
 -- 4. FOREIGN KEYS 
 -------------------------------------------------------------------
@@ -818,6 +821,12 @@ JOIN calendar_pg.calendar_date x
   ON d.year_week_nbr = x.year_week_nbr
 WHERE x.calendar_date <= d.calendar_date;
 
+-- add comments to transformation tables
+COMMENT ON TABLE calendar_pg.cumulative_year_to_dates IS 'Time transformation for MSTR, relates calendar_date to Year-To-Date (YTD) cumulative dates.';
+COMMENT ON TABLE calendar_pg.cumulative_quarter_to_dates IS 'Time transformation for MSTR, relates calendar_date to Quarter-To-Date (QTD) cumulative dates.';
+COMMENT ON TABLE calendar_pg.cumulative_month_to_dates IS 'Time transformation for MSTR, relates calendar_date to Month-To-Date (MTD) cumulative dates.';
+COMMENT ON TABLE calendar_pg.cumulative_week_to_dates IS 'Time transformation for MSTR, relates calendar_date to Week-To-Date (WTD) cumulative dates.';
+
 -- FK (Note: In Redshift, FK constraints are informational only)
 ALTER TABLE calendar_pg.cumulative_month_to_dates 
   ADD CONSTRAINT cumulative_month_to_dates_base_date_fk
@@ -863,58 +872,17 @@ ALTER TABLE calendar_pg.cumulative_week_to_dates
 -- 6. Views calendar_pg
 -------------------------------------------------------------------
 
-create or replace view calendar_pg.day_of_week_v as
-select *, 1::integer as day_of_week_qty
-from calendar_pg.day_of_week;
-
-create or replace view calendar_pg.month_of_year_v as
-select *, 1::integer as month_of_year_qty
-from calendar_pg.gregorian_month_of_year;
-
-create or replace view calendar_pg.quarter_of_year_v as
-select *, 1::integer as quarter_of_year_qty
-from calendar_pg.gregorian_quarter_of_year;
-
-create or replace view calendar_pg.calendar_year_v as
-select *, 1::integer as calendar_year_qty
-from calendar_pg.gregorian_year;
-
-create or replace view calendar_pg.year_quarter_v as
-select *, 1::integer as year_quarter_qty
-from calendar_pg.gregorian_year_quarter;
-
-create or replace view calendar_pg.year_month_v as
-select *, 1::integer as year_month_qty
-from calendar_pg.gregorian_year_month;
-
-create or replace view calendar_pg.year_week_v as
-select *, 1::integer as year_week_qty
-from calendar_pg.year_week;
-
-create or replace view calendar_pg.calendar_date_v as
-select *, 1::integer as calendar_date_qty
-from calendar_pg.calendar_date;
-
-create or replace view calendar_pg.calendar_date_hour_min_v as
-select *, 1::integer as calendar_date_hour_min_qty
-from calendar_pg.calendar_date_hour_min;
-
-create or replace view calendar_pg.calendar_date_hour_v as
-select *, 1::integer as calendar_date_hour_qty
-from calendar_pg.calendar_date_hour;
-
-create or replace view calendar_pg.cumulative_month_to_dates_v as
-select calendar_date, cumulative_month_to_date
-from calendar_pg.cumulative_month_to_dates;
-
-create or replace view calendar_pg.cumulative_quarter_to_dates_v as
-select calendar_date, cumulative_quarter_to_date
-from calendar_pg.cumulative_quarter_to_dates;
-
-create or replace view calendar_pg.cumulative_year_to_dates_v as
-select calendar_date, cumulative_year_to_date
-from calendar_pg.cumulative_year_to_dates;
-
-create or replace view calendar_pg.cumulative_week_to_dates_v as
-select calendar_date, cumulative_week_to_date
-from calendar_pg.cumulative_week_to_dates;
+create or replace view calendar_pg.day_of_week_v as select *, 1::integer as day_of_week_qty from calendar_pg.day_of_week;
+create or replace view calendar_pg.month_of_year_v as select *, 1::integer as month_of_year_qty from calendar_pg.gregorian_month_of_year;
+create or replace view calendar_pg.quarter_of_year_v as select *, 1::integer as quarter_of_year_qty from calendar_pg.gregorian_quarter_of_year;
+create or replace view calendar_pg.calendar_year_v as select *, 1::integer as calendar_year_qty from calendar_pg.gregorian_year;
+create or replace view calendar_pg.year_quarter_v as select *, 1::integer as year_quarter_qty from calendar_pg.gregorian_year_quarter;
+create or replace view calendar_pg.year_month_v as select *, 1::integer as year_month_qty from calendar_pg.gregorian_year_month;
+create or replace view calendar_pg.year_week_v as select *, 1::integer as year_week_qty from calendar_pg.year_week;
+create or replace view calendar_pg.calendar_date_v as select *, 1::integer as calendar_date_qty from calendar_pg.calendar_date;
+create or replace view calendar_pg.calendar_date_hour_min_v as select *, 1::integer as calendar_date_hour_min_qty from calendar_pg.calendar_date_hour_min;
+create or replace view calendar_pg.calendar_date_hour_v as select *, 1::integer as calendar_date_hour_qty from calendar_pg.calendar_date_hour;
+create or replace view calendar_pg.cumulative_month_to_dates_v as select calendar_date, cumulative_month_to_date from calendar_pg.cumulative_month_to_dates;
+create or replace view calendar_pg.cumulative_quarter_to_dates_v as select calendar_date, cumulative_quarter_to_date from calendar_pg.cumulative_quarter_to_dates;
+create or replace view calendar_pg.cumulative_year_to_dates_v as select calendar_date, cumulative_year_to_date from calendar_pg.cumulative_year_to_dates;
+create or replace view calendar_pg.cumulative_week_to_dates_v as select calendar_date, cumulative_week_to_date from calendar_pg.cumulative_week_to_dates;
