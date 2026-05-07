@@ -27,7 +27,7 @@
 --  4.3. create air_oai_dims.airport_history table in postgre
 --  4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
 --  4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
---  (4.6) update the time zone boundaries in air_oai_dims.airport_history 
+--  4.6 update the time zone boundaries in air_oai_dims.airport_history 
 -- 5. create aircraft types group lookup 
 --  5.1. create air_oai_dims.aircraft_type_groups
 --  5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
@@ -226,12 +226,6 @@ from air_oai_dims.wac_country_state_fdw;
 
 ----------------------------------------------------
 -- 3. create airline entities lookup 
---  3.1. create air_oai_dims.carrier_decode_fdw table in postgre
---  3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
---  3.3. create air_oai_dims.world_areas table in postgre
---  3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
---  3.4.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
---  3.4.2 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
 ----------------------------------------------------
 
 -- 3.1. create air_oai_dims.carrier_decode_fdw table in postgre
@@ -564,6 +558,26 @@ from (
 ) abc
 where ah.airport_history_id = abc.airport_history_id
   and ah.airport_history_key = abc.airport_history_key;
+
+-- 4.6 update the time zone boundaries in air_oai_dims.airport_history
+
+UPDATE air_oai_dims.airport_history
+SET 
+    time_zone_name = sub.time_zone_name,
+    updated_by = CURRENT_USER,
+    updated_tsmt = SYSDATE
+FROM (
+    -- Subquery to perform the spatial join
+    SELECT 
+        a.airport_history_id, 
+        b.tzid AS time_zone_name
+    FROM air_oai_dims.airport_history a
+    JOIN public.timezone_boundaries b 
+      ON ST_Intersects(b.geom, a.point_geom)
+    WHERE a.time_zone_name IS NULL
+) AS sub
+WHERE air_oai_dims.airport_history.airport_history_id = sub.airport_history_id
+  AND air_oai_dims.airport_history.time_zone_name IS NULL;
 
 ----------------------------------------------------
 -- 5. create aircraft types group lookup 
