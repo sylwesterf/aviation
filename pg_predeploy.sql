@@ -327,14 +327,20 @@ $$;
 
 /*
 In order to process the Flight Performance data, we need a valid time zone name for each airport.
-The dimension table from OAI does not contain this data, so we have to load the time zone boundaries
-, and then update the airport history dimension: 
+The dimension table from OAI does not contain this data, so we have to load the time zone boundaries, 
+and then update the airport history dimension: 
+
+# get shp2pgsql
+sudo apt-get update
+sudo apt-get install postgis -y
+
+# download shape file for time zone boundaries
+wget https://github.com/evansiroky/timezone-boundary-builder/releases/download/2023b/timezones-with-oceans.shapefile.zip 
+unzip timezones-with-oceans.shapefile.zip
+
+# load via shp2pgsql command line tool
+shp2pgsql -I -s 4326 combined-shapefile-with-oceans.shp | psql -h <cluster-endpoint> -U aviation -d aviation
 */
 
--- Shape file for time zone boundaries was located here:
--- https://github.com/evansiroky/timezone-boundary-builder/releases/download/2023b/timezones-with-oceans.shapefile.zip
--- This is after the shape file was loaded via shp2pgsql command line tool:
--- shp2pgsql -I -s 4326 combined-shapefile-with-oceans.shp | psql -p 5432 -d aviation 
-
---select * from public."combined-shapefile-with-oceans" limit 10;
---alter table public."combined-shapefile-with-oceans" rename to timezone_boundaries;
+select * from public."combined-shapefile-with-oceans" limit 10;
+alter table public."combined-shapefile-with-oceans" rename to timezone_boundaries;
