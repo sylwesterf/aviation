@@ -96,14 +96,32 @@ ORDER BY 3,7 desc
 
 /*
 In order to process the Flight Performance data, we need a valid time zone name for each airport.
-The dimension table from OAI does not contain this data, so we have to load the time zone boundaries
-, and then update the airport history dimension: 
+The dimension table from OAI does not contain this data, so we have to load the time zone boundaries, 
+and then update the airport history dimension: 
+
+# get shp2pgsql and ogr2ogr (Redshift cannot read shp files)
+sudo apt-get update
+sudo apt-get install postgis ogr2ogr -y
+
+# download shape file for time zone boundaries
+wget https://github.com/evansiroky/timezone-boundary-builder/releases/download/2023b/timezones-with-oceans.shapefile.zip 
+unzip timezones-with-oceans.shapefile.zip
+
+# convert shp file
+ogr2ogr -f CSV timezone_simplified.csv combined-shapefile-with-oceans.shp -simplify 0.0005 -lco GEOMETRY=AS_WKT
+
+# upload to S3 bucket
 */
 
--- Shape file for time zone boundaries was located here:
--- https://github.com/evansiroky/timezone-boundary-builder/releases/download/2023b/timezones-with-oceans.shapefile.zip
--- This is after the shape file was loaded via shp2pgsql command line tool:
--- shp2pgsql -I -s 4326 combined-shapefile-with-oceans.shp | psql -p 5432 -d aviation 
+CREATE TABLE public.timezone_boundaries (
+    geom GEOMETRY
+	, tzid VARCHAR(100)
+);
 
---select * from public."combined-shapefile-with-oceans" limit 10;
---alter table public."combined-shapefile-with-oceans" rename to timezone_boundaries;
+COPY public.timezone_boundaries
+FROM 's3://src-aviation/DIMS/CSV/timezone_simplified.csv'
+FORMAT CSV
+IGNOREHEADER 1
+IAM_ROLE default;
+
+select * from public.timezone_boundaries limit 10;
