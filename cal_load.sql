@@ -421,13 +421,13 @@ CREATE TABLE calendar_pg.day_of_week AS
 SELECT *
 FROM cal_gen.make_day_of_week_v;
 
-CREATE TABLE calendar_pg.day_of_week (
+/*CREATE TABLE calendar_pg.day_of_week (
     day_of_week_common_nbr SMALLINT     NOT NULL,
     day_of_week_iso_nbr    SMALLINT     NOT NULL,
     day_of_week_pgsql_nbr  SMALLINT     NOT NULL,
     day_of_week_abbr       CHAR(3)      NOT NULL,
     day_of_week_name_eng   VARCHAR(10)  NOT NULL
-);
+);*/
  
 -- gregorian_month_of_year
 DROP TABLE IF EXISTS calendar_pg.gregorian_month_of_year;
