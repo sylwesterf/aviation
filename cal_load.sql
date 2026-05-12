@@ -13,7 +13,32 @@ select row_number() over (order by true) - 1 as n
 from svv_tables          -- any sufficiently large table
 limit 3001;              -- from 0 to 3000
 
+-- cal_gen.make_gregorian_year_v;
+create or replace view cal_gen.make_gregorian_year_v as
+with years as (
+    select n as year_nbr,
+           lpad(n::varchar, 4, '0') as year_cd
+    from numbers_0_3000
+    where n between 1000 and 3000
+)
+select
+    year_nbr::smallint                            as year_nbr,
+    year_cd::char(4)                              as year_code,
+    case
+        when mod(year_nbr, 400) = 0 then 1
+        when mod(year_nbr, 100) = 0 then 0
+        when mod(year_nbr,   4) = 0 then 1
+        else 0
+    end::smallint                                 as leap_year_ind,
+    (year_cd || '-01-01')::date                   as year_from_date,
+    (year_cd || '-12-31')::date                   as year_thru_date,
+    (year_cd || '-12-31')::date
+      - (year_cd || '-01-01')::date              as day_qty,
+    lag(year_nbr, 1) over (order by year_nbr)     as last_year_nbr
+from years
+order by year_nbr;
 
+--cal_gen.make_gregorian_month_of_year_v
 CREATE OR REPLACE VIEW cal_gen.make_gregorian_month_of_year_v AS
 SELECT  1::SMALLINT AS month_of_year_nbr,
         '01'::CHAR(2) AS month_of_year_code,
@@ -395,6 +420,14 @@ DROP TABLE IF EXISTS calendar_pg.day_of_week;
 CREATE TABLE calendar_pg.day_of_week AS
 SELECT *
 FROM cal_gen.make_day_of_week_v;
+
+CREATE TABLE calendar_pg.day_of_week (
+    day_of_week_common_nbr SMALLINT     NOT NULL,
+    day_of_week_iso_nbr    SMALLINT     NOT NULL,
+    day_of_week_pgsql_nbr  SMALLINT     NOT NULL,
+    day_of_week_abbr       CHAR(3)      NOT NULL,
+    day_of_week_name_eng   VARCHAR(10)  NOT NULL
+);
  
 -- gregorian_month_of_year
 DROP TABLE IF EXISTS calendar_pg.gregorian_month_of_year;
@@ -476,8 +509,6 @@ FROM cal_gen.make_calendar_date_hour_v ch
 CROSS JOIN cal_gen.calendar_params p
 WHERE DATE_PART('year', ch.calendar_date) BETWEEN p.start_year AND p.end_year;
 
--- Note: Regular indexes are not needed in Redshift as it handles query optimization automatically
--- The UNIQUE constraints above replace the unique indexes from the original code
 -------------------------------------------------------------------
 -- 3. PRIMARY KEYS AND INDEX 
 -------------------------------------------------------------------
@@ -525,6 +556,24 @@ COMMENT ON TABLE calendar_pg.calendar_date_hour IS 'A series of timestamps with 
 -- PRIMARY KEYS
 alter table calendar_pg.day_of_week
   add constraint day_of_week_pk primary key (day_of_week_iso_nbr);
+
+
+  /*DROP TABLE IF EXISTS calendar_pg.day_of_week;
+
+CREATE TABLE calendar_pg.day_of_week (
+    day_of_week_common_nbr SMALLINT     NOT NULL,
+    day_of_week_iso_nbr    SMALLINT     NOT NULL,
+    day_of_week_pgsql_nbr  SMALLINT     NOT NULL,
+    day_of_week_abbr       CHAR(3)      NOT NULL,
+    day_of_week_name_eng   VARCHAR(10)  NOT NULL
+);
+
+INSERT INTO calendar_pg.day_of_week
+SELECT *
+FROM cal_gen.make_day_of_week_v;
+
+ALTER TABLE calendar_pg.day_of_week
+ADD CONSTRAINT day_of_week_pk PRIMARY KEY (day_of_week_iso_nbr);*/
 
 alter table calendar_pg.gregorian_month_of_year
   add constraint gregorian_month_of_year_pk primary key (month_of_year_nbr);
