@@ -408,13 +408,9 @@ order by d.calendar_date, h.hour_of_day_nbr;
 -- set calendar start and end years as table variables
 DROP TABLE IF EXISTS calendar_params;
  
-CREATE TEMP TABLE calendar_params (
-    start_year INT,
-    end_year   INT
-);
- 
-INSERT INTO calendar_params (start_year, end_year)
-VALUES (1900, 2090);
+CREATE TEMP TABLE calendar_params
+as
+select 1900 as start_year, 2090 as end_year
 
 -- day_of_week
 DROP TABLE IF EXISTS calendar_rs.day_of_week;
