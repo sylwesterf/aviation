@@ -12,9 +12,7 @@
 -- 6. create presentation layer views
 ----------------------------------------------------
 
-
 -- 1.  create air_oai_dims.f41_schedule_b43_fdw table
-
 drop table if exists air_oai_dims.f41_schedule_b43_fdw;
 create table air_oai_dims.f41_schedule_b43_fdw
 ( 
@@ -49,7 +47,6 @@ ignoreheader 1
 dateformat 'auto'
 
 -- 3.  create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
-
 drop table if exists air_oai_dims.airframe_and_engine_inventory_annual;
 create table air_oai_dims.airframe_and_engine_inventory_annual (
     inventory_key          char(32) not null, -- MD5 business key
@@ -78,7 +75,7 @@ create table air_oai_dims.airframe_and_engine_inventory_annual (
 --distkey(airline_entity_id)                    -- Distribution key for Redshift
 --sortkey(airline_entity_id, year_nbr, tail_nbr, serial_nbr); -- Sort key for queries
 
--- Populate final table from staging and airline_entities
+-- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
 insert into air_oai_dims.airframe_and_engine_inventory_annual
 select 
     md5(
@@ -128,20 +125,10 @@ order by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr;
 
 
 -- 4. define keys and indexes
-
--- Primary key based on MD5 inventory_key
-alter table air_oai_dims.airframe_and_engine_inventory_annual
-    add constraint airframe_and_engine_inventory_annual_pk
-    primary key (inventory_key);
-
--- Unique natural key: one record per airline/year/tail/serial
-alter table air_oai_dims.airframe_and_engine_inventory_annual
-add constraint airframe_and_engine_inventory_annual_nk
-    unique (airline_entity_id, year_nbr, tail_nbr, serial_nbr);
-
+alter table air_oai_dims.airframe_and_engine_inventory_annual add constraint airframe_and_engine_inventory_annual_pk primary key (inventory_key);
+create unique index airframe_and_engine_inventory_annual_nk on air_oai_dims.airframe_and_engine_inventory_annual (airline_entity_id, year_nbr, tail_nbr, serial_nbr);
 
 -- 5. add comments 
-
 comment on table air_oai_dims.airframe_and_engine_inventory_annual is 'Annual Inventory of Airframe and Aircraft Engines.';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.inventory_key is 'composite hashed key of year_nbr~airline_oai_code~tail_nbr~serial_nbr.';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.airline_entity_id is 'Foreign key column to air_oai_dims.airline_entities.';
@@ -166,28 +153,28 @@ comment on column air_oai_dims.airframe_and_engine_inventory_annual.created_ts  
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_by is 'audit column, who modified this row?';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_ts  is 'audit column, when was this row modified?';
 
-
 -- 6. create presentation layer views
 --  drop view if exists airlines_pg.airframe_and_engine_inventory_annual_v;
 create or replace view airlines_pg.airframe_and_engine_inventory_annual_v as
-select inventory_key,
-       airline_entity_id,
-       airline_entity_key,
-       airline_oai_code,
-       year_nbr,
-       tail_nbr,
-       serial_nbr,
-       manufacturer_name,
-       model_ref,
-       aircraft_oai_type,
-       aircraft_icao_type,
-       aircraft_iata_type,
-       manufacture_year_nbr,
-       acquisition_date,
-       aircraft_status_code,
-       operating_status_ind,
-       seats_qty,
-       capacity_lbr
+select inventory_key
+	, airline_entity_id
+	, airline_entity_key
+	, airline_oai_code
+	, year_nbr 
+	, tail_nbr
+	, serial_nbr 
+	, manufacturer_name
+	, model_ref
+	, aircraft_oai_type
+	, aircraft_icao_type
+	, aircraft_iata_type
+	--, aircraft_type_brief_name
+	, manufacture_year_nbr
+	, acquisition_date
+	, aircraft_status_code
+	, operating_status_ind
+	, seats_qty
+	, capacity_lbr
 from air_oai_dims.airframe_and_engine_inventory_annual;
 
 -- drop view if exists airlines_pg.airline_aircraft_by_tail_v;
