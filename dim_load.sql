@@ -2,29 +2,30 @@
 -- Bureau of Transportation Statistics (TranStats) > Aviation Data Library > Aviation Support Tables
 -- https://transtats.bts.gov/Tables.asp?QO_VQ=IMI&QO_anzr=N8vn6v10%FDf722146%FDgnoyr5&QO_fu146_anzr=N8vn6v10%FDf722146%FDgnoyr5
 
+----------------------------------------------------
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files: AircraftTypes, Carrier Decode, Master Coordinate, World Area Codes
 -- 1. create aircraft types lookup 
---  1.1. create air_oai_dims.aircraft_types_fdw table in postgre
+--  1.1. create air_oai_dims.aircraft_types_fdw table 
 --  1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
---  1.3. create air_oai_dims.aircraft_types table in postgre
+--  1.3. create air_oai_dims.aircraft_types table 
 --  1.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
 -- 2. create world areas lookup 
---  2.1. create air_oai_dims.wac_country_state_fdw table in postgre
+--  2.1. create air_oai_dims.wac_country_state_fdw table 
 --  2.2. copy world areas data into air_oai_dims.wac_country_state_fdw
---  2.3. create air_oai_dims.world_areas table in postgre
+--  2.3. create air_oai_dims.world_areas table 
 --  2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
 -- 3. create airline entities lookup 
---  3.1. create air_oai_dims.carrier_decode_fdw table in postgre
+--  3.1. create air_oai_dims.carrier_decode_fdw table 
 --  3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
---  3.3. create air_oai_dims.world_areas table in postgre
+--  3.3. create air_oai_dims.world_areas table 
 --  3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
 --  3.4.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
 --  3.4.2 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
 -- 4. create airport history lookup 
---  4.1. create air_oai_dims.master_cord_fdw table in postgre  
+--  4.1. create air_oai_dims.master_cord_fdw table   
 --  4.2. copy world areas data into air_oai_dims.master_cord_fdw
---  4.3. create air_oai_dims.airport_history table in postgre
+--  4.3. create air_oai_dims.airport_history table 
 --  4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
 --  4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
 --  4.6 update the time zone boundaries in air_oai_dims.airport_history 
@@ -42,12 +43,9 @@
 -- 10. create traffic data sources lookup (hardcoded)
 -- 11. define column comments
 -- 12. create presentation layer view
-
-
-----------------------------------------------------
--- 1. create aircraft types lookup 
 ----------------------------------------------------
 
+-- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
 drop table if exists air_oai_dims.aircraft_types_fdw;
 create table air_oai_dims.aircraft_types_fdw
 ( 
@@ -69,7 +67,7 @@ IGNOREHEADER 1
 IAM_ROLE default
 DATEFORMAT 'MM/DD/YYYY';
 
--- 1.3. create air_oai_dims.aircraft_types table in postgre
+-- 1.3. create air_oai_dims.aircraft_types table 
 drop table if exists air_oai_dims.aircraft_types;
 create table air_oai_dims.aircraft_types
 ( 
@@ -113,12 +111,10 @@ select f.aircraft_type_oai_nbr,
        current_user,
        current_timestamp
 from air_oai_dims.aircraft_types_fdw f;
+--left outer join air_oai_dims.aircraft_types t on f.aircraft_type_oai_nbr = t.aircraft_type_oai_nbr
+--where t.aircraft_type_oai_nbr is null;
 
-----------------------------------------------------
--- 2. create world areas lookup 
-----------------------------------------------------
-
--- 2.1. create air_oai_dims.wac_country_state_fdw table in postgre
+-- 2.1. create air_oai_dims.wac_country_state_fdw table 
 drop table if exists air_oai_dims.wac_country_state_fdw;
 create table air_oai_dims.wac_country_state_fdw
 ( 
@@ -146,11 +142,9 @@ from 's3://src-aviation/DIMS/CSV/T_WAC_COUNTRY_STATE.csv'
 iam_role default
 csv
 ignoreheader 1
-dateformat 'auto'
-timeformat 'auto'
-acceptinvchars;
+dateformat 'auto';
 
--- 2.3. create air_oai_dims.world_areas table in postgre
+-- 2.3. create air_oai_dims.world_areas table 
 drop table if exists air_oai_dims.world_areas;
 create table air_oai_dims.world_areas
 ( 
@@ -224,11 +218,7 @@ select world_area_oai_seq_id,
        current_timestamp
 from air_oai_dims.wac_country_state_fdw;
 
-----------------------------------------------------
--- 3. create airline entities lookup 
-----------------------------------------------------
-
--- 3.1. create air_oai_dims.carrier_decode_fdw table in postgre
+-- 3.1. create air_oai_dims.carrier_decode_fdw table 
 drop table if exists air_oai_dims.carrier_decode_fdw;
 create table air_oai_dims.carrier_decode_fdw
 ( 
@@ -253,11 +243,9 @@ from 's3://src-aviation/DIMS/CSV/T_CARRIER_DECODE.csv'
 iam_role default
 csv
 ignoreheader 1
-dateformat 'auto'
-timeformat 'auto'
-acceptinvchars;
+dateformat 'auto';
 
--- 3.3. create air_oai_dims.world_areas table in postgre
+-- 3.3. create air_oai_dims.world_areas table 
 drop table if exists air_oai_dims.airline_entities;
 create table air_oai_dims.airline_entities
 ( 
@@ -381,11 +369,7 @@ from (
     group by airline_oai_code, entity_oai_code, source_from_date
 ) x;
 
-----------------------------------------------------
--- 4. create airport history lookup 
-----------------------------------------------------
-
--- 4.1. create air_oai_dims.master_cord_fdw table in postgre  
+-- 4.1. create air_oai_dims.master_cord_fdw table   
 drop table if exists air_oai_dims.master_cord_fdw;
 create table air_oai_dims.master_cord_fdw 
 ( 
@@ -429,11 +413,9 @@ from 's3://src-aviation/DIMS/CSV/T_MASTER_CORD.csv'
 iam_role default
 csv
 ignoreheader 1
-dateformat 'auto'
-timeformat 'auto'
-acceptinvchars;
+dateformat 'auto';
 
--- 4.3. create air_oai_dims.airport_history table in postgre
+-- 4.3. create air_oai_dims.airport_history table 
 drop table if exists air_oai_dims.airport_history;
 create table air_oai_dims.airport_history 
 ( 
@@ -560,7 +542,6 @@ where ah.airport_history_id = abc.airport_history_id
   and ah.airport_history_key = abc.airport_history_key;
 
 -- 4.6 update the time zone boundaries in air_oai_dims.airport_history
-
 UPDATE air_oai_dims.airport_history
 SET 
     time_zone_name = sub.time_zone_name,
@@ -634,10 +615,6 @@ select distinct coalesce(aircraft_group_oai_nbr, -1) as aircraft_group_oai_nbr,
        current_timestamp as created_ts
 from air_oai_dims.aircraft_types;
 
-----------------------------------------------------
--- 6. create airline entity group (new) lookup 
-----------------------------------------------------
-
 -- 6.1. create air_oai_dims.airline_entity_new_groups
 drop table if exists air_oai_dims.airline_entity_new_groups;
 create table air_oai_dims.airline_entity_new_groups
@@ -687,10 +664,6 @@ select distinct coalesce(airline_new_group_nbr, -1) as airline_new_group_nbr,
        current_timestamp as created_ts
 from air_oai_dims.airline_entities;
 
-----------------------------------------------------
--- 7. create airport types group (legacy) lookup 
-----------------------------------------------------
-
 -- 7.1. create air_oai_dims.airline_entity_legacy_groups
 drop table if exists air_oai_dims.airline_entity_legacy_groups;
 create table air_oai_dims.airline_entity_legacy_groups
@@ -732,146 +705,112 @@ select distinct coalesce(airline_old_group_nbr, -1) as airline_old_group_nbr,
        current_timestamp as created_ts
 from air_oai_dims.airline_entities;
 
-----------------------------------------------------
--- 8. create air_oai_dims.airline_geographic_types
-
-
+-- 8. create air_oai_dims.airline_geographic_types 
 drop table if exists air_oai_dims.airline_geographic_types;
 create table air_oai_dims.airline_geographic_types
 as
-select 0::smallint as geograhic_type_oai_id,
-       'International'::varchar(35) as descr,
-       'International travel between indepedent soverign states.'::varchar(255) as long_descr
-union
-select 1::smallint, 'Domestic, Global'::varchar(35),
-       'Domestic Non-contiguous (Includes Hawaii, Alaska and Territories)'::varchar(255)
-union
-select 2::smallint, 'Domestic, Lower48'::varchar(35),
-       'Domestic Contiguous (Lower 48 U.S. States Only)'::varchar(255)
+select 0::smallint as geograhic_type_oai_id, 'International'::varchar(35) as descr, 'International travel between indepedent soverign states.'::varchar(255) as long_descr union
+select 1::smallint as geograhic_type_oai_id, 'Domestic, Global'::varchar(35) as descr, 'Domestic Non-contiguous (Includes Hawaii, Alaska and Territories)'::varchar(255) as long_descr union
+select 2::smallint as geograhic_type_oai_id, 'Domestic, Lower48'::varchar(35) as descr, 'Domestic Contiguous (Lower 48 U.S. States Only)'::varchar(255) as long_descr
 order by 1;
 
--- 9. create air_oai_dims.airfare_classes
-
+-- 9. create air_oai_dims.airfare_classes 
 drop table if exists air_oai_dims.airfare_classes;
 create table air_oai_dims.airfare_classes
 as
-select '-'::char(1) as airfare_class_code,
-       'Ground'::varchar(35) as descr,
-       'Ground Segment'::varchar(255) as long_descr
-union
-select 'C'::char(1), 'Biz Unl'::varchar(35), 'Unrestricted Business Class'::varchar(255)
-union
-select 'D'::char(1), 'Biz Lim'::varchar(35), 'Restricted Business Class'::varchar(255)
-union
-select 'F'::char(1), 'First Unl'::varchar(35), 'Unrestricted First Class'::varchar(255)
-union
-select 'G'::char(1), 'First Lim'::varchar(35), 'Restricted First Class'::varchar(255)
-union
-select 'U'::char(1), 'Unk'::varchar(35), 'Unknown'::varchar(255)
-union
-select 'X'::char(1), 'Econ Lim'::varchar(35), 'Restricted Coach Class'::varchar(255)
-union
-select 'Y'::char(1), 'Econ Unl'::varchar(35), 'Unrestricted Coach Class'::varchar(255)
+select '-'::char(1) as airfare_class_code, 'Ground'::varchar(35) as descr, 'Ground Segment'::varchar(255) as long_descr union
+select 'C'::char(1) as airfare_class_code, 'Biz Unl'::varchar(35) as descr, 'Unrestricted Business Class'::varchar(255) as long_descr union
+select 'D'::char(1) as airfare_class_code, 'Biz Lim'::varchar(35) as descr, 'Restricted Business Class'::varchar(255) as long_descr union
+select 'F'::char(1) as airfare_class_code, 'First Unl'::varchar(35) as descr, 'Unrestricted First Class'::varchar(255) as long_descr union
+select 'G'::char(1) as airfare_class_code, 'First Lim'::varchar(35) as descr, 'Restricted First Class'::varchar(255) as long_descr union
+select 'U'::char(1) as airfare_class_code, 'Unk'::varchar(35) as descr, 'Unknown'::varchar(255) as long_descr union
+select 'X'::char(1) as airfare_class_code, 'Econ Lim'::varchar(35) as descr, 'Restricted Coach Class'::varchar(255) as long_descr union
+select 'Y'::char(1) as airfare_class_code, 'Econ Unl'::varchar(35) as descr, 'Unrestricted Coach Class'::varchar(255) as long_descr
 order by 1;
 
-
 -- 10. create air_oai_dims.airline_traffic_data_sources
-
 drop table if exists air_oai_dims.airline_traffic_data_sources;
 create table air_oai_dims.airline_traffic_data_sources
 as
-select 'DF'::varchar(5) as service_class_code,
-       'DOM, INTL carrier'::varchar(55) as descr,
-       'Domestic Data, Foreign Carriers'::varchar(255) as long_descr
-union
-select 'DU'::varchar(5), 'DOM, US carrier'::varchar(55),
-       'Domestic Data, US Carriers Only'::varchar(255)
-union
-select 'IF'::varchar(5), 'INTL, INTL carrier'::varchar(55),
-       'International Data, Foreign Carriers'::varchar(255)
-union
-select 'IU'::varchar(5), 'INTL, US carrier'::varchar(55),
-       'International Data, US Carriers Only'::varchar(255)
+select 'DF'::varchar(5) as service_class_code, 'DOM, INTL carrier'::varchar(55) as descr, 'Domestic Data, Foreign Carriers'::varchar(255) as long_descr union
+select 'DU'::varchar(5) as service_class_code, 'DOM, US carrier'::varchar(55) as descr, 'Domestic Data, US Carriers Only'::varchar(255) as long_descr union
+select 'IF'::varchar(5) as service_class_code, 'INTL, INTL carrier'::varchar(55) as descr, 'International Data, Foreign Carriers'::varchar(255) as long_descr union
+select 'IU'::varchar(5) as service_class_code, 'INTL, US carrier'::varchar(55) as descr, 'International Data, US Carriers Only'::varchar(255) as long_descr
 order by 1;
 
 -- 11. define column comments
+-- air_oai_dims.aircraft_types
+comment on column air_oai_dims.aircraft_types.aircraft_type_oai_nbr is 'AC_TYPEID = Aircraft Type Identification Number. This Number Is Related To The Aircraft Group Number And Falls Within The Range Of A Group Number.';
+comment on column air_oai_dims.aircraft_types.aircraft_group_oai_nbr is 'AC_GROUP = Aircraft Type Group - This Number Gives The Group Or Classification Of Aircraft Engine And Type Of Aircraft.';
+comment on column air_oai_dims.aircraft_types.aircraft_oai_type is 'SSD_NAME = Aircraft Name.';
+comment on column air_oai_dims.aircraft_types.manufacturer_name is 'MANUFACTURER = Manufacturing Company Name.';
+comment on column air_oai_dims.aircraft_types.aircraft_type_long_name is 'LONG_NAME = Complete Name Of The Aircraft.';
+comment on column air_oai_dims.aircraft_types.aircraft_type_brief_name is 'SHORT_NAME = Abbreviated Name Of The Aircraft.';
+comment on column air_oai_dims.aircraft_types.aircraft_type_from_date is 'BEGIN_DATE = The Date When The Aircraft Was Added To The Database.';
+comment on column air_oai_dims.aircraft_types.aircraft_type_thru_date is 'END_DATE = The Date Through Which Aircraft Type Remains In Effect.';
 
---  Comments for aircraft_types
-COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_oai_nbr IS 'AC_TYPEID = Aircraft Type Identification Number. This Number Is Related To The Aircraft Group Number And Falls Within The Range Of A Group Number.';
-COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_group_oai_nbr IS 'AC_GROUP = Aircraft Type Group - This Number Gives The Group Or Classification Of Aircraft Engine And Type Of Aircraft.';
-COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_oai_type IS 'SSD_NAME = Aircraft Name.';
-COMMENT ON COLUMN air_oai_dims.aircraft_types.manufacturer_name IS 'MANUFACTURER = Manufacturing Company Name.';
-COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_long_name IS 'LONG_NAME = Complete Name Of The Aircraft.';
-COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_brief_name IS 'SHORT_NAME = Abbreviated Name Of The Aircraft.';
-COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_from_date IS 'BEGIN_DATE = The Date When The Aircraft Was Added To The Database.';
-COMMENT ON COLUMN air_oai_dims.aircraft_types.aircraft_type_thru_date IS 'END_DATE = The Date Through Which Aircraft Type Remains In Effect.';
+-- air_oai_dims.world_areas
+comment on column air_oai_dims.world_areas.world_area_key is 'MD5-hashed unique key of [world_area_oai_id & ~ & effective_from_date]';
+comment on column air_oai_dims.world_areas.world_area_oai_id is 'WAC = World Area Code.';
+comment on column air_oai_dims.world_areas.world_area_oai_seq_id is 'WAC_SEQ_ID2 = Unique Identifier for a World Area Code (WAC) at a given point of time.  WAC attributes may change over time.  For example the country name associated with the WAC can change, but the WAC code stays the same.';
+comment on column air_oai_dims.world_areas.world_area_name is 'WAC_NAME = World Area Code Name.';
+comment on column air_oai_dims.world_areas.world_region_name is 'WORLD_AREA_NAME = Geographic Region of World Area Code.';
+comment on column air_oai_dims.world_areas.country_short_name is 'COUNTRY_SHORT_NAME = Country Name.';
+comment on column air_oai_dims.world_areas.country_type_descr is 'COUNTRY_TYPE = Country Type.';
+comment on column air_oai_dims.world_areas.capital_city_name is 'CAPITAL = Capital.';
+comment on column air_oai_dims.world_areas.sovereign_country_name is 'SOVEREIGNTY = Sovereignty.';
+comment on column air_oai_dims.world_areas.country_iso_code is 'COUNTRY_CODE_ISO = Two-Character ISO Country Code.';
+comment on column air_oai_dims.world_areas.subdivision_iso_code is 'STATE_CODE = State Abbreviation.';
+comment on column air_oai_dims.world_areas.subdivision_name is 'STATE_NAME = State Name.';
+comment on column air_oai_dims.world_areas.subdivision_fips_code is 'STATE_FIPS = FIPS (Federal Information Processing Standard) State Code.';
+comment on column air_oai_dims.world_areas.effective_from_date is 'START_DATE = Start Date of World Area Code Attributes.';
+comment on column air_oai_dims.world_areas.effective_thru_date is 'THRU_DATE = End Date of World Area Code Attributes (Active = NULL).';
+comment on column air_oai_dims.world_areas.world_area_comments_text is 'COMMENTS = Comments.';
+comment on column air_oai_dims.world_areas.world_area_latest_ind is 'IS_LATEST = Indicates if this row contains the latest attributes for the World Area Code (1 = Yes).';
 
--- Comments for world_areas
-COMMENT ON COLUMN air_oai_dims.world_areas.world_area_key IS 'MD5-hashed unique key of [world_area_oai_id & ~ & effective_from_date]';
-COMMENT ON COLUMN air_oai_dims.world_areas.world_area_oai_id IS 'WAC = World Area Code.';
-COMMENT ON COLUMN air_oai_dims.world_areas.world_area_oai_seq_id IS 'WAC_SEQ_ID2 = Unique Identifier for a World Area Code (WAC) at a given point of time. WAC attributes may change over time. For example the country name associated with the WAC can change, but the WAC code stays the same.';
-COMMENT ON COLUMN air_oai_dims.world_areas.world_area_name IS 'WAC_NAME = World Area Code Name.';
-COMMENT ON COLUMN air_oai_dims.world_areas.world_region_name IS 'WORLD_AREA_NAME = Geographic Region of World Area Code.';
-COMMENT ON COLUMN air_oai_dims.world_areas.country_short_name IS 'COUNTRY_SHORT_NAME = Country Name.';
-COMMENT ON COLUMN air_oai_dims.world_areas.country_type_descr IS 'COUNTRY_TYPE = Country Type.';
-COMMENT ON COLUMN air_oai_dims.world_areas.capital_city_name IS 'CAPITAL = Capital.';
-COMMENT ON COLUMN air_oai_dims.world_areas.sovereign_country_name IS 'SOVEREIGNTY = Sovereignty.';
-COMMENT ON COLUMN air_oai_dims.world_areas.country_iso_code IS 'COUNTRY_CODE_ISO = Two-Character ISO Country Code.';
-COMMENT ON COLUMN air_oai_dims.world_areas.subdivision_iso_code IS 'STATE_CODE = State Abbreviation.';
-COMMENT ON COLUMN air_oai_dims.world_areas.subdivision_name IS 'STATE_NAME = State Name.';
-COMMENT ON COLUMN air_oai_dims.world_areas.subdivision_fips_code IS 'STATE_FIPS = FIPS (Federal Information Processing Standard) State Code.';
-COMMENT ON COLUMN air_oai_dims.world_areas.effective_from_date IS 'START_DATE = Start Date of World Area Code Attributes.';
-COMMENT ON COLUMN air_oai_dims.world_areas.effective_thru_date IS 'THRU_DATE = End Date of World Area Code Attributes (Active = NULL).';
-COMMENT ON COLUMN air_oai_dims.world_areas.world_area_comments_text IS 'COMMENTS = Comments.';
-COMMENT ON COLUMN air_oai_dims.world_areas.world_area_latest_ind IS 'IS_LATEST = Indicates if this row contains the latest attributes for the World Area Code (1 = Yes).';
+-- air_oai_dims.airline_entities
+comment on column air_oai_dims.airline_entities.airline_entity_id is 'PostgreSQL defined identity surrogate key for high performance joins. Start with 4000.';
+comment on column air_oai_dims.airline_entities.airline_entity_key is 'md5 hash of natural key <carrier_oai_code|entity_oai_code|source_from_date>.';
+comment on column air_oai_dims.airline_entities.airline_usdot_id is 'AIRLINE_ID = An identification number assigned by US DOT to identify a unique airline (carrier). A unique airline (carrier) is defined as one holding and reporting under the same DOT certificate regardless of its Code, Name, or holding company/corporation.';
+comment on column air_oai_dims.airline_entities.airline_oai_code is 'CARRIER = Code assigned by IATA and commonly used to identify a carrier. As the same code may have been assigned to different carriers over time, the code is not always unique.';
+comment on column air_oai_dims.airline_entities.entity_oai_code is 'CARRIER_ENTITY = Carrier Entity.';
+comment on column air_oai_dims.airline_entities.airline_name is 'CARRIER_NAME = Carrier Name.';
+comment on column air_oai_dims.airline_entities.airline_unique_oai_code is 'UNIQUE_CARRIER = Unique Carrier Code. When the same code has been used by multiple carriers, a numeric suffix is used for earlier users, for example, PA, PA(1), PA(2). Use this field for analysis across a range of years.';
+comment on column air_oai_dims.airline_entities.entity_unique_oai_code is 'UNIQUE_CARRIER_ENTITY = Unique Entity for a Carrier''s Operation Region.';
+comment on column air_oai_dims.airline_entities.airline_unique_name is 'UNIQUE_CARRIER_NAME = Unique Carrier Name. When the same name has been used by multiple carriers, a numeric suffix is used for earlier users, for example, Air Caribbean, Air Caribbean (1).';
+comment on column air_oai_dims.airline_entities.world_area_oai_id is 'WAC = World Area Code, this is a non-unique ID that represents a WAC.';
+comment on column air_oai_dims.airline_entities.world_area_oai_seq_id is 'WAC = World Area Code, this is actual FK, since it is unique over time.';
+comment on column air_oai_dims.airline_entities.airline_old_group_nbr is 'CARRIER_GROUP = Carrier Group Code.  Used in Legacy Analysis.';
+comment on column air_oai_dims.airline_entities.airline_new_group_nbr is 'CARRIER_GROUP_NEW = Carrier Group New.';
+comment on column air_oai_dims.airline_entities.operating_region_code is 'REGION = Carrier''s Operation Region. Carriers Report Data by Operation Region.';
+comment on column air_oai_dims.airline_entities.source_from_date is 'START_DATE_SOURCE = Starting Date of Carrier Code.';
+comment on column air_oai_dims.airline_entities.source_thru_date is 'THRU_DATE_SOURCE = Ending Date of Carrier Code (Active = NULL).';
 
--- Comments for airline_entities
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_entity_id IS 'PostgreSQL defined identity surrogate key for high performance joins. Start with 4000.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_entity_key IS 'md5 hash of natural key <carrier_oai_code|entity_oai_code|source_from_date>.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_usdot_id IS 'AIRLINE_ID = An identification number assigned by US DOT to identify a unique airline (carrier). A unique airline (carrier) is defined as one holding and reporting under the same DOT certificate regardless of its Code, Name, or holding company/corporation.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_oai_code IS 'CARRIER = Code assigned by IATA and commonly used to identify a carrier. As the same code may have been assigned to different carriers over time, the code is not always unique.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.entity_oai_code IS 'CARRIER_ENTITY = Carrier Entity.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_name IS 'CARRIER_NAME = Carrier Name.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_unique_oai_code IS 'UNIQUE_CARRIER = Unique Carrier Code. When the same code has been used by multiple carriers, a numeric suffix is used for earlier users, for example, PA, PA(1), PA(2). Use this field for analysis across a range of years.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.entity_unique_oai_code IS 'UNIQUE_CARRIER_ENTITY = Unique Entity for a Carrier Operation Region.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_unique_name IS 'UNIQUE_CARRIER_NAME = Unique Carrier Name. When the same name has been used by multiple carriers, a numeric suffix is used for earlier users, for example, Air Caribbean, Air Caribbean (1).';
-COMMENT ON COLUMN air_oai_dims.airline_entities.world_area_oai_id IS 'WAC = World Area Code, this is a non-unique ID that represents a WAC.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.world_area_oai_seq_id IS 'WAC = World Area Code, this is actual FK, since it is unique over time.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_old_group_nbr IS 'CARRIER_GROUP = Carrier Group Code. Used in Legacy Analysis.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.airline_new_group_nbr IS 'CARRIER_GROUP_NEW = Carrier Group New.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.operating_region_code IS 'REGION = Carrier Operation Region. Carriers Report Data by Operation Region.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.source_from_date IS 'START_DATE_SOURCE = Starting Date of Carrier Code.';
-COMMENT ON COLUMN air_oai_dims.airline_entities.source_thru_date IS 'THRU_DATE_SOURCE = Ending Date of Carrier Code (Active = NULL).';
+-- air_oai_dims.airport_history
+comment on column air_oai_dims.airport_history.airport_oai_seq_id is 'AIRPORT_SEQ_ID = An identification number assigned by US DOT to identify a unique airport at a given point of time.  Airport attributes, such as airport name or coordinates, may change over time.';
+comment on column air_oai_dims.airport_history.airport_oai_id is 'AIRPORT_ID = An identification number assigned by US DOT to identify a unique airport.  Use this field for airport analysis across a range of years because an airport can change its airport code and airport codes can be reused.';
+comment on column air_oai_dims.airport_history.airport_oai_code is 'AIRPORT = A three character alpha-numeric code issued by the U.S. Department of Transportation which is the official designation of the airport.  The airport code is not always unique to a specific airport because airport codes can change or can be reused.';
+comment on column air_oai_dims.airport_history.airport_display_name is 'DISPLAY_AIRPORT_NAME = Airport Name.';
+comment on column air_oai_dims.airport_history.city_full_display_name is 'DISPLAY_AIRPORT_CITY_NAME_FULL = Airport City Name with either U.S. State or Country.';
+comment on column air_oai_dims.airport_history.airport_world_area_oai_id is 'AIRPORT_WAC = World Area Code for the Physical Location of the Airport.';
+comment on column air_oai_dims.airport_history.country_name is 'AIRPORT_COUNTRY_NAME = Country Name for the Physical Location of the Airport.';
+comment on column air_oai_dims.airport_history.country_iso_code is 'AIRPORT_COUNTRY_CODE_ISO = Two-character ISO Country Code for the Physical Location of the Airport.';
+comment on column air_oai_dims.airport_history.subdivision_name is 'AIRPORT_STATE_NAME = State Name for the Physical Location of the Airport.';
+comment on column air_oai_dims.airport_history.subdivision_iso_code is 'AIRPORT_STATE_CODE = State Abbreviation for the Physical Location of the Airport.';
+comment on column air_oai_dims.airport_history.subdivision_fips_code is 'AIRPORT_STATE_FIPS = FIPS (Federal Information Processing Standard) State Code for the Physical Location of the Airport.';
+comment on column air_oai_dims.airport_history.market_city_oai_id is 'CITY_MARKET_ID = An identification number assigned by US DOT to identify a city market.  Use this field to consolidate airports serving the same city market.';
+comment on column air_oai_dims.airport_history.market_city_full_display_name is 'DISPLAY_CITY_MARKET_NAME_FULL = City Market Name with either U.S. State or Country';
+comment on column air_oai_dims.airport_history.market_city_world_area_oai_id is 'CITY_MARKET_WAC = World Area Code for the City Market';
+comment on column air_oai_dims.airport_history.latitude_decimal_nbr is 'LATITUDE = Latitude';
+comment on column air_oai_dims.airport_history.longitude_decimal_nbr is 'LONGITUDE = Longitude';
+comment on column air_oai_dims.airport_history.effective_from_date is 'AIRPORT_START_DATE = Start Date of Airport Attributes';
+comment on column air_oai_dims.airport_history.effective_thru_date is 'AIRPORT_THRU_DATE = End Date of Airport Attributes (Active = NULL)';
+comment on column air_oai_dims.airport_history.airport_closed_ind is 'AIRPORT_IS_CLOSED = Indicates if the airport is closed (1 = Yes).  If yes, the airport is closed is on the AirportEndDate.';
+comment on column air_oai_dims.airport_history.airport_latest_ind is 'AIRPORT_IS_LATEST = Indicates if this row contains the latest attributes for the Airport (1 = Yes)';
 
--- Comments for airport_history
-COMMENT ON COLUMN air_oai_dims.airport_history.airport_oai_seq_id IS 'AIRPORT_SEQ_ID = An identification number assigned by US DOT to identify a unique airport at a given point of time. Airport attributes, such as airport name or coordinates, may change over time.';
-COMMENT ON COLUMN air_oai_dims.airport_history.airport_oai_id IS 'AIRPORT_ID = An identification number assigned by US DOT to identify a unique airport. Use this field for airport analysis across a range of years because an airport can change its airport code and airport codes can be reused.';
-COMMENT ON COLUMN air_oai_dims.airport_history.airport_oai_code IS 'AIRPORT = A three character alpha-numeric code issued by the U.S. Department of Transportation which is the official designation of the airport. The airport code is not always unique to a specific airport because airport codes can change or can be reused.';
-COMMENT ON COLUMN air_oai_dims.airport_history.airport_display_name IS 'DISPLAY_AIRPORT_NAME = Airport Name.';
-COMMENT ON COLUMN air_oai_dims.airport_history.city_full_display_name IS 'DISPLAY_AIRPORT_CITY_NAME_FULL = Airport City Name with either U.S. State or Country.';
-COMMENT ON COLUMN air_oai_dims.airport_history.airport_world_area_oai_id IS 'AIRPORT_WAC = World Area Code for the Physical Location of the Airport.';
-COMMENT ON COLUMN air_oai_dims.airport_history.country_name IS 'AIRPORT_COUNTRY_NAME = Country Name for the Physical Location of the Airport.';
-COMMENT ON COLUMN air_oai_dims.airport_history.country_iso_code IS 'AIRPORT_COUNTRY_CODE_ISO = Two-character ISO Country Code for the Physical Location of the Airport.';
-COMMENT ON COLUMN air_oai_dims.airport_history.subdivision_name IS 'AIRPORT_STATE_NAME = State Name for the Physical Location of the Airport.';
-COMMENT ON COLUMN air_oai_dims.airport_history.subdivision_iso_code IS 'AIRPORT_STATE_CODE = State Abbreviation for the Physical Location of the Airport.';
-COMMENT ON COLUMN air_oai_dims.airport_history.subdivision_fips_code IS 'AIRPORT_STATE_FIPS = FIPS (Federal Information Processing Standard) State Code for the Physical Location of the Airport.';
-COMMENT ON COLUMN air_oai_dims.airport_history.market_city_oai_id IS 'CITY_MARKET_ID = An identification number assigned by US DOT to identify a city market. Use this field to consolidate airports serving the same city market.';
-COMMENT ON COLUMN air_oai_dims.airport_history.market_city_full_display_name IS 'DISPLAY_CITY_MARKET_NAME_FULL = City Market Name with either U.S. State or Country';
-COMMENT ON COLUMN air_oai_dims.airport_history.market_city_world_area_oai_id IS 'CITY_MARKET_WAC = World Area Code for the City Market';
-COMMENT ON COLUMN air_oai_dims.airport_history.latitude_decimal_nbr IS 'LATITUDE = Latitude';
-COMMENT ON COLUMN air_oai_dims.airport_history.longitude_decimal_nbr IS 'LONGITUDE = Longitude';
-COMMENT ON COLUMN air_oai_dims.airport_history.effective_from_date IS 'AIRPORT_START_DATE = Start Date of Airport Attributes';
-COMMENT ON COLUMN air_oai_dims.airport_history.effective_thru_date IS 'AIRPORT_THRU_DATE = End Date of Airport Attributes (Active = NULL)';
-COMMENT ON COLUMN air_oai_dims.airport_history.airport_closed_ind IS 'AIRPORT_IS_CLOSED = Indicates if the airport is closed (1 = Yes). If yes, the airport is closed is on the AirportEndDate.';
-COMMENT ON COLUMN air_oai_dims.airport_history.airport_latest_ind IS 'AIRPORT_IS_LATEST = Indicates if this row contains the latest attributes for the Airport (1 = Yes)';
-
-----------------------------------------------------
--- 12. create presentation layer view
-----------------------------------------------------
-
-CREATE SCHEMA IF NOT EXISTS airlines_pg;
-
-create or replace view airlines_pg.aircraft_types_v as
+-- 12. create presentation layer views
+-- drop view if exists airlines_rs.aircraft_types_v:
+create or replace view airlines_rs.aircraft_types_v as
 select aircraft_type_oai_nbr,
        aircraft_group_oai_nbr,
        aircraft_oai_type,
@@ -882,7 +821,7 @@ select aircraft_type_oai_nbr,
        aircraft_type_thru_date
 from air_oai_dims.aircraft_types;
 
-create or replace view airlines_pg.airport_history_v as
+create or replace view airlines_rs.airport_history_v as
 select airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date,
        airport_closed_ind, airport_latest_ind, airport_oai_seq_id, airport_oai_id, airport_display_name,
        city_full_display_name,
@@ -895,7 +834,7 @@ select airport_history_id, airport_history_key, airport_oai_code, effective_from
        latitude_decimal_nbr, longitude_decimal_nbr
 from air_oai_dims.airport_history;
 
-create or replace view airlines_pg.airport_current_v as
+create or replace view airlines_rs.airport_current_v as
 select airport_oai_code,
        airport_closed_ind,
        airport_oai_id, airport_display_name,
@@ -910,7 +849,7 @@ select airport_oai_code,
 from air_oai_dims.airport_history
 where airport_latest_ind = 1;
 
-create or replace view airlines_pg.world_areas_v as
+create or replace view airlines_rs.world_areas_v as
 select world_area_oai_seq_id, world_area_key,
        world_area_oai_id, effective_from_date, effective_thru_date, world_area_latest_ind,
        world_area_name, world_region_name,
@@ -919,19 +858,19 @@ select world_area_oai_seq_id, world_area_key,
        sovereign_country_name, capital_city_name, world_area_comments_text
 from air_oai_dims.world_areas;
 
-create or replace view airlines_pg.airline_entity_legacy_groups_v as
+create or replace view airlines_rs.airline_entity_legacy_groups_v as
 select airline_old_group_nbr,
        descr,
        long_descr
 from air_oai_dims.airline_entity_legacy_groups;
 
-create or replace view airlines_pg.airline_entity_new_groups_v as
+create or replace view airlines_rs.airline_entity_new_groups_v as
 select airline_new_group_nbr,
        descr,
        long_descr
 from air_oai_dims.airline_entity_new_groups;
 
-create or replace view airlines_pg.airline_entities_v as
+create or replace view airlines_rs.airline_entities_v as
 select airline_entity_id,
        airline_entity_key,
        airline_usdot_id,
@@ -950,7 +889,7 @@ select airline_entity_id,
        source_thru_date
 from air_oai_dims.airline_entities;
 
-create or replace view airlines_pg.airline_entities_current_v as
+create or replace view airlines_rs.airline_entities_current_v as
 select airline_oai_code,
        airline_usdot_id,
        entity_oai_code,
@@ -963,19 +902,19 @@ select airline_oai_code,
 from air_oai_dims.airline_entities
 where source_thru_date is null;
 
-create or replace view airlines_pg.airline_geographic_types_v as
+create or replace view airlines_rs.airline_geographic_types_v as
 select geograhic_type_oai_id,
        descr,
        long_descr
 from air_oai_dims.airline_geographic_types;
 
-create or replace view airlines_pg.airfare_classes_v as
+create or replace view airlines_rs.airfare_classes_v as
 select airfare_class_code,
        descr,
        long_descr
 from air_oai_dims.airfare_classes;
 
-create or replace view airlines_pg.airline_traffic_data_sources_v as
+create or replace view airlines_rs.airline_traffic_data_sources_v as
 select service_class_code,
        descr,
        long_descr
