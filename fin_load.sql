@@ -40,17 +40,13 @@ create table air_oai_dims.f41_schedule_b43_fdw
 
 
 -- 2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw
-
 copy air_oai_dims.f41_schedule_b43_fdw
 from 's3://src-aviation/FIN/CSV/T_F41SCHEDULE_B43.csv.gz'
 iam_role default
-csv
-ignoreheader 1
+csv 
 gzip
+ignoreheader 1
 dateformat 'auto'
-timeformat 'auto'
-acceptinvchars;
-
 
 -- 3.  create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
 
@@ -79,8 +75,8 @@ create table air_oai_dims.airframe_and_engine_inventory_annual (
     updated_by             varchar(25),      -- Audit: last updater
     updated_ts             timestamp         -- Audit: last update timestamp
 )
-distkey(airline_entity_id)                    -- Distribution key for Redshift
-sortkey(airline_entity_id, year_nbr, tail_nbr, serial_nbr); -- Sort key for queries
+--distkey(airline_entity_id)                    -- Distribution key for Redshift
+--sortkey(airline_entity_id, year_nbr, tail_nbr, serial_nbr); -- Sort key for queries
 
 -- Populate final table from staging and airline_entities
 insert into air_oai_dims.airframe_and_engine_inventory_annual
