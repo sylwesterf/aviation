@@ -45,25 +45,28 @@
 -- 12. create presentation layer views
 ----------------------------------------------------
 
--- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
-drop table if exists air_oai_dims.aircraft_types_fdw;
-create table air_oai_dims.aircraft_types_fdw
-( 
-	aircraft_type_oai_nbr			smallint	not null
-	, aircraft_group_oai_nbr		smallint	not null
-	, aircraft_oai_type				varchar(55)	not null
-	, manufacturer_name				varchar(55)
-	, aircraft_type_long_name		varchar(55)	not null
-	, aircraft_type_brief_name		varchar(55)	not null
-	, aircraft_type_from_date		date		not null
-	, aircraft_type_thru_date		date
-);
+-- 1.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 1.2.1 instead of 1.2.2)
+-- DROP TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
+-- CREATE TABLE air_oai_dims.aircraft_types_fdw
+-- ( 
+-- 	aircraft_type_oai_nbr			smallint	not null
+-- 	, aircraft_group_oai_nbr		smallint	not null
+-- 	, aircraft_oai_type				varchar(55)	not null
+-- 	, manufacturer_name				varchar(55)
+-- 	, aircraft_type_long_name		varchar(55)	not null
+-- 	, aircraft_type_brief_name		varchar(55)	not null
+-- 	, aircraft_type_from_date		date		not null
+-- 	, aircraft_type_thru_date		date
+-- );
 
--- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
+-- 1.2. load aircraft types into air_oai_dims.aircraft_types_fdw
 -- 1.2.1. mstr psql version of the data load
 -- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES.csv' CSV HEADER";
--- 1.2.2. AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.aircraft_types_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_AIRCRAFT_TYPES.csv', 'us-west-2'));
+-- 1.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
+CREATE FOREIGN TABLE air_oai_dims.aircraft_types_fdw ()
+SERVER pg_analytics_s3
+OPTIONS (files 's3://src-aviation/DIMS/CSV/T_AIRCRAFT_TYPES.csv');
 
 -- 1.3. define final dimensional table air_oai_dims.aircraft_types
 drop table if exists air_oai_dims.aircraft_types;
@@ -113,33 +116,36 @@ from air_oai_dims.aircraft_types_fdw f
 --where t.aircraft_type_oai_nbr is null;
 
 
--- 2.1. create air_oai_dims.wac_country_state_fdw table in postgre
-DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
-CREATE TABLE air_oai_dims.wac_country_state_fdw
-( 
-	world_area_oai_id					integer
-	, world_area_oai_seq_id				integer
-	, world_area_name					varchar(125)
-	, world_region_name					varchar(125)
-	, country_short_name				varchar(75)
-	, country_type_descr				varchar(75)
-	, capital_city_name					varchar(75)
-	, sovereign_country_name			varchar(75)
-	, country_iso_code					char(2)
-	, subdivision_iso_code				varchar(10)
-	, subdivision_name					varchar(75)
-	, subdivision_fips_code				varchar(10)
-	, effective_from_date				date
-	, effective_thru_date				date
-	, comments_text						varchar(555)
-	, world_area_latest_ind				smallint
-);
+-- 2.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 2.2.1 instead of 2.2.2)
+-- DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
+-- CREATE TABLE air_oai_dims.wac_country_state_fdw
+-- ( 
+-- 	world_area_oai_id					integer
+-- 	, world_area_oai_seq_id				integer
+-- 	, world_area_name					varchar(125)
+-- 	, world_region_name					varchar(125)
+-- 	, country_short_name				varchar(75)
+-- 	, country_type_descr				varchar(75)
+-- 	, capital_city_name					varchar(75)
+-- 	, sovereign_country_name			varchar(75)
+-- 	, country_iso_code					char(2)
+-- 	, subdivision_iso_code				varchar(10)
+-- 	, subdivision_name					varchar(75)
+-- 	, subdivision_fips_code				varchar(10)
+-- 	, effective_from_date				date
+-- 	, effective_thru_date				date
+-- 	, comments_text						varchar(555)
+-- 	, world_area_latest_ind				smallint
+-- );
 
--- 2.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
+-- 2.2. load world areas staging into air_oai_dims.wac_country_state_fdw
 -- 2.2.1 mstr psql version of the data load
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.wac_country_state_fdw FROM 'T_WAC_COUNTRY_STATE.csv' CSV HEADER";
--- 2.2.2 AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.wac_country_state_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_WAC_COUNTRY_STATE.csv', 'us-west-2')); 
+-- 2.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
+CREATE FOREIGN TABLE air_oai_dims.wac_country_state_fdw ()
+SERVER pg_analytics_s3
+OPTIONS (files 's3://src-aviation/DIMS/CSV/T_WAC_COUNTRY_STATE.csv');
 
 -- 2.3. define final dimensional table air_oai_dims.world_areas
 drop table if exists air_oai_dims.world_areas;
@@ -218,30 +224,33 @@ SELECT
 FROM air_oai_dims.wac_country_state_fdw;
 
 
--- 3.1. create air_oai_dims.carrier_decode_fdw table in postgre
-drop table if exists air_oai_dims.carrier_decode_fdw;
-CREATE TABLE air_oai_dims.carrier_decode_fdw
-( 
-	airline_usdot_id				smallint
-	, airline_oai_code				varchar(10)
-	, entity_oai_code				varchar(10)
-	, airline_name					varchar(125)
-	, airline_unique_oai_code		varchar(10)
-	, entity_unique_oai_code		varchar(10)
-	, airline_unique_name			varchar(125)
-	, world_area_oai_id			smallint
-	, airline_old_group_nbr			smallint
-	, airline_new_group_nbr			smallint		
-	, operating_region_code			varchar(25)			
-	, source_from_date				date
-	, source_thru_date				date
-);
+-- 3.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 3.2.1 instead of 3.2.2)
+-- DROP TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
+-- CREATE TABLE air_oai_dims.carrier_decode_fdw
+-- ( 
+-- 	airline_usdot_id				smallint
+-- 	, airline_oai_code				varchar(10)
+-- 	, entity_oai_code				varchar(10)
+-- 	, airline_name					varchar(125)
+-- 	, airline_unique_oai_code		varchar(10)
+-- 	, entity_unique_oai_code		varchar(10)
+-- 	, airline_unique_name			varchar(125)
+-- 	, world_area_oai_id			smallint
+-- 	, airline_old_group_nbr			smallint
+-- 	, airline_new_group_nbr			smallint		
+-- 	, operating_region_code			varchar(25)			
+-- 	, source_from_date				date
+-- 	, source_thru_date				date
+-- );
 
--- 3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
+-- 3.2. load carrier decode into air_oai_dims.carrier_decode_fdw
 -- 3.2.1 mstr psql version of the data load
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.carrier_decode_fdw FROM 'T_CARRIER_DECODE.csv' CSV HEADER";
--- 3.2.2 AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.carrier_decode_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_CARRIER_DECODE.csv', 'us-west-2')); 
+-- 3.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
+CREATE FOREIGN TABLE air_oai_dims.carrier_decode_fdw ()
+SERVER pg_analytics_s3
+OPTIONS (files 's3://src-aviation/DIMS/CSV/T_CARRIER_DECODE.csv');
 
 -- 3.3. create air_oai_dims.airline_entities table in postgre
 drop table if exists air_oai_dims.airline_entities;
@@ -375,49 +384,52 @@ from
 ) x;
 
 
--- 4.1. create air_oai_dims.master_cord_fdw table in postgre  
-DROP TABLE IF EXISTS air_oai_dims.master_cord_fdw;
-CREATE TABLE air_oai_dims.master_cord_fdw 
-( 
-	airport_oai_seq_id						integer
-	, airport_oai_id						integer
-	, airport_oai_code						varchar(3)
-	, airport_display_name					varchar(125)
-	, city_full_display_name				varchar(125)
-	, airport_world_area_oai_seq_id			integer
-	, airport_world_area_oai_id				integer
-	, country_name							varchar(75)
-	, country_iso_code						varchar(10)
-	, subdivision_name						varchar(75)
-	, subdivision_iso_code					varchar(10)
-	, subdivision_fips_code					varchar(10)
-	, market_city_oai_seq_id				integer
-	, market_city_oai_id					integer
-	, market_city_full_display_name			varchar(75)
-	, market_city_world_area_oai_seq_id		integer
-	, market_city_world_area_oai_id			integer
-	, latitude_degrees						smallint
-	, latitude_hemisphere_code				char(1)
-	, latitude_minutes						smallint
-	, latitude_seconds						smallint
-	, latitude_decimal_nbr					numeric(9,7)
-	, longitude_degrees						smallint
-	, longitude_hemisphere_code				char(1)
-	, longitude_minutes						smallint
-	, longitude_seconds						smallint
-	, longitude_decimal_nbr					numeric(10,7)
-	, utc_local_time_variation				varchar(75)
-	, airport_effective_from_date			date
-	, airport_effective_thru_date			date
-	, airport_closed_ind					smallint
-	, airport_latest_ind					smallint
-);
+-- 4.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 4.2.1 instead of 4.2.2)
+-- DROP TABLE IF EXISTS air_oai_dims.master_cord_fdw;
+-- CREATE TABLE air_oai_dims.master_cord_fdw 
+-- ( 
+-- 	airport_oai_seq_id						integer
+-- 	, airport_oai_id						integer
+-- 	, airport_oai_code						varchar(3)
+-- 	, airport_display_name					varchar(125)
+-- 	, city_full_display_name				varchar(125)
+-- 	, airport_world_area_oai_seq_id			integer
+-- 	, airport_world_area_oai_id				integer
+-- 	, country_name							varchar(75)
+-- 	, country_iso_code						varchar(10)
+-- 	, subdivision_name						varchar(75)
+-- 	, subdivision_iso_code					varchar(10)
+-- 	, subdivision_fips_code					varchar(10)
+-- 	, market_city_oai_seq_id				integer
+-- 	, market_city_oai_id					integer
+-- 	, market_city_full_display_name			varchar(75)
+-- 	, market_city_world_area_oai_seq_id		integer
+-- 	, market_city_world_area_oai_id			integer
+-- 	, latitude_degrees						smallint
+-- 	, latitude_hemisphere_code				char(1)
+-- 	, latitude_minutes						smallint
+-- 	, latitude_seconds						smallint
+-- 	, latitude_decimal_nbr					numeric(9,7)
+-- 	, longitude_degrees						smallint
+-- 	, longitude_hemisphere_code				char(1)
+-- 	, longitude_minutes						smallint
+-- 	, longitude_seconds						smallint
+-- 	, longitude_decimal_nbr					numeric(10,7)
+-- 	, utc_local_time_variation				varchar(75)
+-- 	, airport_effective_from_date			date
+-- 	, airport_effective_thru_date			date
+-- 	, airport_closed_ind					smallint
+-- 	, airport_latest_ind					smallint
+-- );
 
--- 4.2. copy world areas data into air_oai_dims.master_cord_fdw
+-- 4.2. load master coordinate staging into air_oai_dims.master_cord_fdw
 -- 4.2.1 mstr psql version of the data load
 --mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.master_cord_fdw FROM 'T_MASTER_CORD.csv' CSV HEADER";
--- 4.2.2 AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.master_cord_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_MASTER_CORD.csv', 'us-west-2')); 
+-- 4.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.master_cord_fdw;
+CREATE FOREIGN TABLE air_oai_dims.master_cord_fdw ()
+SERVER pg_analytics_s3
+OPTIONS (files 's3://src-aviation/DIMS/CSV/T_MASTER_CORD.csv');
 
 -- 4.3. create air_oai_dims.airport_history table in postgre
 drop table if exists air_oai_dims.airport_history;
@@ -562,8 +574,7 @@ where air_oai_dims.airport_history.airport_history_id = abc.airport_history_id
 and air_oai_dims.airport_history.airport_history_key = abc.airport_history_key;
 
 
--- (4.6) update the time zone boundaries in air_oai_dims.airport_history 
-/*
+-- 4.6 update the time zone boundaries in air_oai_dims.airport_history 
 update air_oai_dims.airport_history
 set	
 	time_zone_name = c.time_zone_name
@@ -578,7 +589,7 @@ where ST_Contains(b.time_zone_geom, a.point_geom) is true
 ) c
 where air_oai_dims.airport_history.airport_history_id = c.airport_history_id
 and air_oai_dims.airport_history.time_zone_name is null;
-*/
+
 
 -- 5.1. create air_oai_dims.aircraft_type_groups
 drop table if exists air_oai_dims.aircraft_type_groups;

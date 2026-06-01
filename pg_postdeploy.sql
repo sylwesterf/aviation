@@ -31,17 +31,19 @@ vacuum analyze air_oai_dims.airline_service_classes;
 -- 6. data validation
 -- TODO
 select count(*) from air_oai_facts.airline_traffic_market; -- 25544
-select count(*) from air_oai_facts.f41_traffic_t100_market_archive; -- 25948
+select count(*) from air_oai_facts.f41_traffic_t100_market_fdw; -- 25948
 
 select count(*) from air_oai_facts.airline_traffic_segment; -- 44289
-select count(*) from air_oai_facts.f41_traffic_t100_segment_archive; -- 44941
+select count(*) from air_oai_facts.f41_traffic_t100_segment_fdw; -- 44941
 
 -- 7. clean-up
 drop materialized view if exists air_oai_facts.f41_traffic_t100_segment_load_mv;
 drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
 drop materialized view if exists air_oai_facts.airline_traffic_market_integrate_mv;
-drop table if exists air_oai_facts.f41_traffic_t100_market_archive;
-drop table if exists air_oai_facts.f41_traffic_t100_segment_archive;
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.f41_traffic_t100_market_fdw;
+DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_market_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_fdw;
+DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_fdw;
 
 ---------------------------------------------------------
 ----------------------- otp -----------------------------
@@ -68,8 +70,6 @@ select count(*) from air_oai_facts.airline_flights_scheduled; -- 7142354
 -- 8. Clean-up
 drop materialized view if exists air_oai_facts.airline_flight_performance_integrated_mv cascade;
 drop materialized view if exists air_oai_facts.airline_flight_performance_mv cascade;
-drop table if exists air_oai_facts.airline_flight_performance_fdw cascade;
-
 ---------------------------------------------------------
 ----------------------- db1b -----------------------------
 ---------------------------------------------------------
@@ -80,35 +80,27 @@ VACUUM VERBOSE air_oai_facts.airfare_survey_market;
 
 -- 6. Validation
 --TODO
-select year_nbr, quarter_nbr, count(*) from air_oai_facts.airfare_survey_ticket_load group by 1,2;
+select year_nbr, quarter_nbr, count(*) from air_oai_facts.airfare_survey_ticket_fdw group by 1,2;
 select year_quarter_start_date, count(*) from air_oai_facts.airfare_survey_itinerary group by 1 order by 1 desc;
 -- select itinerary_oai_id, flight_pass_seq, count(*) from airlines_pg.airfare_survey_coupon_v group by 1,2 having count(*) > 1 order by count(*) desc;
 -- select market_oai_id, count(*) from airlines_pg.airfare_survey_market_v group by 1 having count(*) > 1 order by count(*) desc;
 
 -- 7. Clean-up
-drop table if exists air_oai_facts.airfare_survey_ticket_load;
-drop table if exists air_oai_facts.airfare_survey_coupon_load;
-drop table if exists air_oai_facts.airfare_survey_market_load;
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_ticket_fdw;
+DROP TABLE IF EXISTS air_oai_facts.airfare_survey_ticket_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_coupon_fdw;
+DROP TABLE IF EXISTS air_oai_facts.airfare_survey_coupon_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_market_fdw;
+DROP TABLE IF EXISTS air_oai_facts.airfare_survey_market_fdw;
 
 ---------------------------------------------------------
 ----------------------- fin -----------------------------
 ---------------------------------------------------------
 -- 6. data validation
-select count(*) from air_oai_dims.f41_schedule_b43_fdw where aircraft_oai_type is null; -- 94151 / 29933
+select count(*) from air_oai_dims.airframe_and_engine_inventory_annual where aircraft_oai_type is null;
 
-select year_nbr, count(*) from air_oai_dims.f41_schedule_b43_fdw group by 1 order by 1;
-select * from air_oai_dims.f41_schedule_b43_fdw limit 25;
-
-/* -- verify uniqueness
-select * from air_oai_dims.f41_schedule_b43_fdw
-where year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/ in
-(select year_nbr::text ||'~'|| carrier_oai_code ||'~'|| tail_nbr /*||'~'|| serial_nbr*/
-from air_oai_dims.f41_schedule_b43_fdw group by 1 having count(*) > 1)
-order by year_nbr, carrier_oai_code, tail_nbr;
-*/
-
--- 7. clean-up
-drop table if exists air_oai_dims.f41_schedule_b43_fdw;
+select year_nbr, count(*) from air_oai_dims.airframe_and_engine_inventory_annual group by 1 order by 1;
+select * from air_oai_dims.airframe_and_engine_inventory_annual limit 25;
 
 ---------------------------------------------------------
 ----------------------- dim -----------------------------
@@ -158,7 +150,6 @@ select aircraft_type_oai_nbr, count(*) from air_oai_dims.aircraft_types_fdw grou
 
 select * from air_oai_dims.aircraft_types; 
 select * from air_oai_dims.aircraft_types_fdw; -- 433
-drop foreign table if exists air_oai_dims.aircraft_types_fdw;
 
 
 -- ### 2
@@ -355,8 +346,16 @@ left outer join air_oai_dims.world_areas c
 ) x --where country_iso_code != market_country_code
 group by 1 order by world_region_name, count(*) desc;
 
--- 14. clean-up fdw/landing tables
+-- 14. clean-up staging tables (foreign table from S3 path or heap table from COPY path)
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
 DROP TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
 DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
 DROP TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.master_cord_fdw;
 DROP TABLE IF EXISTS air_oai_dims.master_cord_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
+DROP TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.airline_flight_performance_fdw;
+DROP TABLE IF EXISTS air_oai_facts.airline_flight_performance_fdw CASCADE;

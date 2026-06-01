@@ -7,13 +7,13 @@
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month)
 -- 1. process Airline Traffic Market data
---  1.1. create air_oai_facts.f41_traffic_t100_market_archive staging table
+--  1.1. stage market data in air_oai_facts.f41_traffic_t100_market_fdw
 --  1.2. stage t100_market csv data
 -- 	1.3. create a materialized view to transform the data (air_oai_facts.airline_traffic_market_integrate_mv)
 -- 	1.4. create final fact table (air_oai_facts.airline_traffic_market) 
 --	1.5. pull the data from the materialized view into the fact table
 -- 2. process Airline Traffic Segment data
---  2.1. create air_oai_facts.f41_traffic_t100_segment_archive staging table
+--  2.1. stage segment data in air_oai_facts.f41_traffic_t100_segment_fdw
 --  2.2. stage t100_segment csv data
 -- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
 --  2.4. create another materialized view (airline_traffic_segment_integrate_mv)
@@ -27,73 +27,63 @@
 ----------------------------------------------------
 
 -- 1. process Airline Traffic Market data
--- 1.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
-DROP TABLE if exists air_oai_facts.f41_traffic_t100_market_archive;
-CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
-	( passengers_qty 				float4
-	, freight_lbr 					float4
-	, mail_lbr 						float4
-	, distance_smi 					float4
-	, airline_unique_oai_code 		varchar(15) -- unique_airline_oai_code
-	, airline_usdot_id 				int4
-	, airline_unique_name			varchar(125) -- unique_airline_name
-	, entity_unique_oai_code 		varchar(15)  -- unique_entity_oai_code
-	, operating_region_code 		varchar(5)
-	, airline_oai_code 				varchar(5)
-	, airline_name					varchar(125)
-	, airline_old_group_nbr 		int4
-	, airline_new_group_nbr 		int4
-	, depart_airport_oai_id 		int4
-	, depart_airport_oai_seq_id 	int4
-	, depart_city_market_oai_id 	int4
-	, depart_airport_oai_code 		varchar(5)
-	, depart_city_name 				varchar(75)
-	, depart_subdivision_iso_code 	varchar(5)
-	, depart_subdivision_fips_code 	varchar(5)
-	, depart_subdivision_name 		varchar(75)
-	, depart_country_iso_code 		varchar(5)
-	, depart_country_name 			varchar(75)
-	, depart_world_area_oai_id 		int4
-	, arrive_airport_oai_id 		int4
-	, arrive_airport_oai_seq_id 	int4
-	, arrive_city_market_oai_id 	int4
-	, arrive_airport_oai_code 		varchar(5)
-	, arrive_city_name 				varchar(75)
-	, arrive_subdivision_iso_code 	varchar(5)
-	, arrive_subdivision_fips_code 	varchar(5)
-	, arrive_subdivision_name 		varchar(75)
-	, arrive_country_iso_code 		varchar(5)
-	, arrive_country_name 			varchar(75)
-	, arrive_world_area_oai_id 		int4
-	, year_nbr 						int4
-	, quarter_nbr 					int4
-	, month_nbr 					int4
-	, distance_group_id 			int4
-	, service_class_code 			varchar(5)
-	, data_source_code 				varchar(5)
-	, filler_txt 					varchar(10) 
-);
+-- 1.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 1.2.1 instead of 1.2.2)
+-- DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_market_fdw;
+-- CREATE TABLE air_oai_facts.f41_traffic_t100_market_fdw
+-- 	( passengers_qty 				float4
+-- 	, freight_lbr 					float4
+-- 	, mail_lbr 						float4
+-- 	, distance_smi 					float4
+-- 	, airline_unique_oai_code 		varchar(15)
+-- 	, airline_usdot_id 				int4
+-- 	, airline_unique_name			varchar(125)
+-- 	, entity_unique_oai_code 		varchar(15)
+-- 	, operating_region_code 		varchar(5)
+-- 	, airline_oai_code 				varchar(5)
+-- 	, airline_name					varchar(125)
+-- 	, airline_old_group_nbr 		int4
+-- 	, airline_new_group_nbr 		int4
+-- 	, depart_airport_oai_id 		int4
+-- 	, depart_airport_oai_seq_id 	int4
+-- 	, depart_city_market_oai_id 	int4
+-- 	, depart_airport_oai_code 		varchar(5)
+-- 	, depart_city_name 				varchar(75)
+-- 	, depart_subdivision_iso_code 	varchar(5)
+-- 	, depart_subdivision_fips_code 	varchar(5)
+-- 	, depart_subdivision_name 		varchar(75)
+-- 	, depart_country_iso_code 		varchar(5)
+-- 	, depart_country_name 			varchar(75)
+-- 	, depart_world_area_oai_id 		int4
+-- 	, arrive_airport_oai_id 		int4
+-- 	, arrive_airport_oai_seq_id 	int4
+-- 	, arrive_city_market_oai_id 	int4
+-- 	, arrive_airport_oai_code 		varchar(5)
+-- 	, arrive_city_name 				varchar(75)
+-- 	, arrive_subdivision_iso_code 	varchar(5)
+-- 	, arrive_subdivision_fips_code 	varchar(5)
+-- 	, arrive_subdivision_name 		varchar(75)
+-- 	, arrive_country_iso_code 		varchar(5)
+-- 	, arrive_country_name 			varchar(75)
+-- 	, arrive_world_area_oai_id 		int4
+-- 	, year_nbr 						int4
+-- 	, quarter_nbr 					int4
+-- 	, month_nbr 					int4
+-- 	, distance_group_id 			int4
+-- 	, service_class_code 			varchar(5)
+-- 	, data_source_code 				varchar(5)
+-- 	, filler_txt 					varchar(10) 
+-- );
 
--- 1.2. ingest t100 market csv data
+-- 1.2. load t100 market staging into air_oai_facts.f41_traffic_t100_market_fdw
 -- 1.2.1. mstr psql version of the data load
 -- for x in $(ls /tmp/t100/market/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_market_archive FROM '$x' CSV HEADER"; done ;
--- 1.2.2. AWS Aurora data load - one file
---TODO SELECT aws_s3.table_import_from_s3()
--- 1.2.3. AWS Aurora data load - mutliple files via manifest
-CALL import_data_from_manifest(
-    0, 
-    'air_oai_facts.f41_traffic_t100_market_archive',  	-- target_table
-    'T100/market/manifest_t100_market.csv',      						-- manifest_file
-    'src-aviation',                              		-- source_bucket
-    'us-west-2',                                 		-- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      		-- format_options
-	,null 													-- max_files_to_import 
-);
-
--- to load data with and withoud 'filler_txt' column -- 10.120.965 rows.
--- ALTER TABLE air_oai_facts.f41_traffic_t100_market_archive DROP COLUMN filler_txt;
-
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_market_fdw FROM '$x' CSV HEADER"; done ;
+-- 1.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.f41_traffic_t100_market_fdw;
+CREATE FOREIGN TABLE air_oai_facts.f41_traffic_t100_market_fdw ()
+SERVER pg_analytics_s3
+--OPTIONS (files 's3://src-aviation/T100/market/CSV/T100_MARKET_ALL_CARRIER_ALL_2025.csv.gz');
+OPTIONS (files 's3://src-aviation/T100/segment/CSV/*.csv.gz');
 
 -- 1.3. create a materialized view to transform the data
 drop materialized view if EXISTS air_oai_facts.airline_traffic_market_integrate_mv;
@@ -123,7 +113,7 @@ SELECT (f.year_nbr::char(4) || lpad(f.month_nbr::varchar(2),2,'0'))::integer as 
      , f.mail_lbr
      , current_user::varchar(32) as created_by
      , current_timestamp::timestamp(0) as created_tmst
-from air_oai_facts.f41_traffic_t100_market_archive f
+from air_oai_facts.f41_traffic_t100_market_fdw f
 --left outer join calendar.year_month_v c on f.year_nbr = c.year_nbr and f.month_nbr = c.month_of_year_nbr
 left outer join air_oai_dims.airline_entities ae
   on f.airline_usdot_id = ae.airline_usdot_id
@@ -227,83 +217,73 @@ GROUP BY year_month_nbr
 	 ;
 
 -- 2. process Airline Traffic Segment data
--- 2.1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
-DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_archive;
-CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
-( 
-	scheduled_departures_qty	 			float4
-	, performed_departures_qty	 			float4
-	, payload_lbr 							float4
-	, available_seat_qty 					float4
-	, passengers_qty 						float4
-	, freight_lbr 							float4
-	, mail_lbr 								float4
-	, distance_smi 							float4
-	, ramp_to_ramp_min 						float4
-	, air_time_min 							float4
-	, airline_unique_oai_code 				varchar(10)
-	, airline_usdot_id 						int4
-	, airline_unique_name 					varchar(125)
-	, entity_unique_oai_code 				varchar(15)
-	, operating_region_code 				varchar(25)
-	, airline_oai_code 						varchar(5)
-	, airline_name 							varchar(125)
-	, airline_old_group_nbr					int4
-	, airline_new_group_nbr 				int4
-	, depart_airport_oai_id 				int4
-	, depart_airport_oai_seq_id 			int4
-	, depart_market_city_oai_id 			int4
-	, depart_airport_oai_code 				varchar(3)
-	, depart_city_name 						varchar(75)
-	, depart_state_cd 						varchar(5)
-	, depart_state_fips_cd 					varchar(5)
-	, depart_state_nm 						varchar(75)
-	, depart_country_iso_code 				varchar(10)
-	, depart_country_name 					varchar(75)
-	, depart_world_area_oai_id 				int4
-	, arrive_airport_oai_id 				int4
-	, arrive_airport_oai_seq_id 			int4
-	, arrive_market_city_oai_id 			int4
-	, arrive_airport_oai_code 				varchar(5)
-	, arrive_city_name 						varchar(75)
-	, arrive_subdivision_iso_code 			varchar(5)
-	, arrive_subdivision_fips_code 			varchar(5)
-	, arrive_subdivision_name 				varchar(75)
-	, arrive_country_iso_code 				varchar(10)
-	, arrive_country_name 					varchar(75)
-	, arrive_world_area_oai_id 				int4
-	, aircraft_group_oai_nbr				int4 -- 
-	, aircraft_type_oai_nbr 				int4 -- 
-	, aircraft_configuration_id 			int4
-	, year_nbr 								int4
-	, quarter_nbr 							int4
-	, month_nbr 							int4
-	, distance_group_id 					int4
-	, service_class_code 					char(1)
-	, data_source_code 						varchar(5)
-	, filler_txt 							varchar(10)
-);
+-- 2.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 2.2.1 instead of 2.2.2)
+-- DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_fdw;
+-- CREATE TABLE air_oai_facts.f41_traffic_t100_segment_fdw
+-- ( 
+-- 	scheduled_departures_qty	 			float4
+-- 	, performed_departures_qty	 			float4
+-- 	, payload_lbr 							float4
+-- 	, available_seat_qty 					float4
+-- 	, passengers_qty 						float4
+-- 	, freight_lbr 							float4
+-- 	, mail_lbr 								float4
+-- 	, distance_smi 							float4
+-- 	, ramp_to_ramp_min 						float4
+-- 	, air_time_min 							float4
+-- 	, airline_unique_oai_code 				varchar(10)
+-- 	, airline_usdot_id 						int4
+-- 	, airline_unique_name 					varchar(125)
+-- 	, entity_unique_oai_code 				varchar(15)
+-- 	, operating_region_code 				varchar(25)
+-- 	, airline_oai_code 						varchar(5)
+-- 	, airline_name 							varchar(125)
+-- 	, airline_old_group_nbr					int4
+-- 	, airline_new_group_nbr 				int4
+-- 	, depart_airport_oai_id 				int4
+-- 	, depart_airport_oai_seq_id 			int4
+-- 	, depart_market_city_oai_id 			int4
+-- 	, depart_airport_oai_code 				varchar(3)
+-- 	, depart_city_name 						varchar(75)
+-- 	, depart_state_cd 						varchar(5)
+-- 	, depart_state_fips_cd 					varchar(5)
+-- 	, depart_state_nm 						varchar(75)
+-- 	, depart_country_iso_code 				varchar(10)
+-- 	, depart_country_name 					varchar(75)
+-- 	, depart_world_area_oai_id 				int4
+-- 	, arrive_airport_oai_id 				int4
+-- 	, arrive_airport_oai_seq_id 			int4
+-- 	, arrive_market_city_oai_id 			int4
+-- 	, arrive_airport_oai_code 				varchar(5)
+-- 	, arrive_city_name 						varchar(75)
+-- 	, arrive_subdivision_iso_code 			varchar(5)
+-- 	, arrive_subdivision_fips_code 			varchar(5)
+-- 	, arrive_subdivision_name 				varchar(75)
+-- 	, arrive_country_iso_code 				varchar(10)
+-- 	, arrive_country_name 					varchar(75)
+-- 	, arrive_world_area_oai_id 				int4
+-- 	, aircraft_group_oai_nbr				int4
+-- 	, aircraft_type_oai_nbr 				int4
+-- 	, aircraft_configuration_id 			int4
+-- 	, year_nbr 								int4
+-- 	, quarter_nbr 							int4
+-- 	, month_nbr 							int4
+-- 	, distance_group_id 					int4
+-- 	, service_class_code 					char(1)
+-- 	, data_source_code 						varchar(5)
+-- 	, filler_txt 							varchar(10)
+-- );
 
--- 2.2. stage t100 segment csv data
--- 1.2.1. mstr psql version of the data load
+-- 2.2. load t100 segment staging into air_oai_facts.f41_traffic_t100_segment_fdw
+-- 2.2.1. mstr psql version of the data load
 -- for x in $(ls /tmp/t100/segment/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_segment_archive FROM '$x' CSV HEADER"; done ;
--- 1.2.2. AWS Aurora data load - one file
---TODO SELECT aws_s3.table_import_from_s3()
--- 1.2.3. AWS Aurora data load - mutliple files via manifest
---TODO 
-CALL import_data_from_manifest(
-    0, 
-    'air_oai_facts.f41_traffic_t100_segment_archive',  	-- target_table
-    'T100/segment/manifest_t100_segment.csv',      						-- manifest_file
-    'src-aviation',                              		-- source_bucket
-    'us-west-2',                                 		-- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      		-- format_options
-	,100													-- max_files_to_import 
-);
-
--- to load data with and withoud 'filler_txt' column -- 13.512.137 rows.
--- ALTER TABLE air_oai_facts.f41_traffic_t100_segment_archive DROP COLUMN filler_txt;
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_segment_fdw FROM '$x' CSV HEADER"; done ;
+-- 2.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_fdw;
+CREATE FOREIGN TABLE air_oai_facts.f41_traffic_t100_segment_fdw ()
+SERVER pg_analytics_s3
+--OPTIONS (files 's3://src-aviation/T100/segment/CSV/T100_SEGMENT_ALL_CARRIER_ALL_2025.csv.gz');
+OPTIONS (files 's3://src-aviation/T100/segment/CSV/*.csv.gz');
 
 -- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
 drop materialized view air_oai_facts.f41_traffic_t100_segment_load_mv;
@@ -390,7 +370,7 @@ SELECT scheduled_departures_qty
 	, service_class_code
 	, data_source_code
 	--, filler_txt
-FROM air_oai_facts.f41_traffic_t100_segment_archive;
+FROM air_oai_facts.f41_traffic_t100_segment_fdw;
 --limit 1000;
 
 -- 2.4. create another materialized view (airline_traffic_segment_integrate_mv)
@@ -433,7 +413,7 @@ SELECT (f.year_nbr::char(4) || lpad(f.month_nbr::varchar(2),2,'0'))::integer as 
      , f.air_time_min
      , current_user::varchar(32) as created_by
      , current_timestamp::timestamp(0) as created_tmst
-from air_oai_facts.f41_traffic_t100_segment_archive f
+from air_oai_facts.f41_traffic_t100_segment_fdw f
 -- left outer join calendar.year_month_v c on f.year_nbr = c.year_nbr and f.month_nbr = c.month_of_year_nbr
 left outer join air_oai_dims.airline_entities ae
   on f.airline_usdot_id = ae.airline_usdot_id
