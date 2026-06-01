@@ -76,7 +76,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 
 -- 1.2. ingest t100 market csv data (Aurora S3)
 -- single file:
--- SELECT aws_s3.table_import_from_s3('air_oai_facts.f41_traffic_t100_market_archive', '', '(FORMAT CSV, DELIMITER '','', HEADER)', aws_commons.create_s3_uri('src-aviation', 'T100/market/CSV/<market_file>.csv.gz', 'us-west-2'));
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.f41_traffic_t100_market_archive', '', '(FORMAT CSV, DELIMITER '','', HEADER)', aws_commons.create_s3_uri('src-aviation', 'T100/market/CSV/T100_MARKET_ALL_CARRIER_ALL_2025.csv.gz', 'us-west-2'));
 -- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
@@ -283,7 +283,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 
 -- 2.2. stage t100 segment csv data (Aurora S3)
 -- single file:
--- SELECT aws_s3.table_import_from_s3('air_oai_facts.f41_traffic_t100_segment_archive', '', '(FORMAT CSV, DELIMITER '','', HEADER)', aws_commons.create_s3_uri('src-aviation', 'T100/segment/CSV/<segment_file>.csv.gz', 'us-west-2'));
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.f41_traffic_t100_segment_archive', '', '(FORMAT CSV, DELIMITER '','', HEADER)', aws_commons.create_s3_uri('src-aviation', 'T100/segment/CSV/T100_SEGMENT_ALL_CARRIER_ALL_2025.csv.gz', 'us-west-2'));
 -- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
