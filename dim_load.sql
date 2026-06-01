@@ -6,29 +6,29 @@
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files: AircraftTypes, Carrier Decode, Master Coordinate, World Area Codes
 -- 1. create aircraft types lookup 
---  1.1. create air_oai_dims.aircraft_types_fdw table in postgre
+--  1.1. create air_oai_dims.aircraft_types_fdw table 
 --  1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
---  1.3. create air_oai_dims.aircraft_types table in postgre
+--  1.3. create air_oai_dims.aircraft_types table 
 --  1.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
 -- 2. create world areas lookup 
---  2.1. create air_oai_dims.wac_country_state_fdw table in postgre
+--  2.1. create air_oai_dims.wac_country_state_fdw table 
 --  2.2. copy world areas data into air_oai_dims.wac_country_state_fdw
---  2.3. create air_oai_dims.world_areas table in postgre
+--  2.3. create air_oai_dims.world_areas table 
 --  2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
 -- 3. create airline entities lookup 
---  3.1. create air_oai_dims.carrier_decode_fdw table in postgre
+--  3.1. create air_oai_dims.carrier_decode_fdw table 
 --  3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
---  3.3. create air_oai_dims.world_areas table in postgre
+--  3.3. create air_oai_dims.world_areas table 
 --  3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
---  3.4.1 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
---  3.4.2 copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
+--  3.4.1. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
+--  3.4.2. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
 -- 4. create airport history lookup 
---  4.1. create air_oai_dims.master_cord_fdw table in postgre  
+--  4.1. create air_oai_dims.master_cord_fdw table   
 --  4.2. copy world areas data into air_oai_dims.master_cord_fdw
---  4.3. create air_oai_dims.airport_history table in postgre
+--  4.3. create air_oai_dims.airport_history table 
 --  4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
---  4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
---  (4.6) update the time zone boundaries in air_oai_dims.airport_history 
+--  4.5. update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
+--  4.6. update the time zone boundaries in air_oai_dims.airport_history 
 -- 5. create aircraft types group lookup 
 --  5.1. create air_oai_dims.aircraft_type_groups
 --  5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
@@ -252,7 +252,7 @@ CREATE FOREIGN TABLE air_oai_dims.carrier_decode_fdw ()
 SERVER pg_analytics_s3
 OPTIONS (files 's3://src-aviation/DIMS/CSV/T_CARRIER_DECODE.csv');
 
--- 3.3. create air_oai_dims.airline_entities table in postgre
+-- 3.3. create air_oai_dims.airline_entities table 
 drop table if exists air_oai_dims.airline_entities;
 create table air_oai_dims.airline_entities
 ( 
@@ -431,7 +431,7 @@ CREATE FOREIGN TABLE air_oai_dims.master_cord_fdw ()
 SERVER pg_analytics_s3
 OPTIONS (files 's3://src-aviation/DIMS/CSV/T_MASTER_CORD.csv');
 
--- 4.3. create air_oai_dims.airport_history table in postgre
+-- 4.3. create air_oai_dims.airport_history table 
 drop table if exists air_oai_dims.airport_history;
 CREATE TABLE air_oai_dims.airport_history 
 ( 
