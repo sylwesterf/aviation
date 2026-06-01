@@ -8,19 +8,19 @@
 --STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 -- 1. process DB1B Ticket data
---  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
+--  1.1. stage ticket data in air_oai_facts.airfare_survey_ticket_fdw
 --  1.2. ingest ticket csv data
 --  1.3. create fact table air_oai_facts.airfare_survey_itinerary
 --  1.4. call partitioning SP for ticket data
 --  1.5. insert data into fact table
 -- 2. process DB1B Coupon data
---  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
+--  2.1. stage coupon data in air_oai_facts.airfare_survey_coupon_fdw
 --  2.2. ingest coupon csv data
 --  2.3. create air_oai_facts.airfare_survey_coupon
 --  2.4. call partitioning SP for coupon data
 --  2.5. insert data into fact table
 -- 3. process DB1B Market data
---  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
+--  3.1. stage market data in air_oai_facts.airfare_survey_market_fdw
 --  3.2. ingest market csv data
 --  3.3. create table airfare_survey_market
 --  3.4. call partitioning SP for market data
@@ -30,53 +30,48 @@
 ----------------------------------------------------
 
 -- 1. process DB1B Ticket data
--- 1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
-create table air_oai_facts.airfare_survey_ticket_load
-( 
-	itinerary_oai_id								bigint null
-	, coupon_qty									float4 null
-	, year_nbr										integer null
-	, quarter_nbr									integer null
-	, depart_airport_oai_code						char(3) null
-	, depart_airport_oai_id							integer null
-	, depart_airport_oai_seq_id						integer null
-	, depart_market_city_oai_id						integer null
-	, depart_country_iso_code						char(2) null
-	, depart_subdivision_fips_code					char(2) null
-	, depart_subdivision_iso_code         			varchar(3) null
-	, depart_subdivision_name						varchar(75) null
-	, depart_wac_oai_id								integer null
-	, round_trip_ind            					float4 null
-	, online_ind									float4 null
-	, fare_credibility_ind							float4 null
-	, fare_per_smi									float4 null
-	, reporting_airline_oai_code					varchar(3) null
-	, passenger_qty           						float4 null
-	, fare_per_person_amount_usd					float4 null
-	, bulk_fare_ind									float4 null
-	, distance_smi									float4 null
-	, distance_group_oai_id							integer null
-	, flown_distance_smi							float4 null
-	, geographic_type_oai_id						integer null
-	, filler										varchar(10) null
-);
+-- 1.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 1.2.1 instead of 1.2.2)
+-- DROP TABLE IF EXISTS air_oai_facts.airfare_survey_ticket_fdw;
+-- CREATE TABLE air_oai_facts.airfare_survey_ticket_fdw
+-- ( 
+-- 	itinerary_oai_id								bigint null
+-- 	, coupon_qty									float4 null
+-- 	, year_nbr										integer null
+-- 	, quarter_nbr									integer null
+-- 	, depart_airport_oai_code						char(3) null
+-- 	, depart_airport_oai_id							integer null
+-- 	, depart_airport_oai_seq_id						integer null
+-- 	, depart_market_city_oai_id						integer null
+-- 	, depart_country_iso_code						char(2) null
+-- 	, depart_subdivision_fips_code					char(2) null
+-- 	, depart_subdivision_iso_code         			varchar(3) null
+-- 	, depart_subdivision_name						varchar(75) null
+-- 	, depart_wac_oai_id								integer null
+-- 	, round_trip_ind            					float4 null
+-- 	, online_ind									float4 null
+-- 	, fare_credibility_ind							float4 null
+-- 	, fare_per_smi									float4 null
+-- 	, reporting_airline_oai_code					varchar(3) null
+-- 	, passenger_qty           						float4 null
+-- 	, fare_per_person_amount_usd					float4 null
+-- 	, bulk_fare_ind									float4 null
+-- 	, distance_smi									float4 null
+-- 	, distance_group_oai_id							integer null
+-- 	, flown_distance_smi							float4 null
+-- 	, geographic_type_oai_id						integer null
+-- 	, filler										varchar(10) null
+-- );
 
--- 1.2. ingest ticket csv data
+-- 1.2. load ticket staging into air_oai_facts.airfare_survey_ticket_fdw
 -- 1.2.1. mstr psql version of the data load
 -- for x in $(ls /tmp/DB1B/ticket/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
--- 1.2.2. AWS Aurora data load - one file
--- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_ticket_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2023_1.csv.gz', 'us-west-2'));
--- 1.2.3. AWS Aurora data load - mutliple files via manifest
-CALL import_data_from_manifest(
-    0, 
-    'air_oai_facts.airfare_survey_ticket_load',  -- target_table
-    'DB1B/ticket/manifest_db1b_ticket.csv',      -- manifest_file
-    'src-aviation',                              -- source_bucket
-    'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)',     -- format_options
-	3 											 -- max_files_to_import 
-);
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_fdw FROM '$x' CSV HEADER"; done ;
+-- 1.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_ticket_fdw;
+CREATE FOREIGN TABLE air_oai_facts.airfare_survey_ticket_fdw ()
+SERVER pg_analytics_s3
+--OPTIONS (files 's3://src-aviation/DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2023_1.csv.gz');
+OPTIONS (files 's3://src-aviation/DB1B/ticket/CSV/*.csv.gz');
 
 -- 1.3. create fact table air_oai_facts.airfare_survey_itinerary
 create table air_oai_facts.airfare_survey_itinerary
@@ -112,7 +107,7 @@ create table air_oai_facts.airfare_survey_itinerary
 -- 1.4. call procedure for itinerary data
 CALL create_quarter_partitions(
     'air_oai_facts.airfare_survey_itinerary',
-	'air_oai_facts.airfare_survey_ticket_load'
+	'air_oai_facts.airfare_survey_ticket_fdw'
 );
 
 -- 1.5. insert data into fact table
@@ -166,7 +161,7 @@ SELECT asf.itinerary_oai_id
 	, fare_per_smi
 	, current_user
 	, now()
-FROM air_oai_facts.airfare_survey_ticket_load asf
+FROM air_oai_facts.airfare_survey_ticket_fdw asf
 join calendar_pg.gregorian_year_quarter ac ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
 left join filtered_airline_entities ae 
   on asf.reporting_airline_oai_code = ae.airline_oai_code
@@ -176,65 +171,59 @@ WHERE ac.year_quarter_from_date
       between ae.source_from_date and coalesce(ae.source_thru_date, current_date);
 
 -- 2. process DB1B Coupon data
--- 2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
-create table air_oai_facts.airfare_survey_coupon_load
-( 
-	itinerary_oai_id             		bigint null
-	, market_oai_id						bigint null
-	, flight_pass_seq					integer null
-	, flight_pass_qty					integer null
-	, year_nbr              			integer null
-	, depart_airport_oai_id				integer null
-	, depart_airport_oai_seq_id			integer null
-	, depart_city_market_oai_id			integer null
-	, quarter_nbr              			integer null
-	, depart_airport_oai_code      		char(3) null
-	, depart_country_iso_code       	char(2) null
-	, depart_state_fips_code      		char(2) null
-	, depart_state_iso_code         	varchar(3) null
-	, depart_state_name      			varchar(75) null
-	, depart_world_area_oai_id        	integer null
-	, arrive_airport_oai_id				integer null
-	, arrive_airport_oai_seq_id			integer	null
-	, arrive_city_market_oai_id			integer null
-	, arrive_airport_oai_code      		char(3) null
-	, arrive_country_iso_code       	char(2) null
-	, arrive_state_fips_code       		char(2) null
-	, arrive_state_iso_code         	varchar(3) null
-	, arrive_state_name        			varchar(75) null
-	, arrive_world_area_oai_id        	integer null
-	, trip_break_code             		char(1) null
-	, flight_pass_type					varchar(5) null
-	, ticketing_airline_oai_code 		varchar(3) null
-	, operating_airline_oai_code  		varchar(3) null
-	, reporting_airline_oai_code  		varchar(3) null
-	, passengers_qty          			float4 null
-	, airfare_class_code          		varchar(5) null
-	, distance_smi             			float4 null
-	, distance_group_id        			integer null
-	, gateway_ind              			float4 null
-	, itinerary_geo_type_id     		integer null
-	, coupon_geo_type_id        		integer null
-	, filler							varchar(10) null
-);
+-- 2.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 2.2.1 instead of 2.2.2)
+-- DROP TABLE IF EXISTS air_oai_facts.airfare_survey_coupon_fdw;
+-- CREATE TABLE air_oai_facts.airfare_survey_coupon_fdw
+-- ( 
+-- 	itinerary_oai_id             		bigint null
+-- 	, market_oai_id						bigint null
+-- 	, flight_pass_seq					integer null
+-- 	, flight_pass_qty					integer null
+-- 	, year_nbr              			integer null
+-- 	, depart_airport_oai_id				integer null
+-- 	, depart_airport_oai_seq_id			integer null
+-- 	, depart_city_market_oai_id			integer null
+-- 	, quarter_nbr              			integer null
+-- 	, depart_airport_oai_code      		char(3) null
+-- 	, depart_country_iso_code       	char(2) null
+-- 	, depart_state_fips_code      		char(2) null
+-- 	, depart_state_iso_code         	varchar(3) null
+-- 	, depart_state_name      			varchar(75) null
+-- 	, depart_world_area_oai_id        	integer null
+-- 	, arrive_airport_oai_id				integer null
+-- 	, arrive_airport_oai_seq_id			integer	null
+-- 	, arrive_city_market_oai_id			integer null
+-- 	, arrive_airport_oai_code      		char(3) null
+-- 	, arrive_country_iso_code       	char(2) null
+-- 	, arrive_state_fips_code       		char(2) null
+-- 	, arrive_state_iso_code         	varchar(3) null
+-- 	, arrive_state_name        			varchar(75) null
+-- 	, arrive_world_area_oai_id        	integer null
+-- 	, trip_break_code             		char(1) null
+-- 	, flight_pass_type					varchar(5) null
+-- 	, ticketing_airline_oai_code 		varchar(3) null
+-- 	, operating_airline_oai_code  		varchar(3) null
+-- 	, reporting_airline_oai_code  		varchar(3) null
+-- 	, passengers_qty          			float4 null
+-- 	, airfare_class_code          		varchar(5) null
+-- 	, distance_smi             			float4 null
+-- 	, distance_group_id        			integer null
+-- 	, gateway_ind              			float4 null
+-- 	, itinerary_geo_type_id     		integer null
+-- 	, coupon_geo_type_id        		integer null
+-- 	, filler							varchar(10) null
+-- );
 	
--- 2.2. ingest coupon csv data
+-- 2.2. load coupon staging into air_oai_facts.airfare_survey_coupon_fdw
 -- 2.2.1. mstr psql version of the data load
 -- for x in $(ls /tmp/DB1B/coupon/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_load FROM '$x' CSV HEADER"; done ;
--- 2.2.2. AWS Aurora data load - one file
--- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_coupon_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 'us-west-2'));
--- 2.2.3. AWS Aurora data load - mutliple files via manifest
--- AWS Aurora SQL - all files in folder
-CALL import_data_from_manifest(
-    0, 
-    'air_oai_facts.airfare_survey_coupon_load',  -- target_table
-    'DB1B/coupon/manifest_db1b_coupon.csv',      -- manifest_file
-    'src-aviation',                              -- source_bucket
-    'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)',     -- format_options
-	3 											 -- max_files_to_import 
-);
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_fdw FROM '$x' CSV HEADER"; done ;
+-- 2.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_coupon_fdw;
+CREATE FOREIGN TABLE air_oai_facts.airfare_survey_coupon_fdw ()
+SERVER pg_analytics_s3
+--OPTIONS (files 's3://src-aviation/DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz');
+OPTIONS (files 's3://src-aviation/DB1B/coupon/CSV/*.csv.gz');
 
 --   2.3 Create air_oai_facts.airfare_survey_coupon
 create table air_oai_facts.airfare_survey_coupon
@@ -274,7 +263,7 @@ create table air_oai_facts.airfare_survey_coupon
 -- 2.4. call procedure for coupon data
 CALL create_quarter_partitions(
     'air_oai_facts.airfare_survey_coupon',
-    'air_oai_facts.airfare_survey_coupon_load'
+    'air_oai_facts.airfare_survey_coupon_fdw'
 );
 
 -- 2.5. insert data into fact table
@@ -340,7 +329,7 @@ SELECT ac.itinerary_oai_id
 	 , ac.distance_smi
 	 , current_user
 	 , current_timestamp
-FROM air_oai_facts.airfare_survey_coupon_load ac
+FROM air_oai_facts.airfare_survey_coupon_fdw ac
 Join calendar_pg.gregorian_year_quarter aq ON ac.year_nbr = aq.year_nbr AND ac.quarter_nbr = aq.quarter_of_year_nbr
 left join filtered_airline_entities aet
   on ac.ticketing_airline_oai_code = aet.airline_oai_code
@@ -357,69 +346,64 @@ where aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.so
 	AND aq.year_quarter_from_date between aer.source_from_date and coalesce(aer.source_thru_date, current_date);
 
 -- 3. process DB1B market data
--- 3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
-create table air_oai_facts.airfare_survey_market_load
-( 
-	itinerary_oai_id              	bigint null
-	, market_oai_id                		bigint null
-	, market_coupon_qty		       		integer null
-	, year_nbr                 			integer null
-	, quarter_nbr              			integer null
-	, depart_airport_oai_id				integer null
-	, depart_airport_oai_seq_id			integer null
-	, depart_city_market_oai_id			integer null
-	, depart_airport_oai_code          	char(3) null
-	, depart_country_iso_code        	char(2) null
-	, depart_state_fips_code      		char(2) null
-	, depart_state_iso_code          	varchar(3) null
-	, depart_state_name      			varchar(75) null
-	, depart_world_area_oai_id          integer null
-	, arrive_airport_oai_id				integer null
-	, arrive_airport_oai_seq_id			integer	null
-	, arrive_city_market_oai_id			integer null
-	, arrive_airport_oai_code        	char(3) null
-	, arrive_country_iso_code         	char(2) null
-	, arrive_state_fips_code        	char(2) null
-	, arrive_state_iso_code            	varchar(3) null
-	, arrive_state_name       			varchar(75) null
-	, arrive_world_area_oai_id          integer null
-	, airports_group_oai_code			varchar(255) null
-	, world_areas_group_oai_code		varchar(255) null
-	, ticketing_airline_change_ind		float4 null
-	, ticketing_airline_group_code		varchar(255) null
-	, operating_airline_change_ind		float4 null
-	, operating_airline_group_code		varchar(255) null
-	, reporting_airline_oai_code		varchar(3) null
-	, ticketing_airline_oai_code		varchar(3) null
-	, operating_airline_oai_code		varchar(3) null
-	, bulk_fare_ind						float4 null
-	, passenger_qty						float4 null
-	, market_fare_amt_usd				float4 null
-	, market_distance_smi				float4 null
-	, market_distance_group_oai_id		float4 null
-	, market_flown_distance_smi			float4 null
-	, non_stop_distance_smi				float4 null
-	, itinerary_geograhic_type_oai_id   integer null
-	, market_geograhic_type_oai_id      integer null
-	, filler							varchar(10) null
-);
+-- 3.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 3.2.1 instead of 3.2.2)
+-- DROP TABLE IF EXISTS air_oai_facts.airfare_survey_market_fdw;
+-- CREATE TABLE air_oai_facts.airfare_survey_market_fdw
+-- ( 
+-- 	itinerary_oai_id              	bigint null
+-- 	, market_oai_id                		bigint null
+-- 	, market_coupon_qty		       		integer null
+-- 	, year_nbr                 			integer null
+-- 	, quarter_nbr              			integer null
+-- 	, depart_airport_oai_id				integer null
+-- 	, depart_airport_oai_seq_id			integer null
+-- 	, depart_city_market_oai_id			integer null
+-- 	, depart_airport_oai_code          	char(3) null
+-- 	, depart_country_iso_code        	char(2) null
+-- 	, depart_state_fips_code      		char(2) null
+-- 	, depart_state_iso_code          	varchar(3) null
+-- 	, depart_state_name      			varchar(75) null
+-- 	, depart_world_area_oai_id          integer null
+-- 	, arrive_airport_oai_id				integer null
+-- 	, arrive_airport_oai_seq_id			integer	null
+-- 	, arrive_city_market_oai_id			integer null
+-- 	, arrive_airport_oai_code        	char(3) null
+-- 	, arrive_country_iso_code         	char(2) null
+-- 	, arrive_state_fips_code        	char(2) null
+-- 	, arrive_state_iso_code            	varchar(3) null
+-- 	, arrive_state_name       			varchar(75) null
+-- 	, arrive_world_area_oai_id          integer null
+-- 	, airports_group_oai_code			varchar(255) null
+-- 	, world_areas_group_oai_code		varchar(255) null
+-- 	, ticketing_airline_change_ind		float4 null
+-- 	, ticketing_airline_group_code		varchar(255) null
+-- 	, operating_airline_change_ind		float4 null
+-- 	, operating_airline_group_code		varchar(255) null
+-- 	, reporting_airline_oai_code		varchar(3) null
+-- 	, ticketing_airline_oai_code		varchar(3) null
+-- 	, operating_airline_oai_code		varchar(3) null
+-- 	, bulk_fare_ind						float4 null
+-- 	, passenger_qty						float4 null
+-- 	, market_fare_amt_usd				float4 null
+-- 	, market_distance_smi				float4 null
+-- 	, market_distance_group_oai_id		float4 null
+-- 	, market_flown_distance_smi			float4 null
+-- 	, non_stop_distance_smi				float4 null
+-- 	, itinerary_geograhic_type_oai_id   integer null
+-- 	, market_geograhic_type_oai_id      integer null
+-- 	, filler							varchar(10) null
+-- );
 
--- 3.2. ingest market csv data
+-- 3.2. load market staging into air_oai_facts.airfare_survey_market_fdw
 -- 3.2.1. mstr psql version of the data load
 -- for x in $(ls /tmp/DB1B/market/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_load FROM '$x' CSV HEADER"; done ;
--- 3.2.2. AWS Aurora data load - one file
--- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_market_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 'us-west-2'));
--- 3.2.3. AWS Aurora data load - mutliple files via manifest
-CALL import_data_from_manifest(
-    0, 
-    'air_oai_facts.airfare_survey_market_load',  -- target_table
-    'DB1B/market/manifest_db1b_market.csv',      -- manifest_file
-    'src-aviation',                              -- source_bucket
-    'us-west-2',                                 -- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)',     -- format_options
-	3 											 -- max_files_to_import 
-);
+-- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_fdw FROM '$x' CSV HEADER"; done ;
+-- 3.2.2. pg_analytics load (S3 URI)
+DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_market_fdw;
+CREATE FOREIGN TABLE air_oai_facts.airfare_survey_market_fdw ()
+SERVER pg_analytics_s3
+--OPTIONS (files 's3://src-aviation/DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz');
+OPTIONS (files 's3://src-aviation/DB1B/market/CSV/*.csv.gz');
 
 -- 3.3. create fact table
 create table air_oai_facts.airfare_survey_market
@@ -464,7 +448,7 @@ create table air_oai_facts.airfare_survey_market
 -- 3.4. call procedure for market data
 CALL create_quarter_partitions(
     'air_oai_facts.airfare_survey_market',
-    'air_oai_facts.airfare_survey_market_load'
+    'air_oai_facts.airfare_survey_market_fdw'
 );
 
 -- 3.5. insert data into fact table
@@ -540,7 +524,7 @@ SELECT am.itinerary_oai_id
 	 , am.non_stop_distance_smi
 	 , current_user
 	 , current_timestamp
-FROM air_oai_facts.airfare_survey_market_load am
+FROM air_oai_facts.airfare_survey_market_fdw am
 Join calendar_pg.gregorian_year_quarter agq ON am.year_nbr = agq.year_nbr AND am.quarter_nbr = agq.quarter_of_year_nbr
 left join filtered_airline_entities aet
   on am.ticketing_airline_oai_code = aet.airline_oai_code
