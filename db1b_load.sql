@@ -31,6 +31,7 @@
 
 -- 1. process DB1B Ticket data
 -- 1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
+drop table if exists air_oai_facts.airfare_survey_ticket_load;
 create table air_oai_facts.airfare_survey_ticket_load
 ( 
 	itinerary_oai_id								bigint null
@@ -177,6 +178,7 @@ WHERE ac.year_quarter_from_date
 
 -- 2. process DB1B Coupon data
 -- 2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
+drop table if exists air_oai_facts.airfare_survey_coupon_load;
 create table air_oai_facts.airfare_survey_coupon_load
 ( 
 	itinerary_oai_id             		bigint null
@@ -358,6 +360,7 @@ where aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.so
 
 -- 3. process DB1B market data
 -- 3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
+drop table if exists air_oai_facts.airfare_survey_market_load;
 create table air_oai_facts.airfare_survey_market_load
 ( 
 	itinerary_oai_id              	bigint null

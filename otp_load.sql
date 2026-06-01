@@ -932,7 +932,7 @@ from (select flight_key, flight_status from air_oai_facts.airline_flights_comple
 where air_oai_facts.airline_flights_scheduled.flight_key = a.flight_key; -- all
 
 -- 4.5.3. insert cancelled flights into airline_flights_scheduled
-INSERT INTO aviation.air_oai_facts.airline_flights_scheduled
+INSERT INTO air_oai_facts.airline_flights_scheduled
 SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
     , flight_nbr, flight_count, tail_nbr
     , depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key
@@ -945,7 +945,7 @@ SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airl
 FROM air_oai_facts.airline_flights_cancelled;
 
 -- 4.5.4. insert diverted flights into airline_flights_scheduled
-INSERT INTO aviation.air_oai_facts.airline_flights_scheduled
+INSERT INTO air_oai_facts.airline_flights_scheduled
 SELECT flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
     , flight_nbr, flight_count, tail_nbr
     , depart_airport_oai_code, depart_airport_from_date, depart_airport_history_id, depart_airport_history_key

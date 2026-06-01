@@ -23,8 +23,8 @@ drop view if exists cal_gen.make_gregorian_year_v;
 ----------------------- t100 -----------------------------
 ---------------------------------------------------------
 -- 5. vacuum the tables
-vacuum analyze air_oai_dims.airline_traffic_market;
-vacuum analyze air_oai_dims.airline_traffic_segment;
+vacuum analyze air_oai_facts.airline_traffic_market;
+vacuum analyze air_oai_facts.airline_traffic_segment;
 vacuum analyze air_oai_dims.aircraft_configurations;
 vacuum analyze air_oai_dims.airline_service_classes;
 
@@ -94,7 +94,7 @@ drop table if exists air_oai_facts.airfare_survey_market_load;
 ----------------------- fin -----------------------------
 ---------------------------------------------------------
 -- 6. data validation
-select count(*) from air_oai_dims.f41_schedule_b43_fdw where aircraft_type is null; -- 94151 / 29933
+select count(*) from air_oai_dims.f41_schedule_b43_fdw where aircraft_oai_type is null; -- 94151 / 29933
 
 select year_nbr, count(*) from air_oai_dims.f41_schedule_b43_fdw group by 1 order by 1;
 select * from air_oai_dims.f41_schedule_b43_fdw limit 25;
@@ -108,7 +108,7 @@ order by year_nbr, carrier_oai_code, tail_nbr;
 */
 
 -- 7. clean-up
-drop table if exists air_oai_dims.f41_schedule_b43_fdw
+drop table if exists air_oai_dims.f41_schedule_b43_fdw;
 
 ---------------------------------------------------------
 ----------------------- dim -----------------------------
@@ -120,7 +120,7 @@ vacuum analyze air_oai_dims.airport_history;
 vacuum analyze air_oai_dims.aircraft_type_groups;
 vacuum analyze air_oai_dims.airline_entity_new_groups;
 vacuum analyze air_oai_dims.airline_entity_legacy_groups;
-vacuum analyze air_oai_dims.airline_entities
+vacuum analyze air_oai_dims.airline_entities;
 
 
 -- 13. test/validation queries
