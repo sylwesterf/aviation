@@ -62,13 +62,10 @@ create table air_oai_facts.airfare_survey_ticket_load
 	, filler										varchar(10) null
 );
 
--- 1.2. ingest ticket csv data
--- 1.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/DB1B/ticket/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_ticket_load FROM '$x' CSV HEADER"; done ;
--- 1.2.2. AWS Aurora data load - one file
+-- 1.2. ingest ticket csv data (Aurora S3)
+-- single file:
 -- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_ticket_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2023_1.csv.gz', 'us-west-2'));
--- 1.2.3. AWS Aurora data load - mutliple files via manifest
+-- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_ticket_load',  -- target_table
@@ -220,14 +217,10 @@ create table air_oai_facts.airfare_survey_coupon_load
 	, filler							varchar(10) null
 );
 	
--- 2.2. ingest coupon csv data
--- 2.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/DB1B/coupon/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_coupon_load FROM '$x' CSV HEADER"; done ;
--- 2.2.2. AWS Aurora data load - one file
+-- 2.2. ingest coupon csv data (Aurora S3)
+-- single file:
 -- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_coupon_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2023_1.csv.gz', 'us-west-2'));
--- 2.2.3. AWS Aurora data load - mutliple files via manifest
--- AWS Aurora SQL - all files in folder
+-- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_coupon_load',  -- target_table
@@ -407,13 +400,10 @@ create table air_oai_facts.airfare_survey_market_load
 	, filler							varchar(10) null
 );
 
--- 3.2. ingest market csv data
--- 3.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/DB1B/market/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.airfare_survey_market_load FROM '$x' CSV HEADER"; done ;
--- 3.2.2. AWS Aurora data load - one file
+-- 3.2. ingest market csv data (Aurora S3)
+-- single file:
 -- SELECT aws_s3.table_import_from_s3('air_oai_facts.airfare_survey_market_load', '', '(FORMAT CSV, HEADER true, QUOTE ''"'')',aws_commons.create_s3_uri('src-aviation', 'DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2023_1.csv.gz', 'us-west-2'));
--- 3.2.3. AWS Aurora data load - mutliple files via manifest
+-- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airfare_survey_market_load',  -- target_table

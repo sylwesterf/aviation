@@ -74,13 +74,10 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, filler_txt 					varchar(10) 
 );
 
--- 1.2. ingest t100 market csv data
--- 1.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/t100/market/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_market_archive FROM '$x' CSV HEADER"; done ;
--- 1.2.2. AWS Aurora data load - one file
---TODO SELECT aws_s3.table_import_from_s3()
--- 1.2.3. AWS Aurora data load - mutliple files via manifest
+-- 1.2. ingest t100 market csv data (Aurora S3)
+-- single file:
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.f41_traffic_t100_market_archive', '', '(FORMAT CSV, DELIMITER '','', HEADER)', aws_commons.create_s3_uri('src-aviation', 'T100/market/CSV/<market_file>.csv.gz', 'us-west-2'));
+-- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.f41_traffic_t100_market_archive',  	-- target_table
@@ -284,14 +281,10 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 	, filler_txt 							varchar(10)
 );
 
--- 2.2. stage t100 segment csv data
--- 1.2.1. mstr psql version of the data load
--- for x in $(ls /tmp/t100/segment/*.csv);
--- do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY  air_oai_facts.f41_traffic_t100_segment_archive FROM '$x' CSV HEADER"; done ;
--- 1.2.2. AWS Aurora data load - one file
---TODO SELECT aws_s3.table_import_from_s3()
--- 1.2.3. AWS Aurora data load - mutliple files via manifest
---TODO 
+-- 2.2. stage t100 segment csv data (Aurora S3)
+-- single file:
+-- SELECT aws_s3.table_import_from_s3('air_oai_facts.f41_traffic_t100_segment_archive', '', '(FORMAT CSV, DELIMITER '','', HEADER)', aws_commons.create_s3_uri('src-aviation', 'T100/segment/CSV/<segment_file>.csv.gz', 'us-west-2'));
+-- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.f41_traffic_t100_segment_archive',  	-- target_table

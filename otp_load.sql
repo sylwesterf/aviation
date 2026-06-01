@@ -140,12 +140,10 @@ CREATE TABLE air_oai_facts.airline_flight_performance_fdw
     filler                            VARCHAR(10) NULL
 );
 
--- 2. copy OTP data into air_oai_facts.airline_flight_performance_fdw
--- 2.1. mstr psql version of the data load
--- for x in $(ls /tmp/otp/*.csv); do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_facts.airline_flight_performance_fdw FROM '$x' CSV HEADER"; done;
--- 2.2. AWS Aurora data load - one file
+-- 2. copy OTP data into air_oai_facts.airline_flight_performance_fdw (Aurora S3)
+-- single file:
 -- SELECT aws_s3.table_import_from_s3('air_oai_facts.airline_flight_performance_fdw', '', '(FORMAT CSV, HEADER true)', aws_commons.create_s3_uri('src-aviation', '/OTP/CSV/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_1987_10.csv.gz', 'us-west-2'));
--- 2.3. AWS Aurora data load - mutliple files via manifest
+-- multiple files via manifest:
 CALL import_data_from_manifest(
     0, 
     'air_oai_facts.airline_flight_performance_fdw',  	-- target_table

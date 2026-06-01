@@ -35,12 +35,9 @@ CREATE TABLE air_oai_dims.f41_schedule_b43_fdw
 	, airline_id 						smallint
 	, carrier_unique_oai_code 			varchar(7)
 	--, filler_txt 						varchar(10)
-)
+);
 
--- 2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw
--- 2.1. mstr psql version of the data load
--- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.f41_schedule_b43_fdw FROM 'T_F41SCHEDULE_B43.csv.gz' CSV HEADER";
--- 2.2. AWS Aurora data load
+-- 2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw (Aurora S3)
 SELECT aws_s3.table_import_from_s3('air_oai_dims.f41_schedule_b43_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/FIN/CSV/T_F41SCHEDULE_B43.csv.gz', 'us-west-2'));
 
 -- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw

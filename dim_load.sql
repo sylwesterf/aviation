@@ -59,10 +59,7 @@ create table air_oai_dims.aircraft_types_fdw
 	, aircraft_type_thru_date		date
 );
 
--- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
--- 1.2.1. mstr psql version of the data load
--- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES.csv' CSV HEADER";
--- 1.2.2. AWS Aurora data load
+-- 1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw (Aurora S3)
 SELECT aws_s3.table_import_from_s3('air_oai_dims.aircraft_types_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_AIRCRAFT_TYPES.csv', 'us-west-2'));
 
 -- 1.3. define final dimensional table air_oai_dims.aircraft_types
@@ -135,10 +132,7 @@ CREATE TABLE air_oai_dims.wac_country_state_fdw
 	, world_area_latest_ind				smallint
 );
 
--- 2.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
--- 2.2.1 mstr psql version of the data load
---mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.wac_country_state_fdw FROM 'T_WAC_COUNTRY_STATE.csv' CSV HEADER";
--- 2.2.2 AWS Aurora data load
+-- 2.2. copy world areas data into air_oai_dims.wac_country_state_fdw (Aurora S3)
 SELECT aws_s3.table_import_from_s3('air_oai_dims.wac_country_state_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_WAC_COUNTRY_STATE.csv', 'us-west-2')); 
 
 -- 2.3. define final dimensional table air_oai_dims.world_areas
@@ -237,10 +231,7 @@ CREATE TABLE air_oai_dims.carrier_decode_fdw
 	, source_thru_date				date
 );
 
--- 3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
--- 3.2.1 mstr psql version of the data load
---mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.carrier_decode_fdw FROM 'T_CARRIER_DECODE.csv' CSV HEADER";
--- 3.2.2 AWS Aurora data load
+-- 3.2. copy carrier decode data into air_oai_dims.carrier_decode_fdw (Aurora S3)
 SELECT aws_s3.table_import_from_s3('air_oai_dims.carrier_decode_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_CARRIER_DECODE.csv', 'us-west-2')); 
 
 -- 3.3. create air_oai_dims.airline_entities table in postgre
@@ -413,10 +404,7 @@ CREATE TABLE air_oai_dims.master_cord_fdw
 	, airport_latest_ind					smallint
 );
 
--- 4.2. copy world areas data into air_oai_dims.master_cord_fdw
--- 4.2.1 mstr psql version of the data load
---mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.master_cord_fdw FROM 'T_MASTER_CORD.csv' CSV HEADER";
--- 4.2.2 AWS Aurora data load
+-- 4.2. copy master coordinate data into air_oai_dims.master_cord_fdw (Aurora S3)
 SELECT aws_s3.table_import_from_s3('air_oai_dims.master_cord_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/DIMS/CSV/T_MASTER_CORD.csv', 'us-west-2')); 
 
 -- 4.3. create air_oai_dims.airport_history table in postgre
@@ -562,8 +550,7 @@ where air_oai_dims.airport_history.airport_history_id = abc.airport_history_id
 and air_oai_dims.airport_history.airport_history_key = abc.airport_history_key;
 
 
--- (4.6) update the time zone boundaries in air_oai_dims.airport_history 
-/*
+-- 4.6 update the time zone boundaries in air_oai_dims.airport_history 
 update air_oai_dims.airport_history
 set	
 	time_zone_name = c.time_zone_name
@@ -578,7 +565,6 @@ where ST_Contains(b.time_zone_geom, a.point_geom) is true
 ) c
 where air_oai_dims.airport_history.airport_history_id = c.airport_history_id
 and air_oai_dims.airport_history.time_zone_name is null;
-*/
 
 -- 5.1. create air_oai_dims.aircraft_type_groups
 drop table if exists air_oai_dims.aircraft_type_groups;
