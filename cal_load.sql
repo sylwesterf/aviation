@@ -404,223 +404,6 @@ cross join cal_gen.make_hour_of_day_v h
 order by d.calendar_date, h.hour_of_day_nbr;
 
 
--- 2. create calendar tables based on base views and start/end year
--- set calendar start and end years as table variables
-DROP TABLE IF EXISTS calendar_params;
- 
-CREATE TEMP TABLE calendar_params
-as
-select 1900 as start_year, 2090 as end_year
-
--- day_of_week
-DROP TABLE IF EXISTS calendar_rs.day_of_week;
-
-CREATE TABLE calendar_rs.day_of_week (
-    day_of_week_common_nbr SMALLINT     NOT NULL,
-    day_of_week_iso_nbr    SMALLINT     NOT NULL,
-    day_of_week_pgsql_nbr  SMALLINT     NOT NULL,
-    day_of_week_abbr       CHAR(3)      NOT NULL,
-    day_of_week_name_eng   VARCHAR(10)  NOT NULL,
-    primary key (day_of_week_iso_nbr)
-);
-
-INSERT INTO calendar_rs.day_of_week
-SELECT *
-FROM cal_gen.make_day_of_week_v;
-
- --TODO pattern as for day_of_week
- 
--- day_of_week
-DROP TABLE IF EXISTS calendar_rs.day_of_week;
-CREATE TABLE calendar_rs.day_of_week (
-    day_of_week_common_nbr      SMALLINT        NOT NULL,
-    day_of_week_iso_nbr         SMALLINT        NOT NULL,
-    day_of_week_pgsql_nbr       SMALLINT        NOT NULL,
-    day_of_week_abbr            CHAR(3)         NOT NULL,
-    day_of_week_name_eng        VARCHAR(10)     NOT NULL,
-    PRIMARY KEY (day_of_week_iso_nbr)
-);
-INSERT INTO calendar_rs.day_of_week SELECT * FROM cal_gen.make_day_of_week_v;
-
--- gregorian_month_of_year
-DROP TABLE IF EXISTS calendar_rs.gregorian_month_of_year;
-CREATE TABLE calendar_rs.gregorian_month_of_year (
-    month_of_year_nbr           SMALLINT        NOT NULL,
-    month_of_year_code          CHAR(2)         NOT NULL,
-    quarter_of_year_nbr         SMALLINT        NOT NULL,
-    standard_year_day_qty       SMALLINT        NOT NULL,
-    leap_year_day_qty           SMALLINT        NOT NULL,
-    month_of_year_abbr          CHAR(3)         NOT NULL,
-    month_of_year_name          VARCHAR(10)     NOT NULL,
-    PRIMARY KEY (month_of_year_nbr)
-);
-INSERT INTO calendar_rs.gregorian_month_of_year SELECT * FROM cal_gen.make_gregorian_month_of_year_v;
-
--- gregorian_quarter_of_year
-DROP TABLE IF EXISTS calendar_rs.gregorian_quarter_of_year;
-CREATE TABLE calendar_rs.gregorian_quarter_of_year (
-    quarter_of_year_nbr         SMALLINT        NOT NULL,
-    quarter_of_year_code        CHAR(1)         NOT NULL,
-    quarter_of_year_abbr        CHAR(2)         NOT NULL,
-    quarter_of_year_name        VARCHAR(15)     NOT NULL,
-    PRIMARY KEY (quarter_of_year_nbr)
-);
-INSERT INTO calendar_rs.gregorian_quarter_of_year SELECT * FROM cal_gen.make_gregorian_quarter_of_year_v;
-
--- gregorian_year
-DROP TABLE IF EXISTS calendar_rs.gregorian_year;
-CREATE TABLE calendar_rs.gregorian_year (
-    year_nbr                    SMALLINT        NOT NULL,
-    year_code                   CHAR(4)         NOT NULL,
-    leap_year_ind               SMALLINT        NOT NULL,
-    year_from_date              DATE            NOT NULL,
-    year_thru_date              DATE            NOT NULL,
-    day_qty                     INTEGER         NOT NULL,
-    last_year_nbr               SMALLINT,
-    PRIMARY KEY (year_nbr)
-);
-INSERT INTO calendar_rs.gregorian_year
-SELECT y.*
-FROM cal_gen.make_gregorian_year_v y
-CROSS JOIN cal_gen.calendar_params p
-WHERE y.year_nbr BETWEEN p.start_year AND p.end_year;
-
--- gregorian_year_quarter
-DROP TABLE IF EXISTS calendar_rs.gregorian_year_quarter;
-CREATE TABLE calendar_rs.gregorian_year_quarter (
-    year_quarter_nbr            INTEGER         NOT NULL,
-    year_quarter_standard_code  CHAR(7)         NOT NULL,
-    year_nbr                    SMALLINT        NOT NULL,
-    quarter_of_year_nbr         SMALLINT        NOT NULL,
-    year_quarter_from_date      DATE            NOT NULL,
-    year_quarter_thru_date      DATE            NOT NULL,
-    last_year_quarter_nbr       INTEGER,
-    last_year_this_quarter_nbr  INTEGER,
-    PRIMARY KEY (year_quarter_nbr)
-);
-INSERT INTO calendar_rs.gregorian_year_quarter
-SELECT yq.*
-FROM cal_gen.make_gregorian_year_quarter_v yq
-CROSS JOIN cal_gen.calendar_params p
-WHERE yq.year_nbr BETWEEN p.start_year AND p.end_year;
-
--- gregorian_year_month
-DROP TABLE IF EXISTS calendar_rs.gregorian_year_month;
-CREATE TABLE calendar_rs.gregorian_year_month (
-    year_month_nbr              INTEGER         NOT NULL,
-    year_month_standard_code    CHAR(7)         NOT NULL,
-    month_of_year_nbr           SMALLINT        NOT NULL,
-    year_quarter_nbr            INTEGER         NOT NULL,
-    year_nbr                    SMALLINT        NOT NULL,
-    year_month_from_date        DATE            NOT NULL,
-    year_month_thru_date        DATE            NOT NULL,
-    last_year_month_nbr         INTEGER,
-    last_quarter_this_month_nbr INTEGER,
-    last_year_this_month_nbr    INTEGER,
-    PRIMARY KEY (year_month_nbr)
-);
-INSERT INTO calendar_rs.gregorian_year_month
-SELECT ym.*
-FROM cal_gen.make_gregorian_year_month_v ym
-CROSS JOIN cal_gen.calendar_params p
-WHERE ym.year_nbr BETWEEN p.start_year AND p.end_year;
-
--- year_week
-DROP TABLE IF EXISTS calendar_rs.year_week;
-CREATE TABLE calendar_rs.year_week (
-    year_week_nbr               INTEGER         NOT NULL,
-    week_of_year_nbr            SMALLINT        NOT NULL,
-    year_nbr                    SMALLINT        NOT NULL,
-    year_week_std_cd            CHAR(8)         NOT NULL,
-    week_from_dt                DATE            NOT NULL,
-    week_thru_dt                DATE            NOT NULL,
-    PRIMARY KEY (year_week_nbr)
-);
-INSERT INTO calendar_rs.year_week
-SELECT w.*
-FROM cal_gen.make_year_week_v w
-CROSS JOIN cal_gen.calendar_params p
-WHERE w.year_nbr BETWEEN p.start_year AND p.end_year;
-
--- calendar_date
-DROP TABLE IF EXISTS calendar_rs.calendar_date;
-CREATE TABLE calendar_rs.calendar_date (
-    calendar_date               DATE            NOT NULL,
-    day_of_week_iso_nbr         SMALLINT        NOT NULL,
-    week_of_year_nbr            SMALLINT        NOT NULL,
-    year_week_nbr               INTEGER         NOT NULL,
-    year_month_nbr              INTEGER         NOT NULL,
-    year_quarter_nbr            INTEGER         NOT NULL,
-    year_nbr                    SMALLINT        NOT NULL,
-    yesterday_date              DATE,
-    this_day_last_week          DATE,
-    this_day_last_month         DATE,
-    this_day_last_quarter       DATE,
-    this_day_last_year          DATE,
-    PRIMARY KEY (calendar_date)
-);
-INSERT INTO calendar_rs.calendar_date
-SELECT d.*
-FROM cal_gen.make_calendar_date_v d
-CROSS JOIN cal_gen.calendar_params p
-WHERE d.year_nbr BETWEEN p.start_year AND p.end_year;
-
--- hour_of_day
-DROP TABLE IF EXISTS calendar_rs.hour_of_day;
-CREATE TABLE calendar_rs.hour_of_day (
-    hour_of_day_nbr             INTEGER         NOT NULL,
-    hour_of_day_code            CHAR(2)         NOT NULL,
-    hour_of_day_time            VARCHAR(8)      NOT NULL,
-    period_code                 CHAR(2)         NOT NULL,
-    PRIMARY KEY (hour_of_day_nbr)
-);
-INSERT INTO calendar_rs.hour_of_day SELECT * FROM cal_gen.make_hour_of_day_v;
-
--- minute_of_hour
-DROP TABLE IF EXISTS calendar_rs.minute_of_hour;
-CREATE TABLE calendar_rs.minute_of_hour (
-    minute_of_hour_code         CHAR(2)         NOT NULL,
-    minute_of_hour_nbr          SMALLINT        NOT NULL,
-    PRIMARY KEY (minute_of_hour_nbr)
-);
-INSERT INTO calendar_rs.minute_of_hour SELECT * FROM cal_gen.make_minute_of_hour_v;
-
--- calendar_date_hour_min
-DROP TABLE IF EXISTS calendar_rs.calendar_date_hour_min;
-CREATE TABLE calendar_rs.calendar_date_hour_min (
-    calendar_timestamp          TIMESTAMP    NOT NULL,
-    calendar_date               DATE            NOT NULL,
-    hour_of_day_nbr             INTEGER         NOT NULL,
-    hour_of_day_code            CHAR(2)         NOT NULL,
-    hour_of_day_time            VARCHAR(8)      NOT NULL,
-    period_code                 CHAR(2)         NOT NULL,
-    minute_of_hour_nbr          SMALLINT        NOT NULL,
-    minute_of_hour_code         CHAR(2)         NOT NULL,
-    PRIMARY KEY (calendar_timestamp)
-);
-INSERT INTO calendar_rs.calendar_date_hour_min
-SELECT chm.*
-FROM cal_gen.make_calendar_date_hour_min_v chm
-CROSS JOIN cal_gen.calendar_params p
-WHERE DATE_PART('year', chm.calendar_date) BETWEEN p.start_year AND p.end_year;
-
--- calendar_date_hour
-DROP TABLE IF EXISTS calendar_rs.calendar_date_hour;
-CREATE TABLE calendar_rs.calendar_date_hour (
-    calendar_timestamp          TIMESTAMP    NOT NULL,
-    calendar_date               DATE            NOT NULL,
-    hour_of_day_nbr             INTEGER         NOT NULL,
-    hour_of_day_code            CHAR(2)         NOT NULL,
-    hour_of_day_time            VARCHAR(8)      NOT NULL,
-    period_code                 CHAR(2)         NOT NULL,
-    PRIMARY KEY (calendar_timestamp)
-);
-INSERT INTO calendar_rs.calendar_date_hour
-SELECT ch.*
-FROM cal_gen.make_calendar_date_hour_v ch
-CROSS JOIN cal_gen.calendar_params p
-WHERE DATE_PART('year', ch.calendar_date) BETWEEN p.start_year AND p.end_year;
-
 -- add keys to calendar tables
 -- primary keys (already defined inline above)
 
@@ -743,8 +526,12 @@ foreign key (calendar_date) references calendar_rs.calendar_date (calendar_date)
 -- MTD
 -- TODO as other calendar tables pattern CREATE with a PK + INSERT
 DROP TABLE IF EXISTS calendar_rs.cumulative_month_to_dates;
- 
-CREATE TABLE calendar_rs.cumulative_month_to_dates AS
+CREATE TABLE calendar_rs.cumulative_month_to_dates (
+    calendar_date               DATE    NOT NULL,
+    cumulative_month_to_date    DATE    NOT NULL,
+    PRIMARY KEY (calendar_date, cumulative_month_to_date)
+);
+INSERT INTO calendar_rs.cumulative_month_to_dates
 SELECT  d.calendar_date,
         x.calendar_date AS cumulative_month_to_date
 FROM calendar_rs.calendar_date d
@@ -753,76 +540,91 @@ JOIN calendar_rs.calendar_date x
 WHERE x.calendar_date <= d.calendar_date
   AND x.calendar_date <= (SELECT MAX(calendar_date)
                           FROM calendar_rs.calendar_date);
- 
+
 -- QTD
 DROP TABLE IF EXISTS calendar_rs.cumulative_quarter_to_dates;
- 
-CREATE TABLE calendar_rs.cumulative_quarter_to_dates AS
+CREATE TABLE calendar_rs.cumulative_quarter_to_dates (
+    calendar_date               DATE    NOT NULL,
+    cumulative_quarter_to_date  DATE    NOT NULL,
+    PRIMARY KEY (calendar_date, cumulative_quarter_to_date)
+);
+INSERT INTO calendar_rs.cumulative_quarter_to_dates
 SELECT  d.calendar_date,
         x.calendar_date AS cumulative_quarter_to_date
 FROM calendar_rs.calendar_date d
 JOIN calendar_rs.calendar_date x 
   ON d.year_quarter_nbr = x.year_quarter_nbr
 WHERE x.calendar_date <= d.calendar_date;
- 
+
 -- YTD
 DROP TABLE IF EXISTS calendar_rs.cumulative_year_to_dates;
- 
-CREATE TABLE calendar_rs.cumulative_year_to_dates AS
+CREATE TABLE calendar_rs.cumulative_year_to_dates (
+    calendar_date               DATE    NOT NULL,
+    cumulative_year_to_date     DATE    NOT NULL,
+    PRIMARY KEY (calendar_date, cumulative_year_to_date)
+);
+INSERT INTO calendar_rs.cumulative_year_to_dates
 SELECT  d.calendar_date,
         x.calendar_date AS cumulative_year_to_date
 FROM calendar_rs.calendar_date d
 JOIN calendar_rs.calendar_date x 
   ON d.year_nbr = x.year_nbr
 WHERE x.calendar_date <= d.calendar_date;
- 
+
 -- WTD
 DROP TABLE IF EXISTS calendar_rs.cumulative_week_to_dates;
- 
-CREATE TABLE calendar_rs.cumulative_week_to_dates AS
+CREATE TABLE calendar_rs.cumulative_week_to_dates (
+    calendar_date               DATE    NOT NULL,
+    cumulative_week_to_date     DATE    NOT NULL,
+    PRIMARY KEY (calendar_date, cumulative_week_to_date)
+);
+INSERT INTO calendar_rs.cumulative_week_to_dates
 SELECT  d.calendar_date,
         x.calendar_date AS cumulative_week_to_date
 FROM calendar_rs.calendar_date d
 JOIN calendar_rs.calendar_date x 
   ON d.year_week_nbr = x.year_week_nbr
 WHERE x.calendar_date <= d.calendar_date;
- 
+
 -- add comments to transformation tables
 COMMENT ON TABLE calendar_rs.cumulative_year_to_dates IS 'Time transformation for MSTR, relates calendar_date to Year-To-Date (YTD) cumulative dates.';
 COMMENT ON TABLE calendar_rs.cumulative_quarter_to_dates IS 'Time transformation for MSTR, relates calendar_date to Quarter-To-Date (QTD) cumulative dates.';
 COMMENT ON TABLE calendar_rs.cumulative_month_to_dates IS 'Time transformation for MSTR, relates calendar_date to Month-To-Date (MTD) cumulative dates.';
 COMMENT ON TABLE calendar_rs.cumulative_week_to_dates IS 'Time transformation for MSTR, relates calendar_date to Week-To-Date (WTD) cumulative dates.';
 
--- define primary and fereign keys for transformation tables
+
+-- define foreign keys for transformation tables
+-- calendar_rs.cumulative_month_to_dates:
+ALTER TABLE calendar_rs.cumulative_month_to_dates
+  ADD CONSTRAINT cumulative_month_to_dates_base_date_fk FOREIGN KEY (calendar_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
+ALTER TABLE calendar_rs.cumulative_month_to_dates
+  ADD CONSTRAINT cumulative_month_to_dates_mtd_date_fk FOREIGN KEY (cumulative_month_to_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
+
 -- calendar_rs.cumulative_quarter_to_dates:
-alter table calendar_rs.cumulative_quarter_to_dates 
-  add constraint cumulative_quarter_to_dates_pk primary key (calendar_date, cumulative_quarter_to_date);
-alter table calendar_rs.cumulative_quarter_to_dates 
-  add constraint cumulative_quarter_to_dates_base_date_fk foreign key (calendar_date)
-  references calendar_rs.calendar_date (calendar_date);
-alter table calendar_rs.cumulative_quarter_to_dates 
-  add constraint cumulative_quarter_to_dates_qtd_date_fk foreign key (cumulative_quarter_to_date)
-  references calendar_rs.calendar_date (calendar_date);
- 
+ALTER TABLE calendar_rs.cumulative_quarter_to_dates
+  ADD CONSTRAINT cumulative_quarter_to_dates_base_date_fk FOREIGN KEY (calendar_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
+ALTER TABLE calendar_rs.cumulative_quarter_to_dates
+  ADD CONSTRAINT cumulative_quarter_to_dates_qtd_date_fk FOREIGN KEY (cumulative_quarter_to_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
+
 -- calendar_rs.cumulative_year_to_dates:
-alter table calendar_rs.cumulative_year_to_dates 
-  add constraint cumulative_year_to_dates_pk primary key (calendar_date, cumulative_year_to_date);
-alter table calendar_rs.cumulative_year_to_dates 
-  add constraint cumulative_year_to_dates_base_date_fk foreign key (calendar_date)
-  references calendar_rs.calendar_date (calendar_date);
-alter table calendar_rs.cumulative_year_to_dates 
-  add constraint cumulative_year_to_dates_qtd_date_fk foreign key (cumulative_year_to_date)
-  references calendar_rs.calendar_date (calendar_date);
- 
--- calendar_rs.cumulative_year_to_dates:
-alter table calendar_rs.cumulative_week_to_dates 
-  add constraint cumulative_week_to_dates_pk primary key (calendar_date, cumulative_week_to_date);
-alter table calendar_rs.cumulative_week_to_dates 
-  add constraint cumulative_week_to_dates_base_date_fk foreign key (calendar_date)
-  references calendar_rs.calendar_date (calendar_date);
-alter table calendar_rs.cumulative_week_to_dates 
-  add constraint cumulative_week_to_dates_qtd_date_fk foreign key (cumulative_week_to_date)
-  references calendar_rs.calendar_date (calendar_date);
+ALTER TABLE calendar_rs.cumulative_year_to_dates
+  ADD CONSTRAINT cumulative_year_to_dates_base_date_fk FOREIGN KEY (calendar_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
+ALTER TABLE calendar_rs.cumulative_year_to_dates
+  ADD CONSTRAINT cumulative_year_to_dates_ytd_date_fk FOREIGN KEY (cumulative_year_to_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
+
+-- calendar_rs.cumulative_week_to_dates:
+ALTER TABLE calendar_rs.cumulative_week_to_dates
+  ADD CONSTRAINT cumulative_week_to_dates_base_date_fk FOREIGN KEY (calendar_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
+ALTER TABLE calendar_rs.cumulative_week_to_dates
+  ADD CONSTRAINT cumulative_week_to_dates_wtd_date_fk FOREIGN KEY (cumulative_week_to_date)
+  REFERENCES calendar_rs.calendar_date (calendar_date);
   
 -- generate calendar views
 create or replace view calendar_rs.day_of_week_v as select *, 1::integer as day_of_week_qty from calendar_rs.day_of_week;
