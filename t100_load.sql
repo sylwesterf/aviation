@@ -71,25 +71,26 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 	, distance_group_id 			integer
 	, service_class_code 			varchar(5)
 	, data_source_code 				varchar(5)
-	, filler_txt 					varchar(10) 
+	--, filler_txt 					varchar(10) 
 );
 
--- 1.2. ingest t100 market csv data (Aurora S3)
+-- 1.2. ingest t100 market csv data
 -- single file:
--- COPY air_oai_facts.f41_traffic_t100_market_archive FROM 's3://src-aviation/T100/market/CSV/T100_MARKET_ALL_CARRIER_ALL_2025.csv' IAM_ROLE 'arn:aws:iam::<account-id>:role/<redshift-role>' FORMAT AS CSV IGNOREHEADER 1 REGION 'us-west-2';
--- multiple files via manifest:
+--COPY air_oai_facts.f41_traffic_t100_market_archive
+--FROM 's3://src-aviation/T100/market/CSV/T100_MARKET_ALL_CARRIER_ALL_2025.csv.gz' 
+--IAM_ROLE default
+--CSV GZIP
+--IGNOREHEADER 1 
+--REGION 'us-west-2';
+
+-- multiple files 
 COPY air_oai_facts.f41_traffic_t100_market_archive
-FROM 's3://src-aviation/T100/market/manifest_t100_market.csv'
-IAM_ROLE 'arn:aws:iam::<account-id>:role/<redshift-role>'
-FORMAT AS CSV
-IGNOREHEADER 1
-MANIFEST
+FROM 's3://src-aviation/T100/market/CSV/' 
+IAM_ROLE default
+CSV GZIP
+IGNOREHEADER 1 
 REGION 'us-west-2';
-
--- to load data with and withoud 'filler_txt' column -- 10.120.965 rows.
--- ALTER TABLE air_oai_facts.f41_traffic_t100_market_archive DROP COLUMN filler_txt;
-
-
+ 
 -- 1.3. create a materialized view to transform the data
 DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.airline_traffic_market_integrate_mv;
 CREATE MATERIALIZED VIEW air_oai_facts.airline_traffic_market_integrate_mv
@@ -278,16 +279,21 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 	, filler_txt 							varchar(10)
 );
 
--- 2.2. stage t100 segment csv data (Aurora S3)
+-- 2.2. stage t100 segment csv data
 -- single file:
--- COPY air_oai_facts.f41_traffic_t100_segment_archive FROM 's3://src-aviation/T100/segment/CSV/T100_SEGMENT_ALL_CARRIER_ALL_2025.csv' IAM_ROLE 'arn:aws:iam::<account-id>:role/<redshift-role>' FORMAT AS CSV IGNOREHEADER 1 REGION 'us-west-2';
--- multiple files via manifest:
+--COPY air_oai_facts.f41_traffic_t100_segment_archive
+--FROM 's3://src-aviation/T100/segment/CSV/T100_SEGMENT_ALL_CARRIER_ALL_2024.csv.gz'
+--IAM_ROLE default
+--CSV GZIP
+--IGNOREHEADER 1
+--REGION 'us-west-2';
+
+-- multiple files
 COPY air_oai_facts.f41_traffic_t100_segment_archive
-FROM 's3://src-aviation/T100/segment/manifest_t100_segment.csv'
-IAM_ROLE 'arn:aws:iam::<account-id>:role/<redshift-role>'
-FORMAT AS CSV
+FROM 's3://src-aviation/T100/segment/CSV'
+IAM_ROLE default
+CSV GZIP
 IGNOREHEADER 1
-MANIFEST
 REGION 'us-west-2';
 
 -- to load data with and withoud 'filler_txt' column -- 13.512.137 rows.
