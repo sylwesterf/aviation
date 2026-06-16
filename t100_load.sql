@@ -276,7 +276,7 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 	, distance_group_id 					integer
 	, service_class_code 					char(1)
 	, data_source_code 						varchar(5)
-	, filler_txt 							varchar(10)
+	--, filler_txt 							varchar(10)
 );
 
 -- 2.2. stage t100 segment csv data
