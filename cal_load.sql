@@ -39,26 +39,6 @@ select
 from years
 order by year_nbr;
 
---cal_gen.make_gregorian_month_of_year_v
-CREATE OR REPLACE VIEW cal_gen.make_gregorian_month_of_year_v AS
-SELECT  1::SMALLINT AS month_of_year_nbr,
-        '01'::CHAR(2) AS month_of_year_code,
-        1::SMALLINT AS quarter_of_year_nbr,
-        31::SMALLINT AS standard_year_day_qty,
-        'Jan'::CHAR(3) AS month_abbrev,
-        'January'::VARCHAR(9) AS month_name
-UNION ALL SELECT 2, '02', 1, 28, 'Feb', 'February'
-UNION ALL SELECT 3, '03', 1, 31, 'Mar', 'March'
-UNION ALL SELECT 4, '04', 2, 30, 'Apr', 'April'
-UNION ALL SELECT 5, '05', 2, 31, 'May', 'May'
-UNION ALL SELECT 6, '06', 2, 30, 'Jun', 'June'
-UNION ALL SELECT 7, '07', 3, 31, 'Jul', 'July'
-UNION ALL SELECT 8, '08', 3, 31, 'Aug', 'August'
-UNION ALL SELECT 9, '09', 3, 30, 'Sep', 'September'
-UNION ALL SELECT 10, '10', 4, 31, 'Oct', 'October'
-UNION ALL SELECT 11, '11', 4, 30, 'Nov', 'November'
-UNION ALL SELECT 12, '12', 4, 31, 'Dec', 'December';
-
 -- cal_gen.make_hour_of_day_v
 create or replace view cal_gen.make_hour_of_day_v as
 with hours as (
@@ -104,6 +84,27 @@ select
     lpad(day_of_month_nbr::varchar, 2, '0')::char(2)   as day_of_month_code
 from nums
 order by day_of_month_nbr;
+
+--cal_gen.make_gregorian_month_of_year_v
+CREATE OR REPLACE VIEW cal_gen.make_gregorian_month_of_year_v AS
+SELECT  1::SMALLINT AS month_of_year_nbr,
+        '01'::CHAR(2) AS month_of_year_code,
+        1::SMALLINT AS quarter_of_year_nbr,
+        31::SMALLINT AS standard_year_day_qty,
+        'Jan'::CHAR(3) AS month_abbrev,
+        'January'::VARCHAR(9) AS month_name
+UNION ALL SELECT 2, '02', 1, 28, 'Feb', 'February'
+UNION ALL SELECT 3, '03', 1, 31, 'Mar', 'March'
+UNION ALL SELECT 4, '04', 2, 30, 'Apr', 'April'
+UNION ALL SELECT 5, '05', 2, 31, 'May', 'May'
+UNION ALL SELECT 6, '06', 2, 30, 'Jun', 'June'
+UNION ALL SELECT 7, '07', 3, 31, 'Jul', 'July'
+UNION ALL SELECT 8, '08', 3, 31, 'Aug', 'August'
+UNION ALL SELECT 9, '09', 3, 30, 'Sep', 'September'
+UNION ALL SELECT 10, '10', 4, 31, 'Oct', 'October'
+UNION ALL SELECT 11, '11', 4, 30, 'Nov', 'November'
+UNION ALL SELECT 12, '12', 4, 31, 'Dec', 'December';
+
 
 -- cal_gen.make_day_of_week_v
 CREATE OR REPLACE VIEW cal_gen.make_day_of_week_v AS
