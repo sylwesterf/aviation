@@ -7,117 +7,115 @@
 ----------------------------------------------------
 
 -- 1. Create cal_gen views that generate information about all date/time parts
-
 -- cal_gen.make_gregorian_year_v
-create temp table numbers_0_3000 as
-select row_number() over (order by true) - 1 as n
-from svv_tables          -- any sufficiently large table
-limit 3001;              -- from 0 to 3000
-
--- cal_gen.make_gregorian_year_v;
+-- generate numbers temp table for use in views below
+CREATE TEMP TABLE cal_gen_numbers AS
+SELECT row_number() OVER (ORDER BY true) - 1 AS n
+FROM svv_tables
+LIMIT 3001;
+ 
+-- cal_gen.make_gregorian_year_v
 create or replace view cal_gen.make_gregorian_year_v as
-with years as (
-    select n as year_nbr,
-           lpad(n::varchar, 4, '0') as year_cd
-    from numbers_0_3000
-    where n between 1000 and 3000
-)
 select
-    year_nbr::smallint                            as year_nbr,
-    year_cd::char(4)                              as year_code,
-    case
+      year_nbr::smallint                            as year_nbr
+    , year_cd::char(4)                              as year_code
+    , case
         when mod(year_nbr, 400) = 0 then 1
         when mod(year_nbr, 100) = 0 then 0
         when mod(year_nbr,   4) = 0 then 1
         else 0
-    end::smallint                                 as leap_year_ind,
-    (year_cd || '-01-01')::date                   as year_from_date,
-    (year_cd || '-12-31')::date                   as year_thru_date,
-    (year_cd || '-12-31')::date
-      - (year_cd || '-01-01')::date              as day_qty,
-    lag(year_nbr, 1) over (order by year_nbr)     as last_year_nbr
-from years
+      end::smallint                                 as leap_year_ind
+    , (year_cd || '-01-01')::date                   as year_from_date
+    , (year_cd || '-12-31')::date                   as year_thru_date
+    , (year_cd || '-12-31')::date
+        - (year_cd || '-01-01')::date               as day_qty
+    , lag(year_nbr, 1) over (order by year_nbr)     as last_year_nbr
+from (
+    select
+          lpad((v1.n * 10 + v2.n)::varchar, 2, '0') ||
+          lpad((v3.n * 10 + v4.n)::varchar, 2, '0')               as year_cd
+        , cast(
+              lpad((v1.n * 10 + v2.n)::varchar, 2, '0') ||
+              lpad((v3.n * 10 + v4.n)::varchar, 2, '0')
+              as smallint)                                         as year_nbr
+    from            (select n from cal_gen_numbers where n between 0 and 9) v1
+    cross join      (select n from cal_gen_numbers where n between 0 and 9) v2
+    cross join      (select n from cal_gen_numbers where n between 0 and 9) v3
+    cross join      (select n from cal_gen_numbers where n between 0 and 9) v4
+) yoe
+where year_nbr between 1000 and 3000
 order by year_nbr;
-
+ 
 -- cal_gen.make_hour_of_day_v
 create or replace view cal_gen.make_hour_of_day_v as
-with hours as (
-    select (row_number() over (order by true) - 1) as hour_of_day_nbr
-    from svv_tables
-    limit 24
-)
 select
-    h.hour_of_day_nbr::integer                                   as hour_of_day_nbr,
-    lpad(h.hour_of_day_nbr::varchar, 2, '0')::char(2)            as hour_of_day_code,
-    (lpad(h.hour_of_day_nbr::varchar, 2, '0') || ':00')::time    as hour_of_day_time,
-    case
-        when h.hour_of_day_nbr between  0 and 11 then 'am'
+      n::integer                                    as hour_of_day_nbr
+    , lpad(n::varchar, 2, '0')::char(2)             as hour_of_day_code
+    , (lpad(n::varchar, 2, '0') || ':00')::time     as hour_of_day_time
+    , case
+        when n between 0 and 11 then 'am'
         else 'pm'
-    end::char(2)                                                 as period_code
-from hours h
+      end::char(2)                                  as period_code
+from cal_gen_numbers
+where n between 0 and 23
 order by hour_of_day_nbr;
-
+ 
 -- cal_gen.make_minute_of_hour_v
 create or replace view cal_gen.make_minute_of_hour_v as
-with nums as (
-    select (row_number() over (order by true) - 1) as n
-    from svv_tables
-    limit 60
-)
 select
-    lpad(n::varchar, 2, '0')::char(2)  as minute_of_hour_code,
-    n::smallint                        as minute_of_hour_nbr
-from nums
+      lpad(n::varchar, 2, '0')::char(2)             as minute_of_hour_code
+    , n::smallint                                   as minute_of_hour_nbr
+from cal_gen_numbers
+where n between 0 and 59
 order by minute_of_hour_nbr;
-
+ 
 -- cal_gen.make_day_of_month_v
 create or replace view cal_gen.make_day_of_month_v as
-with nums as (
-    select row_number() over (order by true) as day_of_month_nbr
-    from svv_tables
-    limit 35
-)
 select
-    day_of_month_nbr::smallint                         as day_of_month_nbr,
-    lpad(day_of_month_nbr::varchar, 2, '0')::char(2)   as day_of_month_code
-from nums
+      n::smallint                                   as day_of_month_nbr
+    , lpad(n::varchar, 2, '0')::char(2)             as day_of_month_code
+from cal_gen_numbers
+where n between 1 and 35
 order by day_of_month_nbr;
 
---cal_gen.make_gregorian_month_of_year_v
-CREATE OR REPLACE VIEW cal_gen.make_gregorian_month_of_year_v AS
-SELECT  1::SMALLINT AS month_of_year_nbr,
-        '01'::CHAR(2) AS month_of_year_code,
-        1::SMALLINT AS quarter_of_year_nbr,
-        31::SMALLINT AS standard_year_day_qty,
-        'Jan'::CHAR(3) AS month_abbrev,
-        'January'::VARCHAR(9) AS month_name
-UNION ALL SELECT 2, '02', 1, 28, 'Feb', 'February'
-UNION ALL SELECT 3, '03', 1, 31, 'Mar', 'March'
-UNION ALL SELECT 4, '04', 2, 30, 'Apr', 'April'
-UNION ALL SELECT 5, '05', 2, 31, 'May', 'May'
-UNION ALL SELECT 6, '06', 2, 30, 'Jun', 'June'
-UNION ALL SELECT 7, '07', 3, 31, 'Jul', 'July'
-UNION ALL SELECT 8, '08', 3, 31, 'Aug', 'August'
-UNION ALL SELECT 9, '09', 3, 30, 'Sep', 'September'
-UNION ALL SELECT 10, '10', 4, 31, 'Oct', 'October'
-UNION ALL SELECT 11, '11', 4, 30, 'Nov', 'November'
-UNION ALL SELECT 12, '12', 4, 31, 'Dec', 'December';
-
+-- cal_gen.make_gregorian_month_of_year_v
+create or replace view cal_gen.make_gregorian_month_of_year_v as
+select
+      1::smallint     as month_of_year_nbr
+    , '01'::char(2)   as month_of_year_code
+    , 1::smallint     as quarter_of_year_nbr
+    , 31::smallint    as standard_year_day_qty
+    , 31::smallint    as leap_year_day_qty
+    , 'Jan'::char(3)  as month_of_year_abbr
+    , 'January'::varchar(10) as month_of_year_name
+union all select  2, '02', 1, 28, 29, 'Feb', 'February'
+union all select  3, '03', 1, 31, 31, 'Mar', 'March'
+union all select  4, '04', 2, 30, 30, 'Apr', 'April'
+union all select  5, '05', 2, 31, 31, 'May', 'May'
+union all select  6, '06', 2, 30, 30, 'Jun', 'June'
+union all select  7, '07', 3, 31, 31, 'Jul', 'July'
+union all select  8, '08', 3, 31, 31, 'Aug', 'August'
+union all select  9, '09', 3, 30, 30, 'Sep', 'September'
+union all select 10, '10', 4, 31, 31, 'Oct', 'October'
+union all select 11, '11', 4, 30, 30, 'Nov', 'November'
+union all select 12, '12', 4, 31, 31, 'Dec', 'December'
+order by month_of_year_nbr;
 
 -- cal_gen.make_day_of_week_v
-CREATE OR REPLACE VIEW cal_gen.make_day_of_week_v AS
-SELECT 1::SMALLINT AS day_of_week_common_nbr,  -- Sunday=1
-       7::SMALLINT AS day_of_week_iso_nbr,     -- ISO Sunday=7
-       0::SMALLINT AS day_of_week_pgsql_nbr,   -- pgsql Sunday=0
-       'Sun'::CHAR(3) AS day_of_week_abbr,
-       'Sunday'::VARCHAR(10) AS day_of_week_name_eng
-UNION ALL SELECT 2, 1, 1, 'Mon', 'Monday'
-UNION ALL SELECT 3, 2, 2, 'Tue', 'Tuesday'
-UNION ALL SELECT 4, 3, 3, 'Wed', 'Wednesday'
-UNION ALL SELECT 5, 4, 4, 'Thu', 'Thursday'
-UNION ALL SELECT 6, 5, 5, 'Fri', 'Friday'
-UNION ALL SELECT 7, 6, 6, 'Sat', 'Saturday'
-ORDER BY day_of_week_iso_nbr;
+create or replace view cal_gen.make_day_of_week_v as
+select
+      7::smallint         as day_of_week_iso_nbr
+    , 1::smallint         as day_of_week_common_nbr
+    , 0::smallint         as day_of_week_pgsql_nbr
+    , 'Sun'::char(3)      as day_of_week_abbr
+    , 'Sunday'::varchar(10) as day_of_week_name_eng
+union all select 1, 2, 1, 'Mon', 'Monday'
+union all select 2, 3, 2, 'Tue', 'Tuesday'
+union all select 3, 4, 3, 'Wed', 'Wednesday'
+union all select 4, 5, 4, 'Thu', 'Thursday'
+union all select 5, 6, 5, 'Fri', 'Friday'
+union all select 6, 7, 6, 'Sat', 'Saturday'
+order by day_of_week_iso_nbr;
 
 -- cal_gen.make_gregorian_quarter_of_year_v
 CREATE OR REPLACE VIEW cal_gen.make_gregorian_quarter_of_year_v AS
@@ -265,23 +263,180 @@ order by
 -- cal_gen.make_calendar_date_hour_v
 create or replace view cal_gen.make_calendar_date_hour_v as
 select
-    (d.calendar_date::timestamp
-        + (h.hour_of_day_nbr * interval '1 hour')) as calendar_timestamp,
-    d.calendar_date,
-    h.hour_of_day_nbr,
-    h.hour_of_day_code,
-    h.hour_of_day_time,
-    h.period_code
+      dateadd(hour, h.hour_of_day_nbr, d.calendar_date::timestamp)  as calendar_timestamp
+    , d.calendar_date
+    , h.hour_of_day_nbr
+    , h.hour_of_day_code
+    , h.hour_of_day_time
+    , h.period_code
 from cal_gen.make_calendar_date_v d
 cross join cal_gen.make_hour_of_day_v h
 order by d.calendar_date, h.hour_of_day_nbr;
 
-
+--- 2. Create calendar tables based on base views and start/end year
+-- start_year = 1900, end_year = 2090
+ 
+CREATE TABLE calendar_rs.day_of_week (
+    day_of_week_iso_nbr       SMALLINT    NOT NULL,
+    day_of_week_common_nbr    SMALLINT,
+    day_of_week_pgsql_nbr     SMALLINT,
+    day_of_week_abbr          CHAR(3),
+    day_of_week_name_eng      VARCHAR(10)
+);
+INSERT INTO calendar_rs.day_of_week
+SELECT * FROM cal_gen.make_day_of_week_v;
+ 
+CREATE TABLE calendar_rs.gregorian_month_of_year (
+    month_of_year_nbr         SMALLINT    NOT NULL,
+    month_of_year_code        CHAR(2),
+    quarter_of_year_nbr       SMALLINT,
+    standard_year_day_qty     SMALLINT,
+    leap_year_day_qty         SMALLINT,
+    month_of_year_abbr        CHAR(3),
+    month_of_year_name        VARCHAR(10)
+);
+INSERT INTO calendar_rs.gregorian_month_of_year
+SELECT * FROM cal_gen.make_gregorian_month_of_year_v;
+ 
+CREATE TABLE calendar_rs.gregorian_quarter_of_year (
+    quarter_of_year_nbr       SMALLINT    NOT NULL,
+    quarter_of_year_code      CHAR(1),
+    quarter_of_year_abbr      CHAR(2),
+    quarter_of_year_name      VARCHAR(15)
+);
+INSERT INTO calendar_rs.gregorian_quarter_of_year
+SELECT * FROM cal_gen.make_gregorian_quarter_of_year_v;
+ 
+CREATE TABLE calendar_rs.gregorian_year (
+    year_nbr                  SMALLINT    NOT NULL,
+    year_code                 CHAR(4),
+    leap_year_ind             SMALLINT,
+    year_from_date            DATE,
+    year_thru_date            DATE,
+    day_qty                   INTEGER,
+    last_year_nbr             SMALLINT
+);
+INSERT INTO calendar_rs.gregorian_year
+SELECT * FROM cal_gen.make_gregorian_year_v
+WHERE year_nbr BETWEEN 1900 AND 2090;
+ 
+CREATE TABLE calendar_rs.gregorian_year_quarter (
+    year_quarter_nbr           INTEGER    NOT NULL,
+    year_quarter_standard_code CHAR(7),
+    year_nbr                   SMALLINT,
+    quarter_of_year_nbr        SMALLINT,
+    year_quarter_from_date     DATE,
+    year_quarter_thru_date     DATE,
+    last_year_quarter_nbr      INTEGER,
+    last_year_this_quarter_nbr INTEGER
+);
+INSERT INTO calendar_rs.gregorian_year_quarter
+SELECT * FROM cal_gen.make_gregorian_year_quarter_v
+WHERE year_nbr BETWEEN 1900 AND 2090;
+ 
+CREATE TABLE calendar_rs.gregorian_year_month (
+    year_month_nbr              INTEGER    NOT NULL,
+    year_month_standard_code    CHAR(7),
+    month_of_year_nbr           SMALLINT,
+    year_quarter_nbr            INTEGER,
+    year_nbr                    SMALLINT,
+    year_month_from_date        DATE,
+    year_month_thru_date        DATE,
+    last_year_month_nbr         INTEGER,
+    last_quarter_this_month_nbr INTEGER,
+    last_year_this_month_nbr    INTEGER
+);
+INSERT INTO calendar_rs.gregorian_year_month
+SELECT * FROM cal_gen.make_gregorian_year_month_v
+WHERE year_nbr BETWEEN 1900 AND 2090;
+ 
+CREATE TABLE calendar_rs.year_week (
+    year_week_nbr             INTEGER    NOT NULL,
+    week_of_year_nbr          SMALLINT,
+    year_nbr                  SMALLINT,
+    year_week_std_cd          CHAR(8),
+    week_from_dt              DATE,
+    week_thru_dt              DATE
+);
+INSERT INTO calendar_rs.year_week
+SELECT * FROM cal_gen.make_year_week_v
+WHERE year_nbr BETWEEN 1900 AND 2090;
+ 
+CREATE TABLE calendar_rs.calendar_date (
+    calendar_date             DATE       NOT NULL,
+    day_of_week_iso_nbr       SMALLINT,
+    week_of_year_nbr          SMALLINT,
+    year_week_nbr             INTEGER,
+    year_month_nbr            INTEGER,
+    year_quarter_nbr          INTEGER,
+    year_nbr                  SMALLINT,
+    yesterday_date            DATE,
+    this_day_last_week        DATE,
+    this_day_last_month       DATE,
+    this_day_last_quarter     DATE,
+    this_day_last_year        DATE
+);
+INSERT INTO calendar_rs.calendar_date
+SELECT * FROM cal_gen.make_calendar_date_v
+WHERE year_nbr BETWEEN 1900 AND 2090;
+ 
+CREATE TABLE calendar_rs.hour_of_day (
+    hour_of_day_nbr           INTEGER    NOT NULL,
+    hour_of_day_code          CHAR(2),
+    hour_of_day_time          TIME,
+    period_code               CHAR(2)
+);
+INSERT INTO calendar_rs.hour_of_day
+SELECT * FROM cal_gen.make_hour_of_day_v;
+ 
+CREATE TABLE calendar_rs.minute_of_hour (
+    minute_of_hour_code       CHAR(2),
+    minute_of_hour_nbr        SMALLINT   NOT NULL
+);
+INSERT INTO calendar_rs.minute_of_hour
+SELECT * FROM cal_gen.make_minute_of_hour_v;
+ 
+CREATE TABLE calendar_rs.calendar_date_hour_min (
+    calendar_timestamp        TIMESTAMP,
+    calendar_date             DATE       NOT NULL,
+    hour_of_day_nbr           INTEGER,
+    hour_of_day_code          CHAR(2),
+    hour_of_day_time          TIME,
+    period_code               CHAR(2),
+    minute_of_hour_nbr        SMALLINT,
+    minute_of_hour_code       CHAR(2)
+);
+INSERT INTO calendar_rs.calendar_date_hour_min
+SELECT * FROM cal_gen.make_calendar_date_hour_min_v
+WHERE date_part('year', calendar_date) BETWEEN 1900 AND 2090;
+ 
+CREATE TABLE calendar_rs.calendar_date_hour (
+    calendar_timestamp        TIMESTAMP,
+    calendar_date             DATE       NOT NULL,
+    hour_of_day_nbr           INTEGER,
+    hour_of_day_code          CHAR(2),
+    hour_of_day_time          TIME,
+    period_code               CHAR(2)
+);
+INSERT INTO calendar_rs.calendar_date_hour
+SELECT * FROM cal_gen.make_calendar_date_hour_v
+WHERE date_part('year', calendar_date) BETWEEN 1900 AND 2090;
+ 
 -- add keys to calendar tables
--- primary keys (already defined inline above)
+-- primary keys
+ALTER TABLE calendar_rs.day_of_week               ADD CONSTRAINT day_of_week_pk               PRIMARY KEY (day_of_week_iso_nbr);
+ALTER TABLE calendar_rs.gregorian_month_of_year   ADD CONSTRAINT gregorian_month_of_year_pk   PRIMARY KEY (month_of_year_nbr);
+ALTER TABLE calendar_rs.gregorian_quarter_of_year ADD CONSTRAINT gregorian_quarter_of_year_pk PRIMARY KEY (quarter_of_year_nbr);
+ALTER TABLE calendar_rs.gregorian_year            ADD CONSTRAINT gregorian_year_pk            PRIMARY KEY (year_nbr);
+ALTER TABLE calendar_rs.gregorian_year_quarter    ADD CONSTRAINT gregorian_year_quarter_pk    PRIMARY KEY (year_quarter_nbr);
+ALTER TABLE calendar_rs.gregorian_year_month      ADD CONSTRAINT gregorian_year_month_pk      PRIMARY KEY (year_month_nbr);
+ALTER TABLE calendar_rs.year_week                 ADD CONSTRAINT year_week_pk                 PRIMARY KEY (year_week_nbr);
+ALTER TABLE calendar_rs.calendar_date             ADD CONSTRAINT calendar_date_pk             PRIMARY KEY (calendar_date);
+ALTER TABLE calendar_rs.hour_of_day               ADD CONSTRAINT hour_of_day_pk              PRIMARY KEY (hour_of_day_nbr);
+ALTER TABLE calendar_rs.minute_of_hour            ADD CONSTRAINT minute_of_hour_pk           PRIMARY KEY (minute_of_hour_nbr);
 
--- add indexes for calendar_pg tables
-CREATE UNIQUE INDEX gregorian_month_of_year_ak1 ON calendar_rs.gregorian_month_of_year (month_of_year_code);
+-- add indexes for calendar_pg tables   ----    NOT SUPPORTED
+/*CREATE UNIQUE INDEX gregorian_month_of_year_ak1 ON calendar_rs.gregorian_month_of_year (month_of_year_code);
 CREATE UNIQUE INDEX gregorian_year_quarter_ak1 ON calendar_rs.gregorian_year_quarter (year_quarter_standard_code);
 CREATE UNIQUE INDEX year_week_ak1 ON calendar_rs.year_week (year_nbr, week_of_year_nbr);
 CREATE INDEX calendar_date_year_week_if1 ON calendar_rs.calendar_date (year_week_nbr);
@@ -292,42 +447,7 @@ CREATE INDEX gregorian_year_month_year_quarter_if1 ON calendar_rs.gregorian_year
 CREATE INDEX gregorian_year_month_of_year_if1 ON calendar_rs.gregorian_year_month (month_of_year_nbr);
 CREATE INDEX gregorian_year_quarter_year_if1 ON calendar_rs.gregorian_year_quarter (year_nbr);
 CREATE INDEX gregorian_year_quarter_of_year_if2 ON calendar_rs.gregorian_year_quarter (quarter_of_year_nbr);
-CREATE INDEX year_week_if1 ON calendar_rs.year_week (year_nbr);
-
--- define foreign keys to calendar_pg tables
-ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_year_week_fk
-FOREIGN KEY (year_week_nbr) REFERENCES calendar_rs.year_week (year_week_nbr);
-
-ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_year_month_fk
-FOREIGN KEY (year_month_nbr) REFERENCES calendar_rs.gregorian_year_month (year_month_nbr);
-
-ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_day_of_week_fk
-FOREIGN KEY (day_of_week_iso_nbr) REFERENCES calendar_rs.day_of_week (day_of_week_iso_nbr);
-
-ALTER TABLE calendar_rs.gregorian_month_of_year ADD CONSTRAINT gregorian_month_of_year_quarter_of_year_fk
-FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_rs.gregorian_quarter_of_year (quarter_of_year_nbr);
-
-ALTER TABLE calendar_rs.gregorian_year_month ADD CONSTRAINT gregorian_year_month_year_quarter_fk
-FOREIGN KEY (year_quarter_nbr) REFERENCES calendar_rs.gregorian_year_quarter (year_quarter_nbr);
-
-ALTER TABLE calendar_rs.gregorian_year_month ADD CONSTRAINT gregorian_year_month_month_of_year_fk
-FOREIGN KEY (month_of_year_nbr) REFERENCES calendar_rs.gregorian_month_of_year (month_of_year_nbr);
-
-ALTER TABLE calendar_rs.gregorian_year_quarter ADD CONSTRAINT gregorian_year_quarter_year_fk
-FOREIGN KEY (year_nbr) REFERENCES calendar_rs.gregorian_year (year_nbr);
-
-ALTER TABLE calendar_rs.gregorian_year_quarter ADD CONSTRAINT gregorian_year_quarter_quarter_of_year_fk
-FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_rs.gregorian_quarter_of_year (quarter_of_year_nbr);
-
-ALTER TABLE calendar_rs.year_week ADD CONSTRAINT year_week_gregorian_year_fk
-FOREIGN KEY (year_nbr) REFERENCES calendar_rs.gregorian_year (year_nbr);
-
-ALTER TABLE calendar_rs.calendar_date_hour_min ADD CONSTRAINT calendar_date_hour_min_calendar_date_fk
-FOREIGN KEY (calendar_date) REFERENCES calendar_rs.calendar_date (calendar_date);
-
-ALTER TABLE calendar_rs.calendar_date_hour ADD CONSTRAINT calendar_date_hour_calendar_date_fk
-FOREIGN KEY (calendar_date) REFERENCES calendar_rs.calendar_date (calendar_date);
-
+CREATE INDEX year_week_if1 ON calendar_rs.year_week (year_nbr);*/
 
 -- add comments to calendar tables
 COMMENT ON TABLE calendar_rs.day_of_week IS 'Monday is the first day of the working week, ISO 2105/8601.';
@@ -369,31 +489,20 @@ COMMENT ON TABLE calendar_rs.calendar_date_hour_min IS 'A comprehensive timeline
 COMMENT ON COLUMN calendar_rs.calendar_date_hour_min.period_code IS 'This specifies a subdivision within a day, such as morning, afternoon, evening or night.';
 
 COMMENT ON TABLE calendar_rs.calendar_date_hour IS 'A series of timestamps with hourly granularity by combining calendar dates and hours of the day.';
+COMMENT ON COLUMN calendar_rs.calendar_date_hour.period_code IS 'This specifies a subdivision within a day, such as morning, afternoon, evening or night.';
 
-
--- define foreign keys to calendar tables
-ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_year_week_fk 
-FOREIGN KEY (year_week_nbr) REFERENCES calendar_rs.year_week (year_week_nbr);
-ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_year_month_fk 
-FOREIGN KEY (year_month_nbr) REFERENCES calendar_rs.gregorian_year_month (year_month_nbr);
-ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_day_of_week_fk 
-FOREIGN KEY (day_of_week_iso_nbr) REFERENCES calendar_rs.day_of_week (day_of_week_iso_nbr);
-ALTER TABLE calendar_rs.gregorian_month_of_year ADD CONSTRAINT gregorian_month_of_year_quarter_of_year_fk  
-FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_rs.gregorian_quarter_of_year (quarter_of_year_nbr);
-ALTER TABLE calendar_rs.gregorian_year_month ADD CONSTRAINT gregorian_year_month_year_quarter_fk 
-FOREIGN KEY (year_quarter_nbr) REFERENCES calendar_rs.gregorian_year_quarter (year_quarter_nbr);
-ALTER TABLE calendar_rs.gregorian_year_month ADD CONSTRAINT gregorian_year_month_month_of_year_fk 
-FOREIGN KEY (month_of_year_nbr) REFERENCES calendar_rs.gregorian_month_of_year (month_of_year_nbr);
-ALTER TABLE calendar_rs.gregorian_year_quarter ADD CONSTRAINT gregorian_year_quarter_year_fk 
-FOREIGN KEY (year_nbr) REFERENCES calendar_rs.gregorian_year (year_nbr);
-ALTER TABLE calendar_rs.gregorian_year_quarter ADD CONSTRAINT gregorian_year_quarter_quarter_of_year_fk 
-FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_rs.gregorian_quarter_of_year (quarter_of_year_nbr);
-ALTER TABLE calendar_rs.year_week ADD CONSTRAINT year_week_gregorian_year_fk  
-FOREIGN KEY (year_nbr) REFERENCES calendar_rs.gregorian_year (year_nbr);
-alter table calendar_rs.calendar_date_hour_min  add constraint calendar_date_hour_min_calendar_date_fk 
-foreign key (calendar_date) references calendar_rs.calendar_date (calendar_date);
-alter table calendar_rs.calendar_date_hour  add constraint calendar_date_hour_calendar_date_fk 
-foreign key (calendar_date) references calendar_rs.calendar_date (calendar_date);
+-- define foreign keys to calendar_rs tables
+ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_year_week_fk FOREIGN KEY (year_week_nbr) REFERENCES calendar_rs.year_week (year_week_nbr);
+ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_year_month_fk FOREIGN KEY (year_month_nbr) REFERENCES calendar_rs.gregorian_year_month (year_month_nbr);
+ALTER TABLE calendar_rs.calendar_date ADD CONSTRAINT calendar_date_day_of_week_fk FOREIGN KEY (day_of_week_iso_nbr) REFERENCES calendar_rs.day_of_week (day_of_week_iso_nbr);
+ALTER TABLE calendar_rs.gregorian_month_of_year ADD CONSTRAINT gregorian_month_of_year_quarter_of_year_fk  FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_rs.gregorian_quarter_of_year (quarter_of_year_nbr);
+ALTER TABLE calendar_rs.gregorian_year_month ADD CONSTRAINT gregorian_year_month_year_quarter_fk FOREIGN KEY (year_quarter_nbr) REFERENCES calendar_rs.gregorian_year_quarter (year_quarter_nbr);
+ALTER TABLE calendar_rs.gregorian_year_month ADD CONSTRAINT gregorian_year_month_month_of_year_fk FOREIGN KEY (month_of_year_nbr) REFERENCES calendar_rs.gregorian_month_of_year (month_of_year_nbr);
+ALTER TABLE calendar_rs.gregorian_year_quarter ADD CONSTRAINT gregorian_year_quarter_year_fk FOREIGN KEY (year_nbr) REFERENCES calendar_rs.gregorian_year (year_nbr);
+ALTER TABLE calendar_rs.gregorian_year_quarter ADD CONSTRAINT gregorian_year_quarter_quarter_of_year_fk FOREIGN KEY (quarter_of_year_nbr) REFERENCES calendar_rs.gregorian_quarter_of_year (quarter_of_year_nbr);
+ALTER TABLE calendar_rs.year_week ADD CONSTRAINT year_week_gregorian_year_fk  FOREIGN KEY (year_nbr) REFERENCES calendar_rs.gregorian_year (year_nbr);
+ALTER TABLE calendar_rs.calendar_date_hour_min  ADD CONSTRAINT calendar_date_hour_min_calendar_date_fk FOREIGN KEY (calendar_date) REFERENCES calendar_rs.calendar_date (calendar_date);
+ALTER TABLE calendar_rs.calendar_date_hour  ADD CONSTRAINT calendar_date_hour_calendar_date_fk FOREIGN KEY (calendar_date) REFERENCES calendar_rs.calendar_date (calendar_date);
 
 -- generate transformation tables
 -- MTD
