@@ -60,7 +60,6 @@ order by hour_of_day_nbr;
 -- cal_gen.make_minute_of_hour_v
 create or replace view cal_gen.make_minute_of_hour_v as
 with nums as (
-    -- generate 0..59 using any sufficiently large system table
     select (row_number() over (order by true) - 1) as n
     from svv_tables
     limit 60
@@ -74,7 +73,6 @@ order by minute_of_hour_nbr;
 -- cal_gen.make_day_of_month_v
 create or replace view cal_gen.make_day_of_month_v as
 with nums as (
-    -- generate 1..35 using any sufficiently large system table
     select row_number() over (order by true) as day_of_month_nbr
     from svv_tables
     limit 35
@@ -132,198 +130,130 @@ UNION ALL SELECT 3, '3', 'Q3', 'Third Quarter'
 UNION ALL SELECT 4, '4', 'Q4', 'Fourth Quarter'
 ORDER BY quarter_of_year_nbr;
 
--- cal_gen.make_gregorian_year_quarter_v
+-- cal_gen.make_gregorian_year_quarter_v 
 create or replace view cal_gen.make_gregorian_year_quarter_v as
-with year_month as (
-    -- From years and months we derive a date (first day of each month)
-    select
-        y.year_nbr,
-        y.year_code,
-        m.month_of_year_nbr,
-        (y.year_code || '-' ||
-         lpad(m.month_of_year_nbr::text,2,'0') || '-01')::date as first_day_of_month
-    from cal_gen.make_gregorian_year_v y
-    cross join cal_gen.make_gregorian_month_of_year_v m
-    where y.year_nbr between 1000 and 3000
-),
-year_quarter_base as (
-    -- Group every 3 months to get quarter start/end
-    select
-        ym.year_nbr,
-        ym.year_code,
-        ((ym.month_of_year_nbr - 1) / 3 + 1)::smallint as quarter_of_year_nbr,
-        min(ym.first_day_of_month)                      as year_quarter_from_date,
-        -- last day of quarter: first day of next month after last month in quarter minus 1 day
-        dateadd(
-            day,
-            -1,
-            dateadd(month, 1, max(ym.first_day_of_month))
-        )                                               as year_quarter_thru_date
-    from year_month ym
-    group by
-        ym.year_nbr,
-        ym.year_code,
-        ((ym.month_of_year_nbr - 1) / 3 + 1)
-)
 select
-      (yb.year_code || yb.quarter_of_year_nbr::text)::integer     as year_quarter_nbr
-    , (yb.year_code || '-Q' || yb.quarter_of_year_nbr::text)::char(7)
-                                                                 as year_quarter_standard_code
-    , yb.year_nbr::smallint                                       as year_nbr
-    , yb.quarter_of_year_nbr::smallint                            as quarter_of_year_nbr
-    , yb.year_quarter_from_date::date                             as year_quarter_from_date
-    , yb.year_quarter_thru_date::date                             as year_quarter_thru_date
-    , lag((yb.year_code || yb.quarter_of_year_nbr::text)::integer, 1)
-          over (order by yb.year_nbr, yb.quarter_of_year_nbr)     as last_year_quarter_nbr
-    , lag((yb.year_code || yb.quarter_of_year_nbr::text)::integer, 4)
-          over (order by yb.year_nbr, yb.quarter_of_year_nbr)     as last_year_this_quarter_nbr
-from year_quarter_base yb
+      (y.year_code || q.quarter_of_year_nbr::text)::integer          as year_quarter_nbr
+    , (y.year_code || '-Q' || q.quarter_of_year_nbr::text)::char(7)  as year_quarter_standard_code
+    , y.year_nbr::smallint                                            as year_nbr
+    , q.quarter_of_year_nbr::smallint                                 as quarter_of_year_nbr
+    , (y.year_code || case q.quarter_of_year_nbr
+                        when 1 then '-01-01'
+                        when 2 then '-04-01'
+                        when 3 then '-07-01'
+                        when 4 then '-10-01'
+                      end)::date                                      as year_quarter_from_date
+    , (y.year_code || case q.quarter_of_year_nbr
+                        when 1 then '-03-31'
+                        when 2 then '-06-30'
+                        when 3 then '-09-30'
+                        when 4 then '-12-31'
+                      end)::date                                      as year_quarter_thru_date
+    , lag((y.year_code || q.quarter_of_year_nbr::text)::integer, 1)
+          over (order by y.year_nbr, q.quarter_of_year_nbr)          as last_year_quarter_nbr
+    , lag((y.year_code || q.quarter_of_year_nbr::text)::integer, 4)
+          over (order by y.year_nbr, q.quarter_of_year_nbr)          as last_year_this_quarter_nbr
+from cal_gen.make_gregorian_year_v y
+cross join cal_gen.make_gregorian_quarter_of_year_v q
+where y.year_nbr between 1000 and 3000
 order by year_quarter_nbr;
 
--- TODO - load pattern - UNION ALL
 -- cal_gen.make_gregorian_year_month_v 
 create or replace view cal_gen.make_gregorian_year_month_v as
 select
-    year_month_nbr::integer                         as year_month_nbr,
-    year_month_standard_code::char(7)               as year_month_standard_code,
-    month_of_year_nbr::smallint                     as month_of_year_nbr,
-    year_quarter_nbr::integer                       as year_quarter_nbr,
-    year_nbr::smallint                              as year_nbr,
-    year_month_from_date::date                      as year_month_from_date,
-    year_month_thru_date::date                      as year_month_thru_date,
-    lag(year_month_nbr,1)  over (order by year_month_nbr)  as last_year_month_nbr,
-    lag(year_month_nbr,3)  over (order by year_month_nbr)  as last_quarter_this_month_nbr,
-    lag(year_month_nbr,12) over (order by year_month_nbr)  as last_year_this_month_nbr
-from (
-    select
-        (y.year_code || m.month_of_year_code)::integer           as year_month_nbr,
-        (y.year_code || '-' || m.month_of_year_code)::char(7)    as year_month_standard_code,
-        m.month_of_year_nbr                                      as month_of_year_nbr,
-        (y.year_code || m.quarter_of_year_nbr::char(1))::integer as year_quarter_nbr,
-        y.year_nbr                                               as year_nbr,
-
-        -- First day of month
-        (y.year_code || '-' || m.month_of_year_code || '-01')::date
-                                                                as year_month_from_date,
-
-        -- Last day of month: first day of next month minus 1 day (with dateadd)
-        dateadd(
-            day,
-            -1,
-            dateadd(
-                month,
-                1,
-                (y.year_code || '-' || m.month_of_year_code || '-01')::date
-            )
-        )                                                       as year_month_thru_date
-    from cal_gen.make_gregorian_year_v y
-    cross join cal_gen.make_gregorian_month_of_year_v m
-    where y.year_nbr between 1000 and 3000
-) ym
-order by 1;
+      (y.year_code || m.month_of_year_code)::integer                as year_month_nbr
+    , (y.year_code || '-' || m.month_of_year_code)::char(7)         as year_month_standard_code
+    , m.month_of_year_nbr::smallint                                  as month_of_year_nbr
+    , (y.year_code || m.quarter_of_year_nbr::char(1))::integer       as year_quarter_nbr
+    , y.year_nbr::smallint                                           as year_nbr
+    , (y.year_code || '-' || m.month_of_year_code || '-01')::date    as year_month_from_date
+    , dateadd(day, -1,
+        dateadd(month, 1,
+          (y.year_code || '-' || m.month_of_year_code || '-01')::date
+        )
+      )                                                              as year_month_thru_date
+    , lag((y.year_code || m.month_of_year_code)::integer,  1)
+          over (order by y.year_code, m.month_of_year_nbr)          as last_year_month_nbr
+    , lag((y.year_code || m.month_of_year_code)::integer,  3)
+          over (order by y.year_code, m.month_of_year_nbr)          as last_quarter_this_month_nbr
+    , lag((y.year_code || m.month_of_year_code)::integer, 12)
+          over (order by y.year_code, m.month_of_year_nbr)          as last_year_this_month_nbr
+from cal_gen.make_gregorian_year_v y
+cross join cal_gen.make_gregorian_month_of_year_v m
+where y.year_nbr between 1000 and 3000
+order by year_month_nbr;
 
 -- cal_gen.make_calendar_date_v
 create or replace view cal_gen.make_calendar_date_v as
-with
--- Day generator between 1000‑01‑01 and 3000‑12‑31
-nums as (
-    select 0 as n
-    union all select 1
+with nums as (
+    select 0 as n 
+    union all select 1 
     union all select 2
-    union all select 3
-    union all select 4
+    union all select 3 
+    union all select 4 
     union all select 5
-    union all select 6
-    union all select 7
+    union all select 6 
+    union all select 7 
     union all select 8
     union all select 9
 ),
-seq as (
-    -- 10^5 = 100,000 days, enough for range 1000‑3000
-    select
-        row_number() over (order by 1) - 1 as day_offset
+dates as (
+    select dateadd(day, (a.n * 10000 + b.n * 1000 + c.n * 100 + d.n * 10 + e.n), date '1000-01-01') as calendar_date
     from nums a
     cross join nums b
     cross join nums c
     cross join nums d
     cross join nums e
-),
-dates as (
-    select
-        (date '1000-01-01' + day_offset) as calendar_date
-    from seq
-    where (date '1000-01-01' + day_offset) <= date '3000-12-31'
-),
-ymd as (
-    select
-          d.calendar_date
-        , date_part('year',  d.calendar_date)::int  as year_nbr
-        , date_part('month', d.calendar_date)::int  as month_of_year_nbr
-from dates d
+    where dateadd(day, (a.n * 10000 + b.n * 1000 + c.n * 100 + d.n * 10 + e.n), date '1000-01-01') <= date '3000-12-31'
 )
 select
-      ymd.calendar_date
-    , (((date_part('dow', ymd.calendar_date) + 6) % 7) + 1)::smallint         as day_of_week_iso_nbr
-    , date_part('week', ymd.calendar_date)::smallint                          as week_of_year_nbr
-    , (
-          to_char(ymd.calendar_date, 'YYYY') ||
-          lpad(date_part('week', ymd.calendar_date)::int::varchar(2), 2, '0')
-      )::integer                                                              as year_week_nbr
+      d.calendar_date
+    , (((date_part('dow', d.calendar_date)::int + 6) % 7) + 1)::smallint      as day_of_week_iso_nbr
+    , date_part('week', d.calendar_date)::smallint                             as week_of_year_nbr
+    , (to_char(d.calendar_date, 'IYYY') ||
+       lpad(to_char(d.calendar_date, 'IW'), 2, '0'))::integer                 as year_week_nbr
     , m.year_month_nbr
     , m.year_quarter_nbr
-    , ymd.year_nbr
-    , lead(ymd.calendar_date, 1) over (order by ymd.calendar_date desc)       as yesterday_date
-    , dateadd('week',  -1, ymd.calendar_date)::date                           as this_day_last_week
-    , dateadd('month', -1, ymd.calendar_date)::date                           as this_day_last_month
-    , dateadd('month', -3, ymd.calendar_date)::date                           as this_day_last_quarter
-    , dateadd('year',  -1, ymd.calendar_date)::date                           as this_day_last_year
-from ymd
+    , date_part('year', d.calendar_date)::smallint                             as year_nbr
+    , dateadd(day,   -1, d.calendar_date)::date                                as yesterday_date
+    , dateadd(week,  -1, d.calendar_date)::date                                as this_day_last_week
+    , dateadd(month, -1, d.calendar_date)::date                                as this_day_last_month
+    , dateadd(month, -3, d.calendar_date)::date                                as this_day_last_quarter
+    , dateadd(year,  -1, d.calendar_date)::date                                as this_day_last_year
+from dates d
 left join cal_gen.make_gregorian_year_month_v m
-  on  m.year_nbr          = ymd.year_nbr
-  and m.month_of_year_nbr = ymd.month_of_year_nbr
-order by ymd.calendar_date;
+  on  date_part('year',  d.calendar_date)::int = m.year_nbr
+  and date_part('month', d.calendar_date)::int = m.month_of_year_nbr
+order by d.calendar_date;
 
 -- cal_gen.make_year_week_v
 create or replace view cal_gen.make_year_week_v as
-with base as (
-    select
-          calendar_date
-        , extract(week from calendar_date)::smallint              as week_of_year_nbr
-        , extract(year from calendar_date)::smallint              as year_nbr
-        , (
-              to_char(calendar_date, 'YYYY') ||
-              lpad(extract(week from calendar_date)::varchar(2), 2, '0')
-          )::integer                                              as year_week_nbr
-    from cal_gen.make_calendar_date_v
-    where calendar_date between date '1000-01-01' and date '3000-12-31'
-)
 select
-      b.year_week_nbr                                            as year_week_nbr
-    , max(b.week_of_year_nbr)                                    as week_of_year_nbr
-    , max(b.year_nbr)                                            as year_nbr
-    , max(
-          to_char(b.year_nbr, 'FM0000') || '-W' ||
-          lpad(b.week_of_year_nbr::varchar(2), 2, '0')
-      )::char(8)                                                 as year_week_std_cd
-    , min(b.calendar_date)                                       as week_from_dt
-    , max(b.calendar_date)                                       as week_thru_dt
-from base b
-group by b.year_week_nbr
-order by b.year_week_nbr;
+      year_week_nbr
+    , max(week_of_year_nbr)::smallint                                as week_of_year_nbr
+    , max(substring(year_week_nbr::varchar(6), 1, 4))::smallint      as year_nbr
+    , max(substring(year_week_nbr::varchar(6), 1, 4) || '-W' ||
+          substring(year_week_nbr::varchar(6), 5, 2))::char(8)       as year_week_std_cd
+    , min(calendar_date)::date                                        as week_from_dt
+    , max(calendar_date)::date                                        as week_thru_dt
+from cal_gen.make_calendar_date_v
+where year_nbr between 1000 and 3000
+group by year_week_nbr
+order by year_week_nbr;
 
 -- cal_gen.make_calendar_date_hour_min_v
 create or replace view cal_gen.make_calendar_date_hour_min_v as
 select
-    (d.calendar_date::timestamp
-        + (h.hour_of_day_nbr * interval '1 hour')
-        + (m.minute_of_hour_nbr * interval '1 minute')) as calendar_timestamp,
-    d.calendar_date,
-    h.hour_of_day_nbr,
-    h.hour_of_day_code,
-    h.hour_of_day_time,
-    h.period_code,
-    m.minute_of_hour_nbr,
-    m.minute_of_hour_code
+      dateadd(minute, m.minute_of_hour_nbr,
+        dateadd(hour, h.hour_of_day_nbr, d.calendar_date::timestamp)
+      )                                                          as calendar_timestamp
+    , d.calendar_date
+    , h.hour_of_day_nbr
+    , h.hour_of_day_code
+    , h.hour_of_day_time
+    , h.period_code
+    , m.minute_of_hour_nbr
+    , m.minute_of_hour_code
 from cal_gen.make_calendar_date_v d
 cross join cal_gen.make_hour_of_day_v h
 cross join cal_gen.make_minute_of_hour_v m
