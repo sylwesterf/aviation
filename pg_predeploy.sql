@@ -14,16 +14,16 @@ CREATE DATABASE aviation OWNER aviation;
 -- 1. create schemas
 CREATE SCHEMA IF NOT EXISTS air_oai_facts;
 CREATE SCHEMA IF NOT EXISTS air_oai_dims;
-CREATE SCHEMA IF NOT EXISTS airlines_pg;
+CREATE SCHEMA IF NOT EXISTS airlines_rs;
 CREATE SCHEMA IF NOT EXISTS cal_gen;
-CREATE SCHEMA IF NOT EXISTS calendar_pg;
+CREATE SCHEMA IF NOT EXISTS calendar_rs;
 CREATE SCHEMA IF NOT EXISTS geography;
 
 comment on schema air_oai_dims is 'Dimension data tables and associated foreign tables for processing OAI dimension data.';
 comment on schema air_oai_facts is 'Fact data and associated foreign tables and materialized views for processing OAI fact data.';
-comment on schema airlines_pg is 'Views that simplify the presentation of schemata like air_ for analysis tools, such as Strategy.';
+comment on schema airlines_rs is 'Views that simplify the presentation of schemata like air_ for analysis tools, such as Strategy.';
 comment on schema cal_gen is 'Gregorian calendar generation views to be able to adjust data time frame in calendar schema.';
-comment on schema calendar_pg is 'Gregorian calendar data as well as time transformation for ROLAP analysis.';
+comment on schema calendar_rs is 'Gregorian calendar data as well as time transformation for ROLAP analysis.';
 comment on schema geography is 'geo-political dimension and spatial data in support of aviation analysis.';
 
 -- verify default role
@@ -38,7 +38,7 @@ IAM_ROLE default;
 select * from test;
 drop table test;
 
--- 2. create pg metadata views
+-- 2. create rs metadata views
 -- database_schema_descriptions_v
 CREATE OR REPLACE VIEW database_schema_descriptions_v 
 AS  

@@ -663,15 +663,15 @@ FOREIGN KEY (arrive_airport_history_key) REFERENCES air_oai_dims.airport_history
 
 -- 58. create presentation layer views
 --aircraft_configurations_v
---drop view if exists airlines_pg.aircraft_configurations_v;
-CREATE OR REPLACE VIEW airlines_pg.aircraft_configurations_v AS
+--drop view if exists airlines_rs.aircraft_configurations_v;
+CREATE OR REPLACE VIEW airlines_rs.aircraft_configurations_v AS
 SELECT aircraft_configuration_ref
      , aircraft_configuration_descr
 FROM air_oai_dims.aircraft_configurations;
 
 -- airline_service_classes_v
--- drop view if exists airlines_pg.airline_service_classes_v;
-CREATE OR REPLACE VIEW airlines_pg.airline_service_classes_v AS
+-- drop view if exists airlines_rs.airline_service_classes_v;
+CREATE OR REPLACE VIEW airlines_rs.airline_service_classes_v AS
 SELECT service_class_code
      , scheduled_ind
      , chartered_ind
@@ -679,8 +679,8 @@ SELECT service_class_code
 FROM air_oai_dims.airline_service_classes;
 
 -- airline_traffic_market_v
--- drop view if exists airlines_pg.airline_traffic_market_v;
-CREATE OR REPLACE VIEW airlines_pg.airline_traffic_market_v AS
+-- drop view if exists airlines_rs.airline_traffic_market_v;
+CREATE OR REPLACE VIEW airlines_rs.airline_traffic_market_v AS
 SELECT airline_traffic_market_key
      , year_month_nbr
      , airline_oai_code
@@ -704,8 +704,8 @@ SELECT airline_traffic_market_key
 FROM air_oai_facts.airline_traffic_market;
 
 -- airline_traffic_segment_v
--- drop view if exists airlines_pg.airline_traffic_segment_v;
-CREATE OR REPLACE VIEW airlines_pg.airline_traffic_segment_v AS
+-- drop view if exists airlines_rs.airline_traffic_segment_v;
+CREATE OR REPLACE VIEW airlines_rs.airline_traffic_segment_v AS
 SELECT airline_traffic_segment_key
      , year_month_nbr
      , service_class_code

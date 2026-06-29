@@ -154,8 +154,8 @@ comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_by i
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_ts  is 'audit column, when was this row modified?';
 
 -- 6. create presentation layer views
---  drop view if exists airlines_pg.airframe_and_engine_inventory_annual_v;
-create or replace view airlines_pg.airframe_and_engine_inventory_annual_v as
+--  drop view if exists airlines_rs.airframe_and_engine_inventory_annual_v;
+create or replace view airlines_rs.airframe_and_engine_inventory_annual_v as
 select inventory_key
 	, airline_entity_id
 	, airline_entity_key
@@ -177,8 +177,8 @@ select inventory_key
 	, capacity_lbr
 from air_oai_dims.airframe_and_engine_inventory_annual;
 
--- drop view if exists airlines_pg.airline_aircraft_by_tail_v;
-create or replace view airlines_pg.airline_aircraft_by_tail_v as 
+-- drop view if exists airlines_rs.airline_aircraft_by_tail_v;
+create or replace view airlines_rs.airline_aircraft_by_tail_v as 
 select airline_entity_id,
        max(airline_entity_key)       as airline_entity_key,   -- Latest airline entity key
        max(airline_oai_code)         as airline_oai_code,     -- Airline OAI code
