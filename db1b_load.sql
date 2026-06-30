@@ -11,22 +11,18 @@
 --  1.1. create table air_oai_facts.airfare_survey_ticket_load to stage the data
 --  1.2. ingest ticket csv data
 --  1.3. create fact table air_oai_facts.airfare_survey_itinerary
---  1.4. call partitioning SP for ticket data
---  1.5. insert data into fact table
+--  1.4. insert data into fact table
 -- 2. process DB1B Coupon data
 --  2.1. create table air_oai_facts.airfare_survey_coupon_load to stage the data
 --  2.2. ingest coupon csv data
 --  2.3. create air_oai_facts.airfare_survey_coupon
---  2.4. call partitioning SP for coupon data
---  2.5. insert data into fact table
+--  2.4. insert data into fact table
 -- 3. process DB1B Market data
 --  3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
 --  3.2. ingest market csv data
 --  3.3. create table airfare_survey_market
---  3.4. call partitioning SP for market data
---  3.5. insert data into fact table
--- 4. add keys and indexes
--- 5. create presentation layer views
+--  3.4. insert data into fact table
+-- 4. create presentation layer views
 ----------------------------------------------------
 
 -- 1. process DB1B Ticket data
@@ -63,19 +59,27 @@ CREATE TABLE air_oai_facts.airfare_survey_ticket_load
 );
  
 -- 1.2. ingest ticket csv data (Redshift COPY from S3)
+-- single file:
+--COPY air_oai_facts.airfare_survey_ticket_load
+--FROM 's3://src-aviation/DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2025_1.csv.gz'
+--IAM_ROLE default
+--CSV GZIP
+--DELIMITER ','
+--IGNOREHEADER 1 
+--REGION 'us-west-2'
+--FILLRECORD;
+
+-- multiple files 
 COPY air_oai_facts.airfare_survey_ticket_load
 FROM 's3://src-aviation/DB1B/ticket/CSV/'
 IAM_ROLE default
-FORMAT AS CSV
+CSV GZIP
 DELIMITER ','
 IGNOREHEADER 1
-GZIP
 REGION 'us-west-2'
 FILLRECORD;
  
--- 1.3. create fact table air_oai_facts.airfare_survey_itinerary -- ASK
--- Redshift has no table partitioning; PARTITION BY RANGE replaced with SORTKEY. -- ASK
--- DEFAULT expressions removed; created_by / created_tmst supplied by the insert in 1.5.
+-- 1.3. create fact table air_oai_facts.airfare_survey_itinerary 
 DROP TABLE IF EXISTS air_oai_facts.airfare_survey_itinerary;
 CREATE TABLE air_oai_facts.airfare_survey_itinerary
 (
@@ -104,16 +108,8 @@ CREATE TABLE air_oai_facts.airfare_survey_itinerary
 	, updated_tsmt 									timestamp
 	, constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
 )
-diststyle key
-distkey (itinerary_oai_id)
-sortkey (year_quarter_start_date);
  
--- 1.4. (removed) create_quarter_partitions -- ASK
--- Redshift has no partitions; the SORTKEY on year_quarter_start_date in 1.3 --  ASK
--- provides the time-range pruning the Aurora partitioning was for. --  ASK
--- No equivalent call is needed.
- 
--- 1.5. insert data into fact table
+-- 1.4. insert data into fact table
 INSERT INTO air_oai_facts.airfare_survey_itinerary
 (
 	  itinerary_oai_id
@@ -219,21 +215,27 @@ CREATE TABLE air_oai_facts.airfare_survey_coupon_load
 );
  
 -- 2.2. ingest coupon csv data (Redshift COPY from S3)
--- Replace <account-id> and <your-redshift-role> with your cluster's IAM role.
--- FILLRECORD pads the trailing 'filler' column for files that omit it.
+-- single file:
+--COPY air_oai_facts.airfare_survey_coupon_load
+--FROM 's3://src-aviation/DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2025_1.csv.gz'
+--IAM_ROLE default
+--CSV GZIP
+--DELIMITER ','
+--IGNOREHEADER 1 
+--REGION 'us-west-2'
+--FILLRECORD;
+
+-- multiple files 
 COPY air_oai_facts.airfare_survey_coupon_load
 FROM 's3://src-aviation/DB1B/coupon/CSV/'
 IAM_ROLE default
-FORMAT AS CSV
+CSV GZIP
 DELIMITER ','
 IGNOREHEADER 1
-GZIP
 REGION 'us-west-2'
 FILLRECORD;
  
 -- 2.3. create fact table air_oai_facts.airfare_survey_coupon
--- Redshift has no table partitioning; PARTITION BY RANGE replaced with SORTKEY.
--- DEFAULT expressions removed; created_by / created_tmst supplied by the insert in 2.5.
 DROP TABLE IF EXISTS air_oai_facts.airfare_survey_coupon;
 CREATE TABLE air_oai_facts.airfare_survey_coupon
 (
@@ -268,14 +270,6 @@ CREATE TABLE air_oai_facts.airfare_survey_coupon
 	, updated_tsmt 						timestamp
 	, constraint airfare_survey_coupon_pk primary key (itinerary_oai_id, flight_pass_seq, year_quarter_start_date)
 )
-diststyle key
-distkey (itinerary_oai_id)
-sortkey (year_quarter_start_date);
- 
--- 2.4. (removed) create_quarter_partitions
--- Redshift has no partitions; the SORTKEY on year_quarter_start_date in 2.3
--- provides the time-range pruning the Aurora partitioning was for.
--- No equivalent call is needed.
  
 -- 2.5. insert data into fact table
 INSERT INTO air_oai_facts.airfare_survey_coupon
@@ -455,9 +449,19 @@ CREATE TABLE air_oai_facts.airfare_survey_market_load
 	, market_geograhic_type_oai_id      integer
 	, filler							varchar(10)
 );
+
 -- 3.2. ingest market csv data (Redshift COPY from S3)
--- Replace <account-id> and <your-redshift-role> with your cluster's IAM role.
--- FILLRECORD pads the trailing 'filler' column for files that omit it.
+-- single file:
+--COPY air_oai_facts.airfare_survey_market_load
+--FROM 's3://src-aviation/DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2024_2.csv.gz'
+--IAM_ROLE default
+--CSV GZIP
+--DELIMITER ','
+--IGNOREHEADER 1 
+--REGION 'us-west-2'
+--FILLRECORD;
+
+-- multiple files 
 COPY air_oai_facts.airfare_survey_market_load
 FROM 's3://src-aviation/DB1B/market/CSV/'
 IAM_ROLE default
@@ -469,8 +473,6 @@ REGION 'us-west-2'
 FILLRECORD;
 
 -- 3.3. create fact table
--- Redshift has no table partitioning; PARTITION BY RANGE replaced with SORTKEY.
--- DEFAULT expressions removed; created_by / created_tmst supplied by the insert in 3.5.
 DROP TABLE IF EXISTS air_oai_facts.airfare_survey_market;
 CREATE TABLE air_oai_facts.airfare_survey_market
 (
@@ -510,14 +512,6 @@ CREATE TABLE air_oai_facts.airfare_survey_market
 	, updated_tsmt 						timestamp
 	, constraint airfare_survey_market_pk primary key (itinerary_oai_id, market_oai_id, year_quarter_start_date)
 )
-diststyle key
-distkey (itinerary_oai_id)
-sortkey (year_quarter_start_date);
-
--- 3.4. (removed) create_quarter_partitions
--- Redshift has no partitions; the SORTKEY on year_quarter_start_date in 3.3
--- provides the time-range pruning the Aurora partiioning was for.
--- No equivalent call is needed.
 
 -- 3.5. insert data into fact table
 INSERT INTO air_oai_facts.airfare_survey_market
@@ -609,12 +603,7 @@ where  agq.year_quarter_from_date between aet.source_from_date and coalesce(aet.
   AND agq.year_quarter_from_date between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
   AND agq.year_quarter_from_date between aer.source_from_date and coalesce(aer.source_thru_date, current_date);
 
--- 4. create extra primary key and indexes // TO REVIEW, INDEX NO SUPPORT
--- create index airfare_survey_itinerary_reporting_carrier_idx on air_oai_facts.airfare_survey_itinerary (reporting_airline_entity_id);
--- create index airfare_survey_itinerary_origin_airport_idx on air_oai_facts.airfare_survey_itinerary (depart_airport_history_id);
--- create index airfare_survey_itinerary_year_quarter_idx on air_oai_facts.airfare_survey_itinerary (year_quarter_start_date);
-
--- 5. create presentation layer views
+-- 4. create presentation layer views
 create or replace view airlines_rs.airfare_survey_itinerary_v as
 SELECT itinerary_oai_id, year_quarter_start_date, year_quarter_nbr
 	, reporting_airline_entity_id, reporting_airline_entity_key
