@@ -24,7 +24,7 @@
 -- 6. create presentation layer views
 ----------------------------------------------------
 
--- 1. define a table we'll be copying the data to (alternatively use one of the FDW extension)
+-- 1. define a table we'll be copying the data to
 drop table if exists air_oai_facts.airline_flight_performance_fdw cascade;
 CREATE TABLE air_oai_facts.airline_flight_performance_fdw
 (
@@ -141,20 +141,23 @@ CREATE TABLE air_oai_facts.airline_flight_performance_fdw
 );
 
 -- 2. copy OTP data into air_oai_facts.airline_flight_performance_fdw
--- 2.1. mstr psql version of the data load
--- for x in $(ls /tmp/otp/*.csv); do mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_facts.airline_flight_performance_fdw FROM '$x' CSV HEADER"; done;
--- 2.2. AWS Aurora data load - one file
--- SELECT aws_s3.table_import_from_s3('air_oai_facts.airline_flight_performance_fdw', '', '(FORMAT CSV, HEADER true)', aws_commons.create_s3_uri('src-aviation', '/OTP/CSV/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_1987_10.csv.gz', 'us-west-2'));
--- 2.3. AWS Aurora data load - mutliple files via manifest
-CALL import_data_from_manifest(
-    0, 
-    'air_oai_facts.airline_flight_performance_fdw',  	-- target_table
-    'OTP/manifest_otp.csv',      						-- manifest_file
-    'src-aviation',                              		-- source_bucket
-    'us-west-2',                                 		-- region
-    '(FORMAT CSV, DELIMITER '','', HEADER)'      		-- format_options
-	,3 													-- max_files_to_import 
-);
+-- single file:
+--COPY air_oai_facts.airline_flight_performance_fdw
+--FROM 's3://src-aviation/OTP/CSV/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2025_4.csv.gz'
+--IAM_ROLE default
+--CSV GZIP
+--DELIMITER ','
+--IGNOREHEADER 1 
+--REGION 'us-west-2'
+
+-- multiple files 
+COPY air_oai_facts.airline_flight_performance_fdw
+FROM 's3://src-aviation/OTP/CSV/'
+IAM_ROLE default
+CSV GZIP
+DELIMITER ','
+IGNOREHEADER 1
+REGION 'us-west-2';
 
 -- 3.1. define materialized view for initial data quality work (removed spaces)
 drop materialized view if exists air_oai_facts.airline_flight_performance_mv cascade;
@@ -262,11 +265,6 @@ select flight_date
 	        else diverted5_wheels_off_time_lcl end::char(4) as diverted5_wheels_off_time_lcl
 	 , diverted5_tail_nbr
 from air_oai_facts.airline_flight_performance_fdw; 
-
--- improve performance on table joins
-create index airline_flight_performance_mv_depart_airport_idx on air_oai_facts.airline_flight_performance_mv (depart_airport_oai_code);
-create index airline_flight_performance_mv_arrive_airport_idx on air_oai_facts.airline_flight_performance_mv (arrive_airport_oai_code);
-create index airline_flight_performance_mv_flight_date_idx on air_oai_facts.airline_flight_performance_mv (flight_date);
 
 -- 3.2. define a "final" materialized view with some data transformations (timezone, data types)
 -- we'll load the data into individual fact tables from our materialized view 
