@@ -87,10 +87,9 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_market_archive
 COPY air_oai_facts.f41_traffic_t100_market_archive
 FROM 's3://src-aviation/T100/market/CSV/'
 IAM_ROLE default
-FORMAT AS CSV
+CSV GZIP
 DELIMITER ','
 IGNOREHEADER 1
-GZIP
 REGION 'us-west-2';
 
 -- 1.3. create a materialized view to transform the data
@@ -289,15 +288,11 @@ CREATE TABLE air_oai_facts.f41_traffic_t100_segment_archive
 -- 2.2. stage t100 segment csv data (Redshift COPY from S3)
 COPY air_oai_facts.f41_traffic_t100_segment_archive
 FROM 's3://src-aviation/T100/segment/CSV/'
-IAM_ROLE 'arn:aws:iam::<account-id>:role/<your-redshift-role>'
-FORMAT AS CSV
+IAM_ROLE default
+CSV GZIP
 DELIMITER ','
 IGNOREHEADER 1
-GZIP
 REGION 'us-west-2';
-
--- to load data with and withoud 'filler_txt' column -- 13.512.137 rows.
--- ALTER TABLE air_oai_facts.f41_traffic_t100_segment_archive DROP COLUMN filler_txt;
 
 -- 	2.3. create a materialized view to transform the data (air_oai_facts.f41_traffic_t100_segment_load_mv)
 DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.f41_traffic_t100_segment_load_mv;
@@ -550,7 +545,7 @@ CREATE TABLE air_oai_dims.aircraft_configurations
   , updated_by                  CHAR(32)
   , updated_tmst                TIMESTAMP
 )
-DISTSTYLE EVEN;
+DISTSTYLE ALL;
 
 INSERT INTO air_oai_dims.aircraft_configurations
 SELECT f.aircraft_configuration_ref
@@ -582,7 +577,7 @@ CREATE TABLE air_oai_dims.airline_service_classes
   , updated_by            CHAR(32)
   , updated_tmst          TIMESTAMP
 )
-DISTSTYLE EVEN;
+DISTSTYLE ALL;
 
 INSERT INTO air_oai_dims.airline_service_classes
 SELECT f.service_class_code
