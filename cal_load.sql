@@ -9,7 +9,7 @@
 -- 1. Create cal_gen views that generate information about all date/time parts
 -- cal_gen.make_gregorian_year_v
 -- generate numbers temp table for use in views below
-CREATE TEMP TABLE cal_gen_numbers AS
+CREATE TABLE cal_gen_numbers AS
 SELECT row_number() OVER (ORDER BY true) - 1 AS n
 FROM svv_tables
 LIMIT 3001;
