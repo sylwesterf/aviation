@@ -560,10 +560,8 @@ FROM (
 WHERE air_oai_dims.airport_history.airport_history_id = sub.airport_history_id
   AND air_oai_dims.airport_history.time_zone_name IS NULL;
 
-----------------------------------------------------
--- 5. create aircraft types group lookup 
-----------------------------------------------------
 
+ --5. create aircraft types group lookup 
 -- 5.1. create air_oai_dims.aircraft_type_groups
 drop table if exists air_oai_dims.aircraft_type_groups;
 create table air_oai_dims.aircraft_type_groups
