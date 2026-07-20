@@ -28,7 +28,7 @@ select
     , (year_cd || '-01-01')::date                   as year_from_date
     , (year_cd || '-12-31')::date                   as year_thru_date
     , (year_cd || '-12-31')::date
-        - (year_cd || '-01-01')::date               as day_qty
+        - (year_cd || '-01-01')::date + 1           as day_qty  
     , lag(year_nbr, 1) over (order by year_nbr)     as last_year_nbr
 from (
     select
