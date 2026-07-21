@@ -15,11 +15,11 @@ Of these many options for MSTR customers, we have selected a few that are popula
 * As time permits, we might try some advanced options, like a graph database (Neo4J?)
 
 PostgreSQL execution order:
-1. **pg_predeploy.sql** - creates database, schemas and auxiliary views and stored procedures
-2. **fin_load.sql** - generates date hierarchy tables (no source files)
+1. **rs_predeploy.sql** - creates database, schemas and auxiliary views and stored procedures
+2. **cal_load.sql** - generates date hierarchy tables (no source files)
 3. **dim_load.sql** - creates and populates dimension tables
 4. **fin_load.sql** - extra dimension table data load
 5. **otp_load.sql** - loads Reporting Carrier On-Time Performance (OTP) data
 6. **db1b_load.sql** - loads Airline Origin and Destination Survey (DB1B) data
 7. **t100_load.sql** - loads Air Carrier Statistics (Form 41 Traffic) (T100) data
-8. **pg_postdeploy.sql** - clean-up, maintenance and data validation
+8. **rs_postdeploy.sql** - clean-up, maintenance and data validation
