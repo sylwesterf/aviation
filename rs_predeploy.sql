@@ -29,7 +29,7 @@ comment on schema geography is 'geo-political dimension and spatial data in supp
 -- verify default role
 select default_iam_role();
 -- test the copy data command
-create table test (id int, descr varchar(10));
+create table if not exists test (id int, descr varchar(10));
 COPY test
 FROM 's3://src-aviation/test/test_file_1.csv'
 FORMAT CSV
@@ -113,6 +113,7 @@ ogr2ogr -f CSV timezone_simplified.csv combined-shapefile-with-oceans.shp -simpl
 # upload to S3 bucket
 */
 
+drop table if exists public.timezone_boundaries;
 CREATE TABLE public.timezone_boundaries (
     geom GEOMETRY
 	, tzid VARCHAR(100)
