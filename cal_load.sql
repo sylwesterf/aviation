@@ -28,17 +28,16 @@ from (
 -- cal_gen.make_hour_of_day_v;
 create or replace view cal_gen.make_hour_of_day_v as
 select 
-      column1::integer as hour_of_day_nbr
-    , column2::char(2) as hour_of_day_code
-    , (column2 || ':00')::time as hour_of_day_time
-    , column3::char(2) as period_code
+      col0::integer as hour_of_day_nbr
+    , col1::char(2) as hour_of_day_code
+    , (col1 || ':00')::time as hour_of_day_time
+    , col2::char(2) as period_code
 from (values 
      (0,'00','am'),(1,'01','am'),(2,'02','am'),(3,'03','am'),(4,'04','am'),(5,'05','am'),
      (6,'06','am'),(7,'07','am'),(8,'08','am'),(9,'09','am'),(10,'10','am'),(11,'11','am'),
      (12,'12','pm'),(13,'13','pm'),(14,'14','pm'),(15,'15','pm'),(16,'16','pm'),(17,'17','pm'),
      (18,'18','pm'),(19,'19','pm'),(20,'20','pm'),(21,'21','pm'),(22,'22','pm'),(23,'23','pm')
 ) hod;
-
 -- cal_gen.make_minute_of_hour_v;
 create or replace view cal_gen.make_minute_of_hour_v as
 select 
@@ -56,13 +55,13 @@ from range(1, 32);
 -- cal_gen.make_gregorian_month_of_year_v;
 create or replace view cal_gen.make_gregorian_month_of_year_v as
 select 
-      column1::smallint as month_of_year_nbr
-    , column2::char(2) as month_of_year_code
-    , column3::smallint as quarter_of_year_nbr
-    , column4::smallint as standard_year_day_qty
-    , column5::smallint as leap_year_day_qty
-    , column6::char(3) as month_of_year_abbr
-    , column7::varchar as month_of_year_name
+      col0::smallint as month_of_year_nbr
+    , col1::char(2) as month_of_year_code
+    , col2::smallint as quarter_of_year_nbr
+    , col3::smallint as standard_year_day_qty
+    , col4::smallint as leap_year_day_qty
+    , col5::char(3) as month_of_year_abbr
+    , col6::varchar as month_of_year_name
 from (values 
   (1,'01',1,31,31,'Jan','January'),
   (2,'02',1,28,29,'Feb','February'),
@@ -81,11 +80,11 @@ from (values
 -- cal_gen.make_day_of_week_v;
 create or replace view cal_gen.make_day_of_week_v as
 select 
-      column2::smallint as day_of_week_iso_nbr
-    , column1::smallint as day_of_week_common_nbr
-    , column3::smallint as day_of_week_pgsql_nbr
-    , column4::char(3) as day_of_week_abbr
-    , column5::varchar as day_of_week_name_eng
+      col1::smallint as day_of_week_iso_nbr
+    , col0::smallint as day_of_week_common_nbr
+    , col2::smallint as day_of_week_pgsql_nbr
+    , col3::char(3) as day_of_week_abbr
+    , col4::varchar as day_of_week_name_eng
 from (values
   (1,7,0,'Sun','Sunday'),
   (2,1,1,'Mon','Monday'),
@@ -99,10 +98,10 @@ from (values
 -- cal_gen.make_gregorian_quarter_of_year_v;
 create or replace view cal_gen.make_gregorian_quarter_of_year_v as
 select 
-      column1::smallint as quarter_of_year_nbr
-    , column2::char(1) as quarter_of_year_code
-    , column3::char(2) as quarter_of_year_abbr
-    , column4::varchar as quarter_of_year_name
+      col0::smallint as quarter_of_year_nbr
+    , col1::char(1) as quarter_of_year_code
+    , col2::char(2) as quarter_of_year_abbr
+    , col3::varchar as quarter_of_year_name
 from (values
   (1,'1','Q1','First Quarter'),
   (2,'2','Q2','Second Quarter'),
@@ -257,15 +256,15 @@ set variable end_year = 2090;
 create table if not exists calendar_ddb.day_of_week as select * from cal_gen.make_day_of_week_v;
 create table if not exists calendar_ddb.gregorian_month_of_year as select * from cal_gen.make_gregorian_month_of_year_v;
 create table if not exists calendar_ddb.gregorian_quarter_of_year as select * from cal_gen.make_gregorian_quarter_of_year_v;
-create table if not exists calendar_ddb.gregorian_year as select * from cal_gen.make_gregorian_year_v where year_nbr between get_variable('start_year') and get_variable('end_year'); 
-create table if not exists calendar_ddb.gregorian_year_quarter as select * from cal_gen.make_gregorian_year_quarter_v where year_nbr between get_variable('start_year') and get_variable('end_year'); 
-create table if not exists calendar_ddb.gregorian_year_month as select * from cal_gen.make_gregorian_year_month_v where year_nbr between get_variable('start_year') and get_variable('end_year'); 
-create table if not exists calendar_ddb.year_week as select * from cal_gen.make_year_week_v where year_nbr between get_variable('start_year') and get_variable('end_year'); 
-create table if not exists calendar_ddb.calendar_date as select * from cal_gen.make_calendar_date_v where year_nbr between get_variable('start_year') and get_variable('end_year'); 
+create table if not exists calendar_ddb.gregorian_year as select * from cal_gen.make_gregorian_year_v where year_nbr between getvariable('start_year') and getvariable('end_year'); 
+create table if not exists calendar_ddb.gregorian_year_quarter as select * from cal_gen.make_gregorian_year_quarter_v where year_nbr between getvariable('start_year') and getvariable('end_year'); 
+create table if not exists calendar_ddb.gregorian_year_month as select * from cal_gen.make_gregorian_year_month_v where year_nbr between getvariable('start_year') and getvariable('end_year'); 
+create table if not exists calendar_ddb.year_week as select * from cal_gen.make_year_week_v where year_nbr between getvariable('start_year') and getvariable('end_year'); 
+create table if not exists calendar_ddb.calendar_date as select * from cal_gen.make_calendar_date_v where year_nbr between getvariable('start_year') and getvariable('end_year'); 
 create table if not exists calendar_ddb.hour_of_day as select * from cal_gen.make_hour_of_day_v;
 create table if not exists calendar_ddb.minute_of_hour as select * from cal_gen.make_minute_of_hour_v;
-create table if not exists calendar_ddb.calendar_date_hour_min as select * from cal_gen.make_calendar_date_hour_min_v where date_part('year', calendar_date) between get_variable('start_year') and get_variable('end_year'); 
-create table if not exists calendar_ddb.calendar_date_hour as select * from cal_gen.make_calendar_date_hour_v where date_part('year', calendar_date) between get_variable('start_year') and get_variable('end_year'); 
+create table if not exists calendar_ddb.calendar_date_hour_min as select * from cal_gen.make_calendar_date_hour_min_v where date_part('year', calendar_date) between getvariable('start_year') and getvariable('end_year'); 
+create table if not exists calendar_ddb.calendar_date_hour as select * from cal_gen.make_calendar_date_hour_v where date_part('year', calendar_date) between getvariable('start_year') and getvariable('end_year'); 
 
 -- add keys to calendar tables
 -- primary keys
