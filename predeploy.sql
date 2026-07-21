@@ -46,31 +46,25 @@ DROP TABLE test;
 -- database_schema_descriptions_v
 CREATE OR REPLACE VIEW database_schema_descriptions_v AS  
 SELECT 
-    schema_oid AS schema_oid,
-    schema_name AS schema_name,
-    -- DuckDB tables store data columnarly; rough approximations can be pulled from disk tracking
-    0.0000::NUMERIC(12,4) AS sum_object_size_mb,
-    0.0000::NUMERIC(12,4) AS sum_index_size_mb,
-    0.0000::NUMERIC(12,4) AS sum_total_size_mb,
-    ''::VARCHAR AS schema_descr
-FROM duckdb_schemas()
-WHERE schema_name NOT IN ('pg_catalog', 'information_schema', 'main');
+    schema_oid,
+    schema_name,
+    sum(estimated_size)::NUMERIC(12,4) AS sum_total_size_mb
+FROM duckdb_tables() 
+where database_name = 'aviation'
+group by 1,2;
 
 -- database_objects_v
 CREATE OR REPLACE VIEW database_objects_v AS  
 SELECT 
-    database_name AS database_name,
-    schema_name AS schema_name,
+    database_name ,
+    schema_name,
     table_name AS object_name,
-    'aviation'::VARCHAR AS owner_name,
     CASE WHEN internal THEN 'i' ELSE 'r' END AS relkind,
     CASE WHEN temporary THEN 'temp_table' ELSE 'table' END::VARCHAR(10) AS object_type,
-    0.0000::NUMERIC(12,4) AS object_size_mb,
-    0.0000::NUMERIC(12,4) AS index_size_mb,
-    0.0000::NUMERIC(12,4) AS total_size_mb,
-    comment AS object_descr
+    sum(estimated_size)::NUMERIC(12,4) AS sum_total_size_mb 
 FROM duckdb_tables()
-WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
+where database_name = 'aviation'
+group by 1,2,3,4,5
 ORDER BY object_name;
 
 -- 4. native shape file for time zone boundaries
@@ -78,10 +72,18 @@ ORDER BY object_name;
 /*
 In order to process the Flight Performance data, we need a valid time zone name for each airport.
 The dimension table from OAI does not contain this data, so we have to update it using the time zone boundaries. 
-DuckDB's Spatial extension reads shapefiles directly using the GDAL driver. This bypasses shp2pgsql entirely.
+DuckDB's Spatial extension reads shapefiles directly using the GDAL driver.
+
+# download shape file for time zone boundaries
+wget https://github.com/evansiroky/timezone-boundary-builder/releases/download/2023b/timezones-with-oceans.shapefile.zip 
+unzip timezones-with-oceans.shapefile.zip
+
+# upload to S3 bucket
 */
 
-CREATE TABLE timezone_boundaries AS 
-SELECT * FROM ST_Read('combined-shapefile-with-oceans.shp');
+CREATE OR REPLACE TABLE timezone_boundaries AS 
+SELECT * FROM ST_Read('s3://src-aviation/DIMS/CSV/combined-shapefile-with-oceans.shp');
 
-SELECT * FROM timezone_boundaries LIMIT 10;
+select * replace (st_astext(geom) as geom)
+from timezone_boundaries 
+limit 10;
