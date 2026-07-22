@@ -350,55 +350,6 @@ left join air_oai_dims.airport_history aha
 where aq.year_quarter_from_date between aet.source_from_date and coalesce(aet.source_thru_date, current_date)
   AND aq.year_quarter_from_date between aeo.source_from_date and coalesce(aeo.source_thru_date, current_date)
   AND aq.year_quarter_from_date between aer.source_from_date and coalesce(aer.source_thru_date, current_date);
- 
--- 3. process DB1B market data
--- 3.1. create table air_oai_facts.airfare_survey_market_load to stage the data
-DROP TABLE IF EXISTS air_oai_facts.airfare_survey_market_load;
-CREATE TABLE air_oai_facts.airfare_survey_market_load
-(
-	  itinerary_oai_id              	bigint
-	, market_oai_id                		bigint
-	, market_coupon_qty		       		integer
-	, year_nbr                 			integer
-	, quarter_nbr              			integer
-	, depart_airport_oai_id				integer
-	, depart_airport_oai_seq_id			integer
-	, depart_city_market_oai_id			integer
-	, depart_airport_oai_code          	char(3)
-	, depart_country_iso_code        	char(2)
-	, depart_state_fips_code      		char(2)
-	, depart_state_iso_code          	varchar(3)
-	, depart_state_name      			varchar(75)
-	, depart_world_area_oai_id          integer
-	, arrive_airport_oai_id				integer
-	, arrive_airport_oai_seq_id			integer
-	, arrive_city_market_oai_id			integer
-	, arrive_airport_oai_code        	char(3)
-	, arrive_country_iso_code         	char(2)
-	, arrive_state_fips_code        	char(2)
-	, arrive_state_iso_code            	varchar(3)
-	, arrive_state_name       			varchar(75)
-	, arrive_world_area_oai_id          integer
-	, airports_group_oai_code			varchar(255)
-	, world_areas_group_oai_code		varchar(255)
-	, ticketing_airline_change_ind		real
-	, ticketing_airline_group_code		varchar(255)
-	, operating_airline_change_ind		real
-	, operating_airline_group_code		varchar(255)
-	, reporting_airline_oai_code		varchar(3)
-	, ticketing_airline_oai_code		varchar(3)
-	, operating_airline_oai_code		varchar(3)
-	, bulk_fare_ind						real
-	, passenger_qty						real
-	, market_fare_amt_usd				real
-	, market_distance_smi				real
-	, market_distance_group_oai_id		real
-	, market_flown_distance_smi			real
-	, non_stop_distance_smi				real
-	, itinerary_geograhic_type_oai_id   integer
-	, market_geograhic_type_oai_id      integer
-	, filler							varchar(10)
-);
 
 
 -- 3. process DB1B market data
