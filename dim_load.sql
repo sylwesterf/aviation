@@ -23,77 +23,146 @@
 drop table if exists air_oai_dims.aircraft_types;
 create table air_oai_dims.aircraft_types as
 select 
-	aircraft_type_oai_nbr::smallint as aircraft_type_oai_nbr
-	, aircraft_group_oai_nbr::smallint as aircraft_group_oai_nbr
-	, aircraft_oai_type::varchar(55) as aircraft_oai_type
-	, case when manufacturer_name is null then 'GENERIC' else manufacturer_name end::varchar(55) as manufacturer_name
-	, aircraft_type_long_name::varchar(55) as aircraft_type_long_name
-	, aircraft_type_brief_name::varchar(55) as aircraft_type_brief_name
-	, aircraft_type_from_date::date as aircraft_type_from_date
-	, aircraft_type_thru_date::date as aircraft_type_thru_date
-	, current_user::varchar(32) as created_by
-	, current_timestamp::timestamp as created_tmst
-	, null::varchar(32) as updated_by
-	, null::timestamp as updated_tsmt
-from read_csv('s3://src-aviation/DIMS/CSV/T_AIRCRAFT_TYPES.csv');
+      c1::smallint as aircraft_type_oai_nbr
+    , c2::smallint as aircraft_group_oai_nbr
+    , c3::varchar(55) as aircraft_oai_type
+    , case when c4 is null then 'GENERIC' else c4 end::varchar(55) as manufacturer_name
+    , c5::varchar(55) as aircraft_type_long_name
+    , c6::varchar(55) as aircraft_type_brief_name
+    , c7::date as aircraft_type_from_date
+    , c8::date as aircraft_type_thru_date
+    , current_user::varchar(32) as created_by
+    , current_timestamp::timestamp as created_tmst
+    , null::varchar(32) as updated_by
+    , null::timestamp as updated_tsmt
+from read_csv(
+      's3://src-aviation/DIMS/CSV/T_AIRCRAFT_TYPES.csv'
+    , header=true
+    , dateformat='%m/%d/%Y %I:%M:%S %p'
+    , columns={
+          'c1': 'VARCHAR' -- aircraft_type_oai_nbr
+        , 'c2': 'VARCHAR' -- aircraft_group_oai_nbr
+        , 'c3': 'VARCHAR' -- aircraft_oai_type
+        , 'c4': 'VARCHAR' -- manufacturer_name
+        , 'c5': 'VARCHAR' -- aircraft_type_long_name
+        , 'c6': 'VARCHAR' -- aircraft_type_brief_name
+        , 'c7': 'DATE'    -- aircraft_type_from_date
+        , 'c8': 'DATE'    -- aircraft_type_thru_date
+      }
+);
 
 
 -- 2. create and load air_oai_dims.world_areas 
 drop table if exists air_oai_dims.world_areas;
 create table air_oai_dims.world_areas as
 select 
-	world_area_oai_seq_id::integer as world_area_oai_seq_id
-	, md5(world_area_oai_id::varchar ||'~'|| effective_from_date::varchar)::char(32) as world_area_key
-	, world_area_oai_id::smallint as world_area_oai_id
-	, effective_from_date::date as effective_from_date
-	, effective_thru_date::date as effective_thru_date
-	, world_area_latest_ind::smallint as world_area_latest_ind
-	, world_area_name::varchar(125) as world_area_name
-	, world_region_name::varchar(125) as world_region_name
-	, subdivision_iso_code::varchar(10) as subdivision_iso_code
-	, subdivision_fips_code::varchar(10) as subdivision_fips_code
-	, subdivision_name::varchar(75) as subdivision_name
-	, country_iso_code::char(2) as country_iso_code
-	, country_short_name::varchar(75) as country_short_name
-	, country_type_descr::varchar(75) as country_type_descr
-	, sovereign_country_name::varchar(75) as sovereign_country_name
-	, capital_city_name::varchar(75) as capital_city_name
-	, comments_text::varchar(555) as world_area_comments_text
-	, current_user::varchar(32) as created_by
-	, current_timestamp::timestamp as created_tmst
-	, null::varchar(32) as updated_by
-	, null::timestamp as updated_tsmt
-from read_csv('s3://src-aviation/DIMS/CSV/T_WAC_COUNTRY_STATE.csv');
+      c2::integer as world_area_oai_seq_id
+    , md5(c1::varchar ||'~'|| c13::varchar)::char(32) as world_area_key
+    , c1::smallint as world_area_oai_id
+    , c13::date as effective_from_date
+    , c14::date as effective_thru_date
+    , c16::smallint as world_area_latest_ind
+    , c3::varchar(125) as world_area_name
+    , c4::varchar(125) as world_region_name
+    , c10::varchar(10) as subdivision_iso_code
+    , c12::varchar(10) as subdivision_fips_code
+    , c11::varchar(75) as subdivision_name
+    , c9::char(2) as country_iso_code
+    , c5::varchar(75) as country_short_name
+    , c6::varchar(75) as country_type_descr
+    , c8::varchar(75) as sovereign_country_name
+    , c7::varchar(75) as capital_city_name
+    , c15::varchar(555) as world_area_comments_text
+    , current_user::varchar(32) as created_by
+    , current_timestamp::timestamp as created_tmst
+    , null::varchar(32) as updated_by
+    , null::timestamp as updated_tsmt
+from read_csv(
+      's3://src-aviation/DIMS/CSV/T_WAC_COUNTRY_STATE.csv'
+    , header=true
+    , dateformat='%m/%d/%Y %I:%M:%S %p'
+    , columns={
+          'c1': 'VARCHAR'  -- world_area_oai_id
+        , 'c2': 'VARCHAR'  -- world_area_oai_seq_id
+        , 'c3': 'VARCHAR'  -- world_area_name
+        , 'c4': 'VARCHAR'  -- world_region_name
+        , 'c5': 'VARCHAR'  -- country_short_name
+        , 'c6': 'VARCHAR'  -- country_type_descr
+        , 'c7': 'VARCHAR'  -- capital_city_name
+        , 'c8': 'VARCHAR'  -- sovereign_country_name
+        , 'c9': 'VARCHAR'  -- country_iso_code
+        , 'c10': 'VARCHAR' -- subdivision_iso_code
+        , 'c11': 'VARCHAR' -- subdivision_name
+        , 'c12': 'VARCHAR' -- subdivision_fips_code
+        , 'c13': 'DATE'    -- effective_from_date
+        , 'c14': 'DATE'    -- effective_thru_date
+        , 'c15': 'VARCHAR' -- comments_text
+        , 'c16': 'VARCHAR' -- world_area_latest_ind
+      }
+);
 
 
 -- 3. create and load air_oai_dims.airline_entities 
 drop table if exists air_oai_dims.airline_entities;
 create table air_oai_dims.airline_entities as
 with raw_data as (
-    select * from read_csv('s3://src-aviation/DIMS/CSV/T_CARRIER_DECODE.csv')
+    select 
+          c1::smallint as airline_usdot_id
+        , c2::varchar(10) as airline_oai_code
+        , c3::varchar(10) as entity_oai_code
+        , c4::varchar(125) as airline_name
+        , c5::varchar(10) as airline_unique_oai_code
+        , c6::varchar(10) as entity_unique_oai_code
+        , c7::varchar(125) as airline_unique_name
+        , c8::smallint as world_area_oai_id
+        , c9::smallint as airline_old_group_nbr
+        , c10::smallint as airline_new_group_nbr
+        , c11::varchar(25) as operating_region_code
+        , c12::date as source_from_date
+        , c13::date as source_thru_date
+    from read_csv(
+          's3://src-aviation/DIMS/CSV/T_CARRIER_DECODE.csv'
+        , header=true
+        , dateformat='%m/%d/%Y %I:%M:%S %p'
+        , columns={
+              'c1': 'VARCHAR'  -- airline_usdot_id
+            , 'c2': 'VARCHAR'  -- airline_oai_code
+            , 'c3': 'VARCHAR'  -- entity_oai_code
+            , 'c4': 'VARCHAR'  -- airline_name
+            , 'c5': 'VARCHAR'  -- airline_unique_oai_code
+            , 'c6': 'VARCHAR'  -- entity_unique_oai_code
+            , 'c7': 'VARCHAR'  -- airline_unique_name
+            , 'c8': 'VARCHAR'  -- world_area_oai_id
+            , 'c9': 'VARCHAR'  -- airline_old_group_nbr
+            , 'c10': 'VARCHAR' -- airline_new_group_nbr
+            , 'c11': 'VARCHAR' -- operating_region_code
+            , 'c12': 'DATE'    -- source_from_date
+            , 'c13': 'DATE'    -- source_thru_date
+          }
+    )
 ),
 combined as (
     select 
-        airline_usdot_id::smallint as airline_usdot_id
-        , airline_oai_code::varchar(10) as airline_oai_code
-        , entity_oai_code::varchar(10) as entity_oai_code
-        , airline_name::varchar(125) as airline_name
-        , airline_unique_oai_code::varchar(10) as airline_unique_oai_code
-        , entity_unique_oai_code::varchar(10) as entity_unique_oai_code
-        , airline_unique_name::varchar(125) as airline_unique_name
-        , world_area_oai_id::smallint as world_area_oai_id
-        , airline_old_group_nbr::smallint as airline_old_group_nbr
-        , airline_new_group_nbr::smallint as airline_new_group_nbr
-        , operating_region_code::varchar(25) as operating_region_code
-        , source_from_date::date as source_from_date
-        , source_thru_date::date as source_thru_date
+        airline_usdot_id
+        , airline_oai_code
+        , entity_oai_code
+        , airline_name
+        , airline_unique_oai_code
+        , entity_unique_oai_code
+        , airline_unique_name
+        , world_area_oai_id
+        , airline_old_group_nbr
+        , airline_new_group_nbr
+        , operating_region_code
+        , source_from_date
+        , source_thru_date
     from raw_data
     where airline_oai_code != '3KQ'
     union all
     select 
         max(airline_usdot_id)::smallint as airline_usdot_id
-        , airline_oai_code::varchar(10) as airline_oai_code
-        , entity_oai_code::varchar(10) as entity_oai_code
+        , airline_oai_code
+        , entity_oai_code
         , max(airline_name)::varchar(125) as airline_name
         , max(airline_unique_oai_code)::varchar(10) as airline_unique_oai_code
         , max(entity_unique_oai_code)::varchar(10) as entity_unique_oai_code
@@ -102,14 +171,14 @@ combined as (
         , max(airline_old_group_nbr)::smallint as airline_old_group_nbr
         , max(airline_new_group_nbr)::smallint as airline_new_group_nbr
         , max(operating_region_code)::varchar(25) as operating_region_code
-        , source_from_date::date as source_from_date
+        , source_from_date
         , max(source_thru_date)::date as source_thru_date
     from raw_data
     where airline_oai_code = '3KQ'
     group by airline_oai_code, entity_oai_code, source_from_date
 )
 select 
-    row_number() over (order by airline_usdot_id, airline_oai_code, entity_oai_code, source_from_date)::smallint as airline_entity_id
+    row_number() over (order by airline_usdot_id, airline_oai_code, entity_oai_code, source_from_date)::integer as airline_entity_id
     , md5(airline_oai_code ||'~'|| entity_oai_code ||'~'|| source_from_date::varchar)::char(32) as airline_entity_key
     , airline_usdot_id
     , airline_oai_code
@@ -137,38 +206,101 @@ order by airline_usdot_id, airline_oai_code, entity_oai_code, source_from_date;
 drop table if exists air_oai_dims.airport_history;
 create table air_oai_dims.airport_history as
 with master_cord as (
-    select * from read_csv('s3://src-aviation/DIMS/CSV/T_MASTER_CORD.csv')
+    select 
+          c3::varchar(3) as airport_oai_code
+        , c29::date as airport_effective_from_date
+        , c30::date as airport_effective_thru_date
+        , c31::smallint as airport_closed_ind
+        , c32::smallint as airport_latest_ind
+        , c1::integer as airport_oai_seq_id
+        , c2::integer as airport_oai_id
+        , c4::varchar(125) as airport_display_name
+        , c5::varchar(125) as city_full_display_name
+        , c6::integer as airport_world_area_oai_seq_id
+        , c7::integer as airport_world_area_oai_id
+        , c28::char(5) as utc_local_time_variation
+        , c13::integer as market_city_oai_seq_id
+        , c14::integer as market_city_oai_id
+        , c15::varchar(75) as market_city_full_display_name
+        , c16::integer as market_city_world_area_oai_seq_id
+        , c17::integer as market_city_world_area_oai_id
+        , c11::varchar(10) as subdivision_iso_code
+        , c12::varchar(10) as subdivision_fips_code
+        , c10::varchar(75) as subdivision_name
+        , c9::varchar(10) as country_iso_code
+        , c8::varchar(75) as country_name
+        , c22::numeric(9,7) as latitude_decimal_nbr
+        , c27::numeric(10,7) as longitude_decimal_nbr
+    from read_csv(
+          's3://src-aviation/DIMS/CSV/T_MASTER_CORD.csv'
+        , header=true
+        , dateformat='%m/%d/%Y %I:%M:%S %p'
+        , columns={
+              'c1': 'VARCHAR'  -- airport_oai_seq_id
+            , 'c2': 'VARCHAR'  -- airport_oai_id
+            , 'c3': 'VARCHAR'  -- airport_oai_code
+            , 'c4': 'VARCHAR'  -- airport_display_name
+            , 'c5': 'VARCHAR'  -- city_full_display_name
+            , 'c6': 'VARCHAR'  -- airport_world_area_oai_seq_id
+            , 'c7': 'VARCHAR'  -- airport_world_area_oai_id
+            , 'c8': 'VARCHAR'  -- country_name
+            , 'c9': 'VARCHAR'  -- country_iso_code
+            , 'c10': 'VARCHAR' -- subdivision_name
+            , 'c11': 'VARCHAR' -- subdivision_iso_code
+            , 'c12': 'VARCHAR' -- subdivision_fips_code
+            , 'c13': 'VARCHAR' -- market_city_oai_seq_id
+            , 'c14': 'VARCHAR' -- market_city_oai_id
+            , 'c15': 'VARCHAR' -- market_city_full_display_name
+            , 'c16': 'VARCHAR' -- market_city_world_area_oai_seq_id
+            , 'c17': 'VARCHAR' -- market_city_world_area_oai_id
+            , 'c18': 'VARCHAR' -- latitude_degrees
+            , 'c19': 'VARCHAR' -- latitude_hemisphere_code
+            , 'c20': 'VARCHAR' -- latitude_minutes
+            , 'c21': 'VARCHAR' -- latitude_seconds
+            , 'c22': 'VARCHAR' -- latitude_decimal_nbr
+            , 'c23': 'VARCHAR' -- longitude_degrees
+            , 'c24': 'VARCHAR' -- longitude_hemisphere_code
+            , 'c25': 'VARCHAR' -- longitude_minutes
+            , 'c26': 'VARCHAR' -- longitude_seconds
+            , 'c27': 'VARCHAR' -- longitude_decimal_nbr
+            , 'c28': 'VARCHAR' -- utc_local_time_variation
+            , 'c29': 'DATE'    -- airport_effective_from_date
+            , 'c30': 'DATE'    -- airport_effective_thru_date
+            , 'c31': 'VARCHAR' -- airport_closed_ind
+            , 'c32': 'VARCHAR' -- airport_latest_ind
+          }
+    )
 )
 select 
 	row_number() over (order by m.airport_oai_code, m.airport_effective_from_date)::integer as airport_history_id
 	, md5(upper(m.airport_oai_code)||'~'||m.airport_effective_from_date::varchar)::char(32) as airport_history_key
-	, m.airport_oai_code::varchar(3) as airport_oai_code
-	, m.airport_effective_from_date::date as effective_from_date
-	, m.airport_effective_thru_date::date as effective_thru_date
-	, m.airport_closed_ind::smallint as airport_closed_ind
-	, m.airport_latest_ind::smallint as airport_latest_ind
-	, m.airport_oai_seq_id::integer as airport_oai_seq_id
-	, m.airport_oai_id::integer as airport_oai_id
-	, m.airport_display_name::varchar(125) as airport_display_name
-	, m.city_full_display_name::varchar(125) as city_full_display_name
-	, m.airport_world_area_oai_seq_id::integer as airport_world_area_oai_seq_id
-	, m.airport_world_area_oai_id::integer as airport_world_area_oai_id
+	, m.airport_oai_code
+	, m.airport_effective_from_date as effective_from_date
+	, m.airport_effective_thru_date as effective_thru_date
+	, m.airport_closed_ind
+	, m.airport_latest_ind
+	, m.airport_oai_seq_id
+	, m.airport_oai_id
+	, m.airport_display_name
+	, m.city_full_display_name
+	, m.airport_world_area_oai_seq_id
+	, m.airport_world_area_oai_id
 	, b.world_area_key::char(32) as airport_world_area_key
 	, case when length(m.utc_local_time_variation) = 0 then null else m.utc_local_time_variation end::char(5) as utc_local_time_variation
 	, null::varchar(100) as time_zone_name
-	, m.market_city_oai_seq_id::integer as market_city_oai_seq_id
-	, m.market_city_oai_id::integer as market_city_oai_id
-	, m.market_city_full_display_name::varchar(75) as market_city_full_display_name
-	, m.market_city_world_area_oai_seq_id::integer as market_city_world_area_oai_seq_id
-	, m.market_city_world_area_oai_id::integer as market_city_world_area_oai_id
+	, m.market_city_oai_seq_id
+	, m.market_city_oai_id
+	, m.market_city_full_display_name
+	, m.market_city_world_area_oai_seq_id
+	, m.market_city_world_area_oai_id
 	, c.world_area_key::char(32) as market_city_world_area_key
-	, m.subdivision_iso_code::varchar(10) as subdivision_iso_code
-	, m.subdivision_fips_code::varchar(10) as subdivision_fips_code
-	, m.subdivision_name::varchar(75) as subdivision_name
-	, m.country_iso_code::varchar(10) as country_iso_code
-	, m.country_name::varchar(75) as country_name
-	, m.latitude_decimal_nbr::numeric(9,7) as latitude_decimal_nbr
-	, m.longitude_decimal_nbr::numeric(10,7) as longitude_decimal_nbr
+	, m.subdivision_iso_code
+	, m.subdivision_fips_code
+	, m.subdivision_name
+	, m.country_iso_code
+	, m.country_name
+	, m.latitude_decimal_nbr
+	, m.longitude_decimal_nbr
 	, case when m.latitude_decimal_nbr is not null and m.longitude_decimal_nbr is not null 
 	      then ST_Point(m.longitude_decimal_nbr, m.latitude_decimal_nbr)
 	      else null end as point_geom
@@ -194,7 +326,7 @@ from (
 select a.airport_history_id, a.airport_oai_code, a.effective_from_date, b.time_zone_name 
 from (select airport_history_id, airport_oai_code, effective_from_date, point_geom 
       from air_oai_dims.airport_history where time_zone_name is null) a
-cross join (select gid, tzid as time_zone_name, geom as time_zone_geom from public.timezone_boundaries) b
+cross join (select tzid as time_zone_name, geom as time_zone_geom from timezone_boundaries) b
 where ST_Contains(b.time_zone_geom, a.point_geom) is true
 ) c
 where air_oai_dims.airport_history.airport_history_id = c.airport_history_id
@@ -352,8 +484,6 @@ alter table air_oai_dims.world_areas alter created_by set default current_user;
 alter table air_oai_dims.world_areas alter created_tmst set not null;
 alter table air_oai_dims.world_areas alter created_tmst set default current_timestamp;
 alter table air_oai_dims.world_areas add constraint world_areas_pk primary key (world_area_oai_seq_id);
-alter table air_oai_dims.world_areas add constraint world_areas_ak unique (world_area_key);
-alter table air_oai_dims.world_areas add constraint world_areas_nk unique (world_area_oai_id, effective_from_date);
 
 -- airline_entities 
 alter table air_oai_dims.airline_entities alter airline_entity_id set not null;
@@ -375,8 +505,6 @@ alter table air_oai_dims.airline_entities alter created_by set default current_u
 alter table air_oai_dims.airline_entities alter created_tmst set not null;
 alter table air_oai_dims.airline_entities alter created_tmst set default current_timestamp;
 alter table air_oai_dims.airline_entities add constraint airline_entities_pk primary key (airline_entity_id);
-alter table air_oai_dims.airline_entities add constraint airline_entities_ak unique (airline_entity_key);
-alter table air_oai_dims.airline_entities add constraint airline_entities_nk unique (airline_oai_code, entity_oai_code, source_from_date);
 
 -- airport_history 
 alter table air_oai_dims.airport_history alter airport_history_id set not null;
@@ -402,8 +530,6 @@ alter table air_oai_dims.airport_history alter created_by set default current_us
 alter table air_oai_dims.airport_history alter created_tmst set not null;
 alter table air_oai_dims.airport_history alter created_tmst set default current_timestamp;
 alter table air_oai_dims.airport_history add constraint airport_history_pk primary key (airport_history_id);
-alter table air_oai_dims.airport_history add constraint airport_history_ak unique (airport_history_key);
-alter table air_oai_dims.airport_history add constraint airport_history_nk unique (airport_oai_code, effective_from_date);
 
 -- aircraft_type_groups 
 alter table air_oai_dims.aircraft_type_groups alter aircraft_group_oai_nbr set not null;

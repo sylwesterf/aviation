@@ -19,23 +19,74 @@ drop table if exists air_oai_facts.airline_traffic_market;
 create table air_oai_facts.airline_traffic_market as
 with raw_market as (
     select 
-          year_nbr
-        , month_nbr
-        , service_class_code
-        , airline_usdot_id
-        , airline_oai_code
-        , entity_unique_oai_code
-        , depart_airport_oai_id
-        , depart_airport_oai_code
-        , arrive_airport_oai_id
-        , arrive_airport_oai_code
-        , data_source_code
-        , passengers_qty
-        , freight_lbr
-        , mail_lbr
-        , make_date(year_nbr::integer, month_nbr::integer, 1) as anchor_date
-        , (year_nbr * 100 + month_nbr)::integer as year_month_nbr
-    from read_csv('s3://src-aviation/T100/market/CSV/*.csv.gz')
+          c1::float4 as passengers_qty
+        , c2::float4 as freight_lbr
+        , c3::float4 as mail_lbr
+        , c4::float4 as distance_smi
+        , c6::integer as airline_usdot_id
+        , nullif(trim(c8), '')::varchar(15) as entity_unique_oai_code
+        , nullif(trim(c10), '')::varchar(5) as airline_oai_code
+        , nullif(trim(c11), '')::varchar(125) as airline_name
+        , c14::integer as depart_airport_oai_id
+        , nullif(trim(c17), '')::varchar(5) as depart_airport_oai_code
+        , c25::integer as arrive_airport_oai_id
+        , nullif(trim(c28), '')::varchar(5) as arrive_airport_oai_code
+        , c36::integer as year_nbr
+        , c37::integer as quarter_nbr
+        , c38::integer as month_nbr
+        , nullif(trim(c40), '')::varchar(5) as service_class_code
+        , nullif(trim(c41), '')::varchar(5) as data_source_code
+        , make_date(c36::integer, c38::integer, 1) as anchor_date
+        , (c36::integer * 100 + c38::integer)::integer as year_month_nbr
+    from read_csv(
+          's3://src-aviation/T100/market/CSV/*.csv.gz'
+          --'s3://src-aviation/T100/market/CSV/T100_MARKET_ALL_CARRIER_ALL_2025.csv.gz' 
+        , header=true
+        , dateformat='%m/%d/%Y %I:%M:%S %p'
+        , columns={
+              'c1': 'VARCHAR'  -- passengers_qty
+            , 'c2': 'VARCHAR'  -- freight_lbr
+            , 'c3': 'VARCHAR'  -- mail_lbr
+            , 'c4': 'VARCHAR'  -- distance_smi
+            , 'c5': 'VARCHAR'  -- airline_unique_oai_code
+            , 'c6': 'VARCHAR'  -- airline_usdot_id
+            , 'c7': 'VARCHAR'  -- airline_unique_name
+            , 'c8': 'VARCHAR'  -- entity_unique_oai_code
+            , 'c9': 'VARCHAR'  -- operating_region_code
+            , 'c10': 'VARCHAR' -- airline_oai_code
+            , 'c11': 'VARCHAR' -- airline_name
+            , 'c12': 'VARCHAR' -- airline_old_group_nbr
+            , 'c13': 'VARCHAR' -- airline_new_group_nbr
+            , 'c14': 'VARCHAR' -- depart_airport_oai_id
+            , 'c15': 'VARCHAR' -- depart_airport_oai_seq_id
+            , 'c16': 'VARCHAR' -- depart_city_market_oai_id
+            , 'c17': 'VARCHAR' -- depart_airport_oai_code
+            , 'c18': 'VARCHAR' -- depart_city_name
+            , 'c19': 'VARCHAR' -- depart_subdivision_iso_code
+            , 'c20': 'VARCHAR' -- depart_subdivision_fips_code
+            , 'c21': 'VARCHAR' -- depart_subdivision_name
+            , 'c22': 'VARCHAR' -- depart_country_iso_code
+            , 'c23': 'VARCHAR' -- depart_country_name
+            , 'c24': 'VARCHAR' -- depart_world_area_oai_id
+            , 'c25': 'VARCHAR' -- arrive_airport_oai_id
+            , 'c26': 'VARCHAR' -- arrive_airport_oai_seq_id
+            , 'c27': 'VARCHAR' -- arrive_city_market_oai_id
+            , 'c28': 'VARCHAR' -- arrive_airport_oai_code
+            , 'c29': 'VARCHAR' -- arrive_city_name
+            , 'c30': 'VARCHAR' -- arrive_subdivision_iso_code
+            , 'c31': 'VARCHAR' -- arrive_subdivision_fips_code
+            , 'c32': 'VARCHAR' -- arrive_subdivision_name
+            , 'c33': 'VARCHAR' -- arrive_country_iso_code
+            , 'c34': 'VARCHAR' -- arrive_country_name
+            , 'c35': 'VARCHAR' -- arrive_world_area_oai_id
+            , 'c36': 'VARCHAR' -- year_nbr
+            , 'c37': 'VARCHAR' -- quarter_nbr
+            , 'c38': 'VARCHAR' -- month_nbr
+            , 'c39': 'VARCHAR' -- distance_group_id
+            , 'c40': 'VARCHAR' -- service_class_code
+            , 'c41': 'VARCHAR' -- data_source_code
+          }
+    )
 ),
 integrated as (
     select 
@@ -120,32 +171,92 @@ drop table if exists air_oai_facts.airline_traffic_segment;
 create table air_oai_facts.airline_traffic_segment as
 with raw_segment as (
     select 
-          year_nbr
-        , month_nbr
-        , service_class_code
-        , airline_usdot_id
-        , airline_oai_code
-        , entity_unique_oai_code
-        , depart_airport_oai_id
-        , depart_airport_oai_code
-        , depart_country_iso_code
-        , arrive_airport_oai_id
-        , arrive_airport_oai_code
-        , arrive_country_iso_code
-        , aircraft_type_oai_nbr
-        , aircraft_configuration_id
-        , data_source_code
-        , passengers_qty
-        , freight_lbr
-        , mail_lbr
-        , available_seat_qty
-        , scheduled_departures_qty
-        , performed_departures_qty
-        , ramp_to_ramp_min
-        , air_time_min
-        , make_date(year_nbr::integer, month_nbr::integer, 1) as anchor_date
-        , (year_nbr * 100 + month_nbr)::integer as year_month_nbr
-    from read_csv('s3://src-aviation/T100/segment/CSV/*.csv.gz')
+          c1::float4 as scheduled_departures_qty
+        , c2::float4 as performed_departures_qty
+        , c3::float4 as payload_lbr
+        , c4::float4 as available_seat_qty
+        , c5::float4 as passengers_qty
+        , c6::float4 as freight_lbr
+        , c7::float4 as mail_lbr
+        , c8::float4 as distance_smi
+        , c9::float4 as ramp_to_ramp_min
+        , c10::float4 as air_time_min
+        , c12::integer as airline_usdot_id
+        , nullif(trim(c14), '')::varchar(15) as entity_unique_oai_code
+        , nullif(trim(c16), '')::varchar(5) as airline_oai_code
+        , c20::integer as depart_airport_oai_id
+        , nullif(trim(c23), '')::varchar(3) as depart_airport_oai_code
+        , nullif(trim(c28), '')::varchar(10) as depart_country_iso_code
+        , c31::integer as arrive_airport_oai_id
+        , nullif(trim(c34), '')::varchar(5) as arrive_airport_oai_code
+        , nullif(trim(c39), '')::varchar(10) as arrive_country_iso_code
+        , c43::integer as aircraft_type_oai_nbr
+        , c44::integer as aircraft_configuration_id
+        , c45::integer as year_nbr
+        , c46::integer as quarter_nbr
+        , c47::integer as month_nbr
+        , nullif(trim(c49), '')::varchar(5) as service_class_code
+        , nullif(trim(c50), '')::varchar(5) as data_source_code
+        , make_date(c45::integer, c47::integer, 1) as anchor_date
+        , (c45::integer * 100 + c47::integer)::integer as year_month_nbr
+    from read_csv(
+          's3://src-aviation/T100/segment/CSV/*.csv.gz'
+          --'s3://src-aviation/T100/segment/CSV/T100_SEGMENT_ALL_CARRIER_ALL_2024.csv.gz'
+        , header=true
+        , dateformat='%m/%d/%Y %I:%M:%S %p'
+        , columns={
+              'c1': 'VARCHAR'  -- scheduled_departures_qty
+            , 'c2': 'VARCHAR'  -- performed_departures_qty
+            , 'c3': 'VARCHAR'  -- payload_lbr
+            , 'c4': 'VARCHAR'  -- available_seat_qty
+            , 'c5': 'VARCHAR'  -- passengers_qty
+            , 'c6': 'VARCHAR'  -- freight_lbr
+            , 'c7': 'VARCHAR'  -- mail_lbr
+            , 'c8': 'VARCHAR'  -- distance_smi
+            , 'c9': 'VARCHAR'  -- ramp_to_ramp_min
+            , 'c10': 'VARCHAR' -- air_time_min
+            , 'c11': 'VARCHAR' -- airline_unique_oai_code
+            , 'c12': 'VARCHAR' -- airline_usdot_id
+            , 'c13': 'VARCHAR' -- airline_unique_name
+            , 'c14': 'VARCHAR' -- entity_unique_oai_code
+            , 'c15': 'VARCHAR' -- operating_region_code
+            , 'c16': 'VARCHAR' -- airline_oai_code
+            , 'c17': 'VARCHAR' -- airline_name
+            , 'c18': 'VARCHAR' -- airline_old_group_nbr
+            , 'c19': 'VARCHAR' -- airline_new_group_nbr
+            , 'c20': 'VARCHAR' -- depart_airport_oai_id
+            , 'c21': 'VARCHAR' -- depart_airport_oai_seq_id
+            , 'c22': 'VARCHAR' -- depart_market_city_oai_id
+            , 'c23': 'VARCHAR' -- depart_airport_oai_code
+            , 'c24': 'VARCHAR' -- depart_city_name
+            , 'c25': 'VARCHAR' -- depart_state_cd
+            , 'c26': 'VARCHAR' -- depart_state_fips_cd
+            , 'c27': 'VARCHAR' -- depart_state_nm
+            , 'c28': 'VARCHAR' -- depart_country_iso_code
+            , 'c29': 'VARCHAR' -- depart_country_name
+            , 'c30': 'VARCHAR' -- depart_world_area_oai_id
+            , 'c31': 'VARCHAR' -- arrive_airport_oai_id
+            , 'c32': 'VARCHAR' -- arrive_airport_oai_seq_id
+            , 'c33': 'VARCHAR' -- arrive_market_city_oai_id
+            , 'c34': 'VARCHAR' -- arrive_airport_oai_code
+            , 'c35': 'VARCHAR' -- arrive_city_name
+            , 'c36': 'VARCHAR' -- arrive_subdivision_iso_code
+            , 'c37': 'VARCHAR' -- arrive_subdivision_fips_code
+            , 'c38': 'VARCHAR' -- arrive_subdivision_name
+            , 'c39': 'VARCHAR' -- arrive_country_iso_code
+            , 'c40': 'VARCHAR' -- arrive_country_name
+            , 'c41': 'VARCHAR' -- arrive_world_area_oai_id
+            , 'c42': 'VARCHAR' -- aircraft_group_oai_nbr
+            , 'c43': 'VARCHAR' -- aircraft_type_oai_nbr
+            , 'c44': 'VARCHAR' -- aircraft_configuration_id
+            , 'c45': 'VARCHAR' -- year_nbr
+            , 'c46': 'VARCHAR' -- quarter_nbr
+            , 'c47': 'VARCHAR' -- month_nbr
+            , 'c48': 'VARCHAR' -- distance_group_id
+            , 'c49': 'VARCHAR' -- service_class_code
+            , 'c50': 'VARCHAR' -- data_source_code
+          }
+    )
 ),
 cleaned as (
     select 
@@ -165,7 +276,7 @@ cleaned as (
           when airline_oai_code = 'KH' and airline_usdot_id = 19678 then 21634
           when airline_oai_code = 'K8' and airline_usdot_id is null then 20310
           when airline_oai_code = 'XP' and airline_usdot_id is null then 20207
-          when airline_oai_code = '2HQ' is not null and airline_usdot_id is null then 21712
+          when airline_oai_code = '2HQ' and airline_usdot_id is null then 21712
           else airline_usdot_id end::integer as airline_usdot_id
         , case when airline_oai_code = '5G' and airline_usdot_id is null then '71032'
           when airline_oai_code = '0OQ' and airline_usdot_id is null then '71056'
@@ -181,9 +292,9 @@ cleaned as (
             and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '16144'
           when airline_oai_code = 'XP' and airline_usdot_id is null
             and (depart_country_iso_code = 'US' and arrive_country_iso_code = 'US') then '06144'
-          when airline_oai_code = '2HQ' is not null and airline_usdot_id is null
+          when airline_oai_code = '2HQ' and airline_usdot_id is null
             and depart_country_iso_code = 'US' and arrive_country_iso_code = 'US' then '01200'
-          when airline_oai_code = '2HQ' is not null and airline_usdot_id is null
+          when airline_oai_code = '2HQ' and airline_usdot_id is null
             and (depart_country_iso_code != 'US' or arrive_country_iso_code != 'US') then '11047'
          else entity_unique_oai_code end::varchar(15) as entity_unique_oai_code
         , case when airline_oai_code = '39Q' and airline_usdot_id = 21894 then 'AN'
@@ -297,65 +408,46 @@ where year_month_nbr is not null
   and airline_entity_key is not null 
   and depart_airport_history_key is not null 
   and arrive_airport_history_key is not null
-  and aircraft_type_oai_nbr is not null 
-  and aircraft_configuration_ref is not null
 group by year_month_nbr, service_class_code, airline_entity_key, depart_airport_history_key, arrive_airport_history_key, aircraft_type_oai_nbr, aircraft_configuration_ref;
 
 
--- 3. create and load air_oai_dims.aircraft_configurations
+-- 3. create and load air_oai_dims.aircraft_configurations based on air_oai_facts.airline_traffic_segment
 drop table if exists air_oai_dims.aircraft_configurations;
 create table air_oai_dims.aircraft_configurations as
-select f.aircraft_configuration_ref::char(3) as aircraft_configuration_ref
-     , max(case f.aircraft_configuration_ref 
-			when 'CMB' then 'Combination Freight and Passenger, Main Deck'
-            when 'FRT' then 'Freight Only, Main Deck'
-            when 'PAX' then 'Passenger Only, Main Deck'
-            when 'SEA' then 'Seaplane'
-            else null end)::varchar(255) as aircraft_configuration_descr
+select distinct aircraft_configuration_ref
+     , case aircraft_configuration_ref
+         when 'N/A' then 'Not Applicable'
+         when 'PAX' then 'Passenger'
+         when 'FRT' then 'Freight/Cargo'
+         when 'CMB' then 'Combination (Passenger & Cargo)'
+         when 'SEA' then 'Seaplane'
+         when 'EXP' then 'Expenses'
+         else 'Unknown' end::varchar(55) as aircraft_configuration_descr
      , current_user::varchar(32) as created_by
-     , current_timestamp::timestamp as created_ts
-     , null::varchar(32) as updated_by
-     , null::timestamp as updated_tmst
-from air_oai_facts.airline_traffic_segment f
-group by 1 order by 1;
+     , current_timestamp::timestamp as created_tmst
+from air_oai_facts.airline_traffic_segment;
 
 
--- 4. create and load air_oai_dims.airline_service_classes
+-- 4. create and load air_oai_dims.airline_service_classes based on air_oai_facts.airline_traffic_market
 drop table if exists air_oai_dims.airline_service_classes;
 create table air_oai_dims.airline_service_classes as
-select f.service_class_code::char(1) as service_class_code
-     , max(case when f.service_class_code in ('F','G') then 1 else 0 end)::smallint as scheduled_ind
-     , max(case when f.service_class_code in ('L','P') then 1 else 0 end)::smallint as chartered_ind
-     , max(case f.service_class_code 
-			when 'F' then 'Scheduled Passenger / Cargo Service'
-            when 'G' then 'Scheduled CAll Cargo Service'
-            when 'L' then 'Non-Scheduled Civilian Passenger / Cargo Service'
-            when 'P' then 'Non-Scheduled Civilian All Cargo Service'
-            else null end)::varchar(255) as service_class_descr
+select distinct service_class_code
+     , case service_class_code
+         when 'F' then 'Scheduled Passenger / Cargo'
+         when 'G' then 'Scheduled All-Cargo'
+         when 'L' then 'Nonscheduled Civil Passenger / Cargo'
+         when 'P' then 'Nonscheduled Civil All-Cargo'
+         when 'N' then 'Nonscheduled Military Passenger / Cargo'
+         when 'R' then 'Nonscheduled Military All-Cargo'
+         when 'Q' then 'Nonscheduled Service (Passenger or Cargo)'
+         when 'Z' then 'All Services'
+         else 'Unknown' end::varchar(55) as service_class_descr
      , current_user::varchar(32) as created_by
-     , current_timestamp::timestamp as created_ts
-     , null::varchar(32) as updated_by
-     , null::timestamp as updated_tmst
-from air_oai_facts.airline_traffic_market f
-group by 1 order by 1;
+     , current_timestamp::timestamp as created_tmst
+from air_oai_facts.airline_traffic_market;
 
 
 -- 5. add table constraints
--- aircraft_configurations
-alter table air_oai_dims.aircraft_configurations alter aircraft_configuration_ref set not null;
-alter table air_oai_dims.aircraft_configurations alter created_by set not null;
-alter table air_oai_dims.aircraft_configurations alter created_ts set not null;
-alter table air_oai_dims.aircraft_configurations add constraint aircraft_configurations_pk primary key (aircraft_configuration_ref);
-
--- airline_service_classes
-alter table air_oai_dims.airline_service_classes alter service_class_code set not null;
-alter table air_oai_dims.airline_service_classes alter scheduled_ind set not null;
-alter table air_oai_dims.airline_service_classes alter chartered_ind set not null;
-alter table air_oai_dims.airline_service_classes alter created_by set not null;
-alter table air_oai_dims.airline_service_classes alter created_ts set not null;
-alter table air_oai_dims.airline_service_classes add constraint airline_service_classes_pk primary key (service_class_code);
-
--- airline_traffic_market
 alter table air_oai_facts.airline_traffic_market alter airline_traffic_market_key set not null;
 alter table air_oai_facts.airline_traffic_market alter year_month_nbr set not null;
 alter table air_oai_facts.airline_traffic_market alter airline_oai_code set not null;
@@ -422,19 +514,16 @@ FROM air_oai_dims.aircraft_configurations;
 -- drop view if exists airlines_ddb.airline_service_classes_v;
 create or replace view airlines_ddb.airline_service_classes_v as
 SELECT service_class_code
-	, scheduled_ind
-	, chartered_ind
-	, service_class_descr
+	 , service_class_descr
 FROM air_oai_dims.airline_service_classes;
 
 -- drop view if exists airlines_ddb.airline_traffic_market_v;
 create or replace view airlines_ddb.airline_traffic_market_v as
-SELECT airline_traffic_market_key, year_month_nbr
+SELECT airline_traffic_market_key, year_month_nbr, service_class_code
 	, airline_oai_code, airline_effective_date, airline_entity_id, airline_entity_key
 	, depart_airport_oai_code, depart_airport_effective_date, depart_airport_history_id, depart_airport_history_key
 	, arrive_airport_oai_code, arrive_airport_effective_date, arrive_airport_history_id, arrive_airport_history_key
-	, service_class_code, data_source_code
-	, passengers_qty, freight_kgm, mail_kgm
+	, data_source_code, passengers_qty, freight_kgm, mail_kgm, t100_records_qty
 FROM air_oai_facts.airline_traffic_market;
 
 -- drop view if exists airlines_ddb.airline_traffic_segment_v;
@@ -443,9 +532,7 @@ SELECT airline_traffic_segment_key, year_month_nbr, service_class_code
 	, airline_oai_code, airline_effective_date, airline_entity_id, airline_entity_key
 	, depart_airport_oai_code, depart_airport_effective_date, depart_airport_history_id, depart_airport_history_key
 	, arrive_airport_oai_code, arrive_airport_effective_date, arrive_airport_history_id, arrive_airport_history_key
-	, aircraft_type_oai_nbr, aircraft_configuration_ref
-	, data_source_code
-	, scheduled_departures_qty, performed_departures_qty
-	, available_seat_qty, passengers_qty, freight_kgm, mail_kgm
-	, ramp_to_ramp_min, air_time_min
+	, aircraft_type_oai_nbr, aircraft_configuration_ref, data_source_code
+	, scheduled_departures_qty, performed_departures_qty, available_seat_qty, passengers_qty
+	, freight_kgm, mail_kgm, ramp_to_ramp_min, air_time_min, t100_records_qty
 FROM air_oai_facts.airline_traffic_segment;
