@@ -11,7 +11,7 @@
 create or replace view cal_gen.make_gregorian_year_v as
 select 
       y.year_nbr::smallint as year_nbr
-    , y.year_nbr::varchar::char(4) as year_code
+    , y.year_nbr::char(4) as year_code
     , case when mod(y.year_nbr, 400) = 0 then 1
            when mod(y.year_nbr, 100) = 0 then 0
            when mod(y.year_nbr, 4) = 0 then 1
