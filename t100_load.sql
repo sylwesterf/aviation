@@ -7,7 +7,16 @@
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month)
 -- 1. create and load air_oai_facts.airline_traffic_market (use CTEs to pre-process the data; streaming ~500MB of compressed csv files)
+    -- 1.1. materialize SCD2 CTEs
+    -- 1.2. position-Based Multi-File CSV Streaming & Midnight Encodings
+    -- 1.3. multi-dimensional Range Interval Asymmetric Lookups
+    -- 1.4. final projection
 -- 2. create and load air_oai_facts.airline_traffic_segment (use CTEs to pre-process the data; streaming ~300MB of compressed csv files)
+    -- 2.1. materialize SCD2 CTEs
+    -- 2.2. position-Based Multi-File CSV Streaming & Midnight Encodings
+    -- 2.3. clean-up stage
+    -- 2.4. multi-dimensional Range Interval Asymmetric Lookups
+    -- 2.5. final projection
 -- 3. create and load air_oai_dims.aircraft_configurations based on air_oai_facts.airline_traffic_segment
 -- 4. create and load air_oai_dims.airline_service_classes based on air_oai_facts.airline_traffic_market
 -- 5. add table constraints
@@ -17,7 +26,18 @@
 -- 1. create and load air_oai_facts.airline_traffic_market
 drop table if exists air_oai_facts.airline_traffic_market;
 create table air_oai_facts.airline_traffic_market as
-with raw_market as (
+with 
+  -- 1.1. materialize SCD2 CTEs
+  clean_airlines_lookup as (
+      select *, coalesce(source_thru_date, current_date) as source_thru_date_clean
+      from air_oai_dims.airline_entities
+  ),
+  clean_airports_lookup as (
+      select *, coalesce(effective_thru_date, current_date) as effective_thru_date_clean
+      from air_oai_dims.airport_history
+  ),
+  -- 1.2. position-Based Multi-File CSV Streaming & Midnight Encodings
+  raw_market as (
     select 
           c1::float4 as passengers_qty
         , c2::float4 as freight_lbr
@@ -87,8 +107,9 @@ with raw_market as (
             , 'c41': 'VARCHAR' -- data_source_code
           }
     )
-),
-integrated as (
+  ),
+  -- 1.3. multi-Dimensional Range Interval Asymmetric Lookups
+  integrated as (
     select 
         f.year_month_nbr
         , f.service_class_code::char(1) as service_class_code
@@ -111,21 +132,22 @@ integrated as (
         , f.freight_lbr::float4 as freight_lbr
         , f.mail_lbr::float4 as mail_lbr
     from raw_market f
-    left join air_oai_dims.airline_entities ae
+    left join clean_airlines_lookup ae
       on f.airline_usdot_id = ae.airline_usdot_id
      and f.airline_oai_code = ae.airline_oai_code
      and f.entity_unique_oai_code = ae.entity_unique_oai_code
      and f.anchor_date >= ae.source_from_date
-     and f.anchor_date < case when ae.source_thru_date is null then current_date else ae.source_thru_date end
-    left join air_oai_dims.airport_history h1
+     and f.anchor_date < ae.source_thru_date_clean
+    left join clean_airports_lookup h1
       on f.depart_airport_oai_id = h1.airport_oai_id
      and f.anchor_date >= h1.effective_from_date
-     and f.anchor_date < case when h1.effective_thru_date is null then current_date else h1.effective_thru_date end
-    left join air_oai_dims.airport_history h2
+     and f.anchor_date < h1.effective_thru_date_clean
+    left join clean_airports_lookup h2
       on f.arrive_airport_oai_id = h2.airport_oai_id
      and f.anchor_date >= h2.effective_from_date
-     and f.anchor_date < case when h2.effective_thru_date is null then current_date else h2.effective_thru_date end
+     and f.anchor_date < h2.effective_thru_date_clean
 )
+-- 1.4. final projection
 select 
     md5(year_month_nbr::varchar
         ||'|'||service_class_code
@@ -169,7 +191,18 @@ group by year_month_nbr, service_class_code, airline_entity_key, depart_airport_
 -- 2. create and load air_oai_facts.airline_traffic_segment
 drop table if exists air_oai_facts.airline_traffic_segment;
 create table air_oai_facts.airline_traffic_segment as
-with raw_segment as (
+with 
+  -- 1.1. materialize SCD2 CTEs
+  clean_airlines_lookup as (
+    select *, coalesce(source_thru_date, current_date) as source_thru_date_clean
+    from air_oai_dims.airline_entities
+),
+clean_airports_lookup as (
+    select *, coalesce(effective_thru_date, current_date) as effective_thru_date_clean
+    from air_oai_dims.airport_history
+),
+-- 1.2. position-Based Multi-File CSV Streaming & Midnight Encodings
+raw_segment as (
     select 
           c1::float4 as scheduled_departures_qty
         , c2::float4 as performed_departures_qty
@@ -257,8 +290,9 @@ with raw_segment as (
             , 'c50': 'VARCHAR' -- data_source_code
           }
     )
-),
-cleaned as (
+  ),
+  -- 1.3. clean-up stage
+  cleaned as (
     select 
         f.anchor_date
         , f.year_month_nbr
@@ -311,6 +345,7 @@ cleaned as (
         , f.data_source_code
     from raw_segment f
 ),
+-- 1.4. multi-Dimensional Range Interval Asymmetric Lookups
 integrated as (
     select 
         f.year_month_nbr
@@ -347,21 +382,22 @@ integrated as (
         , f.ramp_to_ramp_min::float4 as ramp_to_ramp_min
         , f.air_time_min::float4 as air_time_min
     from cleaned f
-    left join air_oai_dims.airline_entities ae
+    left join clean_airlines_lookup ae
       on f.airline_usdot_id = ae.airline_usdot_id
      and f.airline_oai_code = ae.airline_oai_code
      and f.entity_unique_oai_code = ae.entity_unique_oai_code
      and f.anchor_date >= ae.source_from_date
-     and f.anchor_date < case when ae.source_thru_date is null then current_date else ae.source_thru_date end
-    left join air_oai_dims.airport_history h1
+     and f.anchor_date < ae.source_thru_date_clean
+    left join clean_airports_lookup h1
       on f.depart_airport_oai_id = h1.airport_oai_id
      and f.anchor_date >= h1.effective_from_date
-     and f.anchor_date < case when h1.effective_thru_date is null then current_date else h1.effective_thru_date end
-    left join air_oai_dims.airport_history h2
+     and f.anchor_date < h1.effective_thru_date_clean
+    left join clean_airports_lookup h2
       on f.arrive_airport_oai_id = h2.airport_oai_id
      and f.anchor_date >= h2.effective_from_date
-     and f.anchor_date < case when h2.effective_thru_date is null then current_date else h2.effective_thru_date end
+     and f.anchor_date < h2.effective_thru_date_clean
 )
+-- 1.5. final projection
 select 
     md5(year_month_nbr::varchar
         ||'|'||service_class_code

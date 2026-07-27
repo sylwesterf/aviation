@@ -6,10 +6,11 @@
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 -- 1. extraction and integration stage 
---  1.1. position-Based Multi-File CSV Streaming & Midnight Encodings
---  1.2. multi-Dimensional Range Interval Asymmetric Lookups
---  1.3. vectorized String Tokenization & Temporal Additions (+1 Day Loops)
---  1.4. final projection with metric serialization
+--  1.1. materialize SCD2 CTEs
+--  1.2. position-Based Multi-File CSV Streaming & Midnight Encodings
+--  1.3. multi-Dimensional Range Interval Asymmetric Lookups
+--  1.4. vectorized String Tokenization & Temporal Additions (+1 Day Loops)
+--  1.5. final projection with metric serialization
 -- 2. slice final target tables directly from multipart otp_integrated_hub/*.parquet
 --  2.1. create and load air_oai_facts.airline_flights_completed
 --  2.2. create and load air_oai_facts.airline_flights_cancelled
@@ -25,7 +26,16 @@ DROP TABLE IF EXISTS air_oai_facts.airline_flight_performance;
 
 CREATE TABLE air_oai_facts.airline_flight_performance AS 
 WITH 
-  -- 1.1. position-Based Multi-File CSV Streaming & Midnight Encodings
+  -- 1.1. materialize SCD2 CTEs
+  clean_airlines_lookup AS (
+      SELECT *, coalesce(source_thru_date, current_date) as source_thru_date_clean
+      FROM air_oai_dims.airline_entities
+  ),
+  clean_airports_lookup AS (
+      SELECT *, coalesce(effective_thru_date, current_date) as effective_thru_date_clean
+      FROM air_oai_dims.airport_history
+  ),
+  --  1.2. position-Based Multi-File CSV Streaming & Midnight Encodings
   raw_stream AS (
       SELECT 
               c1::smallint as year_nbr
@@ -252,7 +262,7 @@ WITH
           )
       ),
 	  
-    -- 1.2. multi-Dimensional Range Interval Asymmetric Lookups
+    -- 1.3. multi-Dimensional Range Interval Asymmetric Lookups
     joined_stream AS (
         SELECT 
               ts.*
@@ -276,7 +286,7 @@ WITH
         LEFT JOIN clean_airports_lookup d5  ON ts.diverted5_airport_oai_code = d5.airport_oai_code AND ts.flight_date >= d5.effective_from_date AND ts.flight_date < d5.effective_thru_date_clean
     ),
 	
-    -- 1.3. vectorized String Tokenization & Temporal Additions (+1 Day Loops)
+    -- 1.4. vectorized String Tokenization & Temporal Additions (+1 Day Loops)
     parsed_timestamps AS (
         SELECT 
               js.*
@@ -306,7 +316,7 @@ WITH
         FROM joined_stream js
     )
 	
-    -- 1.4. final projection with metric serialization
+    -- 1.5. final projection with metric serialization
     SELECT 
       md5(ppt.airline_oai_code || '|' || ppt.flight_nbr || '|' || ppt.dt_str || '|' || ppt.depart_airport_oai_code)::char(32) as flight_key
     , ppt.year_nbr
