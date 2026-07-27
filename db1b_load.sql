@@ -46,6 +46,7 @@ copy (
         , c17::numeric(10,5) as fare_per_mile_usd
     from read_csv(
           's3://src-aviation/DB1B/ticket/CSV/*.csv.gz'
+          --'s3://src-aviation/DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2025_1.csv.gz'
         , header=true
         , dateformat='%m/%d/%Y %I:%M:%S %p'
         , columns={
@@ -152,6 +153,7 @@ copy (
         , c36::smallint as coupon_geographic_type_oai_id
     from read_csv(
           's3://src-aviation/DB1B/coupon/CSV/*.csv.gz'
+          --'s3://src-aviation/DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2025_1.csv.gz'
         , header=true
         , dateformat='%m/%d/%Y %I:%M:%S %p'
         , columns={
@@ -290,6 +292,7 @@ copy (
         , c41::smallint as market_geograhic_type_oai_id
     from read_csv(
           's3://src-aviation/DB1B/market/CSV/*.csv.gz'
+          --'s3://src-aviation/DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2025_1.csv.gz'
         , header=true
         , dateformat='%m/%d/%Y %I:%M:%S %p'
         , columns={

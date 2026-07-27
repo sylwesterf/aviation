@@ -5,257 +5,373 @@
 ----------------------------------------------------
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
--- 1. extraction stage (S3 CSV to multipart otp_raw_extract/*.parquet on local NVMe)
--- 2. integration stage (dimension joins to multipart otp_integrated_hub/*.parquet)
--- 3. slice final target tables directly from multipart otp_integrated_hub/*.parquet
---  3.1. create and load air_oai_facts.airline_flights_completed
---  3.2. create and load air_oai_facts.airline_flights_cancelled
---  3.3. create and load air_oai_facts.airline_flights_diverted
---  3.4. create and load air_oai_facts.airline_flights_diverted_legs
---  3.5. create and load air_oai_facts.airline_flights_scheduled
--- 4. add table constraints
--- 5. create presentation layer views
+-- 1. extraction and integration stage 
+--  1.1. position-Based Multi-File CSV Streaming & Midnight Encodings
+--  1.2. multi-Dimensional Range Interval Asymmetric Lookups
+--  1.3. vectorized String Tokenization & Temporal Additions (+1 Day Loops)
+--  1.4. final projection with metric serialization
+-- 2. slice final target tables directly from multipart otp_integrated_hub/*.parquet
+--  2.1. create and load air_oai_facts.airline_flights_completed
+--  2.2. create and load air_oai_facts.airline_flights_cancelled
+--  2.3. create and load air_oai_facts.airline_flights_diverted
+--  2.4. create and load air_oai_facts.airline_flights_diverted_legs
+--  2.5. create and load air_oai_facts.airline_flights_scheduled
+-- 3. add table constraints
+-- 4. create presentation layer views
 ----------------------------------------------------
 
--- 1. extraction stage
-copy (
-    select 
-          year_nbr::smallint as year_nbr
-        , month_nbr::smallint as month_nbr
-        , flight_date::date as flight_date
-        , airline_oai_code::varchar(3) as airline_oai_code
-        , airline_usdot_id::integer as airline_usdot_id
-        , nullif(trim(tail_nbr), '')::varchar(10) as tail_nbr
-        , lpad(flight_nbr::varchar, 4, '0')::char(4) as flight_nbr
-        , coalesce(flight_count::smallint, 1) as flight_count
-        , depart_airport_oai_id::integer as depart_airport_oai_id
-        , depart_airport_oai_code::char(3) as depart_airport_oai_code
-        , arrive_airport_oai_id::integer as arrive_airport_oai_id
-        , arrive_airport_oai_code::char(3) as arrive_airport_oai_code
-        , distance_smi::smallint as distance_smi
-        , distance_group_id::smallint as distance_group_id
-        , depart_time_block::varchar(10) as depart_time_block
-        , arrive_time_block::varchar(10) as arrive_time_block
-        , nullif(trim(report_depart_time_lcl::varchar), '')::char(4) as report_depart_time_lcl
-        , nullif(trim(actual_depart_time_lcl::varchar), '')::char(4) as actual_depart_time_lcl
-        , nullif(trim(report_arrive_time_lcl::varchar), '')::char(4) as report_arrive_time_lcl
-        , nullif(trim(actual_arrive_time_lcl::varchar), '')::char(4) as actual_arrive_time_lcl
-        , nullif(trim(wheels_off_time_lcl::varchar), '')::char(4) as wheels_off_time_lcl
-        , nullif(trim(wheels_on_time_lcl::varchar), '')::char(4) as wheels_on_time_lcl
-        , nullif(trim(first_gate_depart_time::varchar), '')::char(4) as first_gate_depart_time
-        , report_elapsed_time_min::integer as report_elapsed_time_min
-        , actual_elapsed_time_min::integer as actual_elapsed_time_min
-        , airborne_time_min::integer as airborne_time_min
-        , taxi_out_min::integer as taxi_out_min
-        , taxi_in_min::integer as taxi_in_min
-        , nullif(trim(total_ground_time::varchar), '')::integer as total_ground_time
-        , nullif(trim(longest_ground_time::varchar), '')::integer as longest_ground_time
-        , coalesce(cancelled_ind::smallint, 0) as cancelled_ind
-        , nullif(trim(cancellation_code), '')::varchar(25) as cancellation_code
-        , coalesce(diverted_ind::smallint, 0) as diverted_ind
-        , airline_delay_min::smallint as airline_delay_min
-        , weather_delay_min::smallint as weather_delay_min
-        , nas_delay_min::smallint as nas_delay_min
-        , security_delay_min::smallint as security_delay_min
-        , late_aircraft_delay_min::smallint as late_aircraft_delay_min
-        -- diverted legs 1..5
-        , diverted1_airport_oai_code::char(3) as diverted1_airport_oai_code
-        , nullif(trim(diverted1_tail_nbr), '')::varchar(10) as diverted1_tail_nbr
-        , nullif(trim(diverted1_wheels_on_time_lcl::varchar), '')::char(4) as diverted1_wheels_on_time_lcl
-        , nullif(trim(diverted1_wheels_off_time_lcl::varchar), '')::char(4) as diverted1_wheels_off_time_lcl
-        , diverted1_total_ground_time_min::smallint as diverted1_total_ground_time_min
-        , diverted1_longest_ground_time_min::smallint as diverted1_longest_ground_time_min
+-- 1. extraction and integration stage
+DROP TABLE IF EXISTS air_oai_facts.airline_flight_performance;
 
-        , diverted2_airport_oai_code::char(3) as diverted2_airport_oai_code
-        , nullif(trim(diverted2_tail_nbr), '')::varchar(10) as diverted2_tail_nbr
-        , nullif(trim(diverted2_wheels_on_time_lcl::varchar), '')::char(4) as diverted2_wheels_on_time_lcl
-        , nullif(trim(diverted2_wheels_off_time_lcl::varchar), '')::char(4) as diverted2_wheels_off_time_lcl
-        , diverted2_total_ground_time_min::smallint as diverted2_total_ground_time_min
-        , diverted2_longest_ground_time_min::smallint as diverted2_longest_ground_time_min
+CREATE TABLE air_oai_facts.airline_flight_performance AS 
+WITH 
+  -- 1.1. position-Based Multi-File CSV Streaming & Midnight Encodings
+  raw_stream AS (
+      SELECT 
+              c1::smallint as year_nbr
+            , c3::smallint as month_nbr
+            , c6::date as flight_date
+            , c6::varchar as dt_str
+            , nullif(trim(c9), '')::varchar(3) as airline_oai_code
+            , c8::integer as airline_usdot_id
+            , nullif(trim(c10), '')::varchar(10) as tail_nbr
+            , lpad(c11::varchar, 4, '0')::char(4) as flight_nbr
+            , coalesce(c54::smallint, 1) as flight_count
+            , c12::integer as depart_airport_oai_id
+            , nullif(trim(c15), '')::char(3) as depart_airport_oai_code
+            , c21::integer as arrive_airport_oai_id
+            , nullif(trim(c24), '')::char(3) as arrive_airport_oai_code
+            , c55::smallint as distance_smi
+            , c56::smallint as distance_group_id
+            , nullif(trim(c36), '')::varchar(10) as depart_time_block
+            , nullif(trim(c47), '')::varchar(10) as arrive_time_block
+            
+            -- Keep text primitives safe for timestamp mapping logic
+            , nullif(trim(c30), '')::char(4) as report_depart_time_lcl
+            , nullif(trim(c31), '')::char(4) as actual_depart_time_lcl
+            , nullif(trim(c41), '')::char(4) as report_arrive_time_lcl
+            , nullif(trim(c42), '')::char(4) as actual_arrive_time_lcl
+            , nullif(trim(c38), '')::char(4) as wheels_off_time_lcl
+            , nullif(trim(c39), '')::char(4) as wheels_on_time_lcl
+            , nullif(trim(c62), '')::char(4) as first_gate_depart_time
+            
+            -- Register 2400 Midnight Indicator Arrays inline on the reader vectors
+            , CASE WHEN nullif(trim(c30), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c30), ''), '0000'), 4, '0') END as r_dep
+            , CASE WHEN nullif(trim(c30), '') = '2400' THEN TRUE ELSE FALSE END as r_dep_roll_ind
+            , CASE WHEN nullif(trim(c41), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c41), ''), '0000'), 4, '0') END as r_arr
+            , CASE WHEN nullif(trim(c41), '') = '2400' THEN TRUE ELSE FALSE END as r_arr_roll_ind
+            , CASE WHEN nullif(trim(c31), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c31), ''), '0000'), 4, '0') END as a_dep
+            , CASE WHEN nullif(trim(c31), '') = '2400' THEN TRUE ELSE FALSE END as a_dep_roll_ind
+            , CASE WHEN nullif(trim(c42), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c42), ''), '0000'), 4, '0') END as a_arr
+            , CASE WHEN nullif(trim(c42), '') = '2400' THEN TRUE ELSE FALSE END as a_arr_roll_ind
+            , CASE WHEN nullif(trim(c38), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c38), ''), '0000'), 4, '0') END as w_off
+            , CASE WHEN nullif(trim(c38), '') = '2400' THEN TRUE ELSE FALSE END as w_off_roll_ind
+            , CASE WHEN nullif(trim(c39), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c39), ''), '0000'), 4, '0') END as w_on
+            , CASE WHEN nullif(trim(c39), '') = '2400' THEN TRUE ELSE FALSE END as w_on_roll_ind
+            , CASE WHEN nullif(trim(c62), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c62), ''), '0000'), 4, '0') END as f_gate
+            , CASE WHEN nullif(trim(c62), '') = '2400' THEN TRUE ELSE FALSE END as f_gate_roll_ind
 
-        , diverted3_airport_oai_code::char(3) as diverted3_airport_oai_code
-        , nullif(trim(diverted3_tail_nbr), '')::varchar(10) as diverted3_tail_nbr
-        , nullif(trim(diverted3_wheels_on_time_lcl::varchar), '')::char(4) as diverted3_wheels_on_time_lcl
-        , nullif(trim(diverted3_wheels_off_time_lcl::varchar), '')::char(4) as diverted3_wheels_off_time_lcl
-        , diverted3_total_ground_time_min::smallint as diverted3_total_ground_time_min
-        , diverted3_longest_ground_time_min::smallint as diverted3_longest_ground_time_min
+            , c51::integer as report_elapsed_time_min
+            , c52::integer as actual_elapsed_time_min
+            , c53::integer as airborne_time_min
+            , c37::integer as taxi_out_min
+            , c40::integer as taxi_in_min
+            , nullif(trim(c63), '')::integer as total_ground_time
+            , nullif(trim(c64), '')::integer as longest_ground_time
+            , coalesce(c48::smallint, 0) as cancelled_ind
+            , nullif(trim(c49), '')::varchar(25) as cancellation_code
+            , coalesce(c50::smallint, 0) as diverted_ind
+            , c57::smallint as airline_delay_min
+            , c58::smallint as weather_delay_min
+            , c59::smallint as nas_delay_min
+            , c60::smallint as security_delay_min
+            , c61::smallint as late_aircraft_delay_min
+            
+            -- Diverted Legs 1..5 Extracted with local 2400 indicators
+            , nullif(trim(c70), '')::char(3) as diverted1_airport_oai_code
+            , nullif(trim(c77), '')::varchar(10) as diverted1_tail_nbr
+            , CASE WHEN nullif(trim(c73), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c73), ''), '0000'), 4, '0') END as d1_w_on
+            , CASE WHEN nullif(trim(c73), '') = '2400' THEN TRUE ELSE FALSE END as d1_on_roll_ind
+            , CASE WHEN nullif(trim(c76), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c76), ''), '0000'), 4, '0') END as d1_w_off
+            , CASE WHEN nullif(trim(c76), '') = '2400' THEN TRUE ELSE FALSE END as d1_off_roll_ind
+            , c74::smallint as diverted1_total_ground_time_min
+            , c75::smallint as diverted1_longest_ground_time_min
 
-        , diverted4_airport_oai_code::char(3) as diverted4_airport_oai_code
-        , nullif(trim(diverted4_tail_nbr), '')::varchar(10) as diverted4_tail_nbr
-        , nullif(trim(diverted4_wheels_on_time_lcl::varchar), '')::char(4) as diverted4_wheels_on_time_lcl
-        , nullif(trim(diverted4_wheels_off_time_lcl::varchar), '')::char(4) as diverted4_wheels_off_time_lcl
-        , diverted4_total_ground_time_min::smallint as diverted4_total_ground_time_min
-        , diverted4_longest_ground_time_min::smallint as diverted4_longest_ground_time_min
+            , nullif(trim(c78), '')::char(3) as diverted2_airport_oai_code
+            , nullif(trim(c85), '')::varchar(10) as diverted2_tail_nbr
+            , CASE WHEN nullif(trim(c81), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c81), ''), '0000'), 4, '0') END as d2_w_on
+            , CASE WHEN nullif(trim(c81), '') = '2400' THEN TRUE ELSE FALSE END as d2_on_roll_ind
+            , CASE WHEN nullif(trim(c84), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c84), ''), '0000'), 4, '0') END as d2_w_off
+            , CASE WHEN nullif(trim(c84), '') = '2400' THEN TRUE ELSE FALSE END as d2_off_roll_ind
+            , c82::smallint as diverted2_total_ground_time_min
+            , c83::smallint as diverted2_longest_ground_time_min
 
-        , diverted5_airport_oai_code::char(3) as diverted5_airport_oai_code
-        , nullif(trim(diverted5_tail_nbr), '')::varchar(10) as diverted5_tail_nbr
-        , nullif(trim(diverted5_wheels_on_time_lcl::varchar), '')::char(4) as diverted5_wheels_on_time_lcl
-        , nullif(trim(diverted5_wheels_off_time_lcl::varchar), '')::char(4) as diverted5_wheels_off_time_lcl
-        , diverted5_total_ground_time_min::smallint as diverted5_total_ground_time_min
-        , diverted5_longest_ground_time_min::smallint as diverted5_longest_ground_time_min
-    from read_csv('s3://src-aviation/OTP/CSV/*.csv.gz', union_by_name=true)
-) to 'otp_raw_extract' (format 'parquet', compression 'zstd', per_thread_output true);
+            , nullif(trim(c86), '')::char(3) as diverted3_airport_oai_code
+            , nullif(trim(c93), '')::varchar(10) as diverted3_tail_nbr
+            , CASE WHEN nullif(trim(c89), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c89), ''), '0000'), 4, '0') END as d3_w_on
+            , CASE WHEN nullif(trim(c89), '') = '2400' THEN TRUE ELSE FALSE END as d3_on_roll_ind
+            , CASE WHEN nullif(trim(c92), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c92), ''), '0000'), 4, '0') END as d3_w_off
+            , CASE WHEN nullif(trim(c92), '') = '2400' THEN TRUE ELSE FALSE END as d3_off_roll_ind
+            , c90::smallint as diverted3_total_ground_time_min
+            , c91::smallint as diverted3_longest_ground_time_min
 
--- 2. integration stage (resolve keys, compute timestamps, and write core integrated parquet hub)
-copy (
-    with raw_local_parquet as (
-        select * from read_parquet('otp_raw_extract/*.parquet')
+            , nullif(trim(c94), '')::char(3) as diverted4_airport_oai_code
+            , nullif(trim(c101), '')::varchar(10) as diverted4_tail_nbr
+            , CASE WHEN nullif(trim(c97), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c97), ''), '0000'), 4, '0') END as d4_w_on
+            , CASE WHEN nullif(trim(c97), '') = '2400' THEN TRUE ELSE FALSE END as d4_on_roll_ind
+            , CASE WHEN nullif(trim(c100), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c100), ''), '0000'), 4, '0') END as d4_w_off
+            , CASE WHEN nullif(trim(c100), '') = '2400' THEN TRUE ELSE FALSE END as d4_off_roll_ind
+            , c98::smallint as diverted4_total_ground_time_min
+            , c99::smallint as diverted4_longest_ground_time_min
+
+            , nullif(trim(c102), '')::char(3) as diverted5_airport_oai_code
+            , nullif(trim(c109), '')::varchar(10) as diverted5_tail_nbr
+            , CASE WHEN nullif(trim(c105), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c105), ''), '0000'), 4, '0') END as d5_w_on
+            , CASE WHEN nullif(trim(c105), '') = '2400' THEN TRUE ELSE FALSE END as d5_on_roll_ind
+            , CASE WHEN nullif(trim(c108), '') = '2400' THEN '0000' ELSE lpad(coalesce(nullif(trim(c108), ''), '0000'), 4, '0') END as d5_w_off
+            , CASE WHEN nullif(trim(c108), '') = '2400' THEN TRUE ELSE FALSE END as d5_off_roll_ind
+            , c106::smallint as diverted5_total_ground_time_min
+            , c107::smallint as diverted5_longest_ground_time_min
+    from read_csv(
+          --'s3://src-aviation/OTP/CSV/*.csv.gz'
+          's3://src-aviation/OTP/CSV/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2025_4.csv.gz'
+        , header=true
+        , dateformat='%Y-%m-%d'
+        , columns={
+              'c1': 'VARCHAR'   -- year_nbr
+            , 'c2': 'VARCHAR'   -- quarter_nbr
+            , 'c3': 'VARCHAR'   -- month_nbr
+            , 'c4': 'VARCHAR'   -- day_of_month
+            , 'c5': 'VARCHAR'   -- day_of_week
+            , 'c6': 'DATE'      -- flight_date
+            , 'c7': 'VARCHAR'   -- airline_unique_oai_code
+            , 'c8': 'VARCHAR'   -- airline_usdot_id
+            , 'c9': 'VARCHAR'   -- airline_oai_code
+            , 'c10': 'VARCHAR'  -- tail_nbr
+            , 'c11': 'VARCHAR'  -- flight_nbr
+            , 'c12': 'VARCHAR'  -- depart_airport_oai_id
+            , 'c13': 'VARCHAR'  -- depart_airport_seq_id
+            , 'c14': 'VARCHAR'  -- depart_city_market_id
+            , 'c15': 'VARCHAR'  -- depart_airport_oai_code
+            , 'c16': 'VARCHAR'  -- depart_city_name
+            , 'c17': 'VARCHAR'  -- depart_state_iso_code
+            , 'c18': 'VARCHAR'  -- depart_state_fips_code
+            , 'c19': 'VARCHAR'  -- depart_state_name
+            , 'c20': 'VARCHAR'  -- depart_world_area_oai_id
+            , 'c21': 'VARCHAR'  -- arrive_airport_oai_id
+            , 'c22': 'VARCHAR'  -- arrive_airport_seq_oai_id
+            , 'c23': 'VARCHAR'  -- arrive_city_market_id
+            , 'c24': 'VARCHAR'  -- arrive_airport_oai_code
+            , 'c25': 'VARCHAR'  -- arrive_city_name
+            , 'c26': 'VARCHAR'  -- arrive_state_iso_code
+            , 'c27': 'VARCHAR'  -- arrive_state_fips_code
+            , 'c28': 'VARCHAR'  -- arrive_state_name
+            , 'c29': 'VARCHAR'  -- arrive_world_area_oai_id
+            , 'c30': 'VARCHAR'  -- report_depart_time_lcl
+            , 'c31': 'VARCHAR'  -- actual_depart_time_lcl
+            , 'c32': 'VARCHAR'  -- depart_delay_min
+            , 'c33': 'VARCHAR'  -- depart_delay_pos_min
+            , 'c34': 'VARCHAR'  -- depart_delay_15min_ind
+            , 'c35': 'VARCHAR'  -- depart_delay_group_id
+            , 'c36': 'VARCHAR'  -- depart_time_block
+            , 'c37': 'VARCHAR'  -- taxi_out_min
+            , 'c38': 'VARCHAR'  -- wheels_off_time_lcl
+            , 'c39': 'VARCHAR'  -- wheels_on_time_lcl
+            , 'c40': 'VARCHAR'  -- taxi_in_min
+            , 'c41': 'VARCHAR'  -- report_arrive_time_lcl
+            , 'c42': 'VARCHAR'  -- actual_arrive_time_lcl
+            , 'c43': 'VARCHAR'  -- arrive_delay_min
+            , 'c44': 'VARCHAR'  -- arrive_delay_pos_min
+            , 'c45': 'VARCHAR'  -- arrive_delay_15min_ind
+            , 'c46': 'VARCHAR'  -- arrive_delay_group_id
+            , 'c47': 'VARCHAR'  -- arrive_time_block
+            , 'c48': 'VARCHAR'  -- cancelled_ind
+            , 'c49': 'VARCHAR'  -- cancellation_code
+            , 'c50': 'VARCHAR'  -- diverted_ind
+            , 'c51': 'VARCHAR'  -- report_elapsed_time_min
+            , 'c52': 'VARCHAR'  -- actual_elapsed_time_min
+            , 'c53': 'VARCHAR'  -- airborne_time_min
+            , 'c54': 'VARCHAR'  -- flight_count
+            , 'c55': 'VARCHAR'  -- distance_smi
+            , 'c56': 'VARCHAR'  -- distance_group_id
+            , 'c57': 'VARCHAR'  -- airline_delay_min
+            , 'c58': 'VARCHAR'  -- weather_delay_min
+            , 'c59': 'VARCHAR'  -- nas_delay_min
+            , 'c60': 'VARCHAR'  -- security_delay_min
+            , 'c61': 'VARCHAR'  -- late_aircraft_delay_min
+            , 'c62': 'VARCHAR'  -- first_gate_depart_time
+            , 'c63': 'VARCHAR'  -- total_ground_time
+            , 'c64': 'VARCHAR'  -- longest_ground_time
+            , 'c65': 'VARCHAR'  -- diverted_airport_landing_count
+            , 'c66': 'VARCHAR'  -- diverted_reached_dest_ind
+            , 'c67': 'VARCHAR'  -- diverted_actual_elapsed_time_min
+            , 'c68': 'VARCHAR'  -- diverted_arrive_delay_min
+            , 'c69': 'VARCHAR'  -- diverted_distance_smi
+            , 'c70': 'VARCHAR'  -- diverted1_airport_oai_code
+            , 'c71': 'VARCHAR'  -- diverted1_airport_oai_id
+            , 'c72': 'VARCHAR'  -- diverted1_airport_seq_oai_id
+            , 'c73': 'VARCHAR'  -- diverted1_wheels_on_time_lcl
+            , 'c74': 'VARCHAR'  -- diverted1_total_ground_time_min
+            , 'c75': 'VARCHAR'  -- diverted1_longest_ground_time_min
+            , 'c76': 'VARCHAR'  -- diverted1_wheels_off_time_lcl
+            , 'c77': 'VARCHAR'  -- diverted1_tail_nbr
+            , 'c78': 'VARCHAR'  -- diverted2_airport_oai_code
+            , 'c79': 'VARCHAR'  -- diverted2_airport_oai_id
+            , 'c80': 'VARCHAR'  -- diverted2_airport_seq_oai_id
+            , 'c81': 'VARCHAR'  -- diverted2_wheels_on_time_lcl
+            , 'c82': 'VARCHAR'  -- diverted2_total_ground_time_min
+            , 'c83': 'VARCHAR'  -- diverted2_longest_ground_time_min
+            , 'c84': 'VARCHAR'  -- diverted2_wheels_off_time_lcl
+            , 'c85': 'VARCHAR'  -- diverted2_tail_nbr
+            , 'c86': 'VARCHAR'  -- diverted3_airport_oai_code
+            , 'c87': 'VARCHAR'  -- diverted3_airport_oai_id
+            , 'c88': 'VARCHAR'  -- diverted3_airport_seq_oai_id
+            , 'c89': 'VARCHAR'  -- diverted3_wheels_on_time_lcl
+            , 'c90': 'VARCHAR'  -- diverted3_total_ground_time_min
+            , 'c91': 'VARCHAR'  -- diverted3_longest_ground_time_min
+            , 'c92': 'VARCHAR'  -- diverted3_wheels_off_time_lcl
+            , 'c93': 'VARCHAR'  -- diverted3_tail_nbr
+            , 'c94': 'VARCHAR'  -- diverted4_airport_oai_code
+            , 'c95': 'VARCHAR'  -- diverted4_airport_oai_id
+            , 'c96': 'VARCHAR'  -- diverted4_airport_seq_oai_id
+            , 'c97': 'VARCHAR'  -- diverted4_wheels_on_time_lcl
+            , 'c98': 'VARCHAR'  -- diverted4_total_ground_time_min
+            , 'c99': 'VARCHAR'  -- diverted4_longest_ground_time_min
+            , 'c100': 'VARCHAR' -- diverted4_wheels_off_time_lcl
+            , 'c101': 'VARCHAR' -- diverted4_tail_nbr
+            , 'c102': 'VARCHAR' -- diverted5_airport_oai_code
+            , 'c103': 'VARCHAR' -- diverted5_airport_oai_id
+            , 'c104': 'VARCHAR' -- diverted5_airport_seq_oai_id
+            , 'c105': 'VARCHAR' -- diverted5_wheels_on_time_lcl
+            , 'c106': 'VARCHAR' -- diverted5_total_ground_time_min
+            , 'c107': 'VARCHAR' -- diverted5_longest_ground_time_min
+            , 'c108': 'VARCHAR' -- diverted5_wheels_off_time_lcl
+            , 'c109': 'VARCHAR' -- diverted5_tail_nbr
+            , 'c110': 'VARCHAR' -- filler
+          }
+          )
+      ),
+	  
+    -- 1.2. multi-Dimensional Range Interval Asymmetric Lookups
+    joined_stream AS (
+        SELECT 
+              ts.*
+            , ae.source_from_date as airline_entity_from_date, ae.airline_entity_id, ae.airline_entity_key
+            , a.effective_from_date as depart_airport_from_date, a.airport_history_id as depart_airport_history_id, a.airport_history_key as depart_airport_history_key, a.time_zone_name as dep_tz
+            , b.effective_from_date as arrive_airport_from_date, b.airport_history_id as arrive_airport_history_id, b.airport_history_key as arrive_airport_history_key, b.time_zone_name as arr_tz
+            -- Diverted Core SDC2 Entity Mappings
+            , d1.airport_history_id as diverted1_airport_history_id, d1.airport_history_key as diverted1_airport_history_key, d1.time_zone_name as d1_tz, d1.effective_from_date as diverted1_airport_from_date
+            , d2.airport_history_id as diverted2_airport_history_id, d2.airport_history_key as diverted2_airport_history_key, d2.time_zone_name as d2_tz, d2.effective_from_date as diverted2_airport_from_date
+            , d3.airport_history_id as diverted3_airport_history_id, d3.airport_history_key as diverted3_airport_history_key, d3.time_zone_name as d3_tz, d3.effective_from_date as diverted3_airport_from_date
+            , d4.airport_history_id as diverted4_airport_history_id, d4.airport_history_key as diverted4_airport_history_key, d4.time_zone_name as d4_tz, d4.effective_from_date as diverted4_airport_from_date
+            , d5.airport_history_id as diverted5_airport_history_id, d5.airport_history_key as diverted5_airport_history_key, d5.time_zone_name as d5_tz, d5.effective_from_date as diverted5_airport_from_date
+        FROM raw_stream ts
+        LEFT JOIN clean_airlines_lookup ae   ON ts.airline_oai_code = ae.airline_oai_code AND ts.flight_date >= ae.source_from_date AND ts.flight_date < ae.source_thru_date_clean
+        LEFT JOIN clean_airports_lookup a   ON ts.depart_airport_oai_code = a.airport_oai_code AND ts.flight_date >= a.effective_from_date AND ts.flight_date < a.effective_thru_date_clean
+        LEFT JOIN clean_airports_lookup b   ON ts.arrive_airport_oai_code = b.airport_oai_code AND ts.flight_date >= b.effective_from_date AND ts.flight_date < b.effective_thru_date_clean
+        LEFT JOIN clean_airports_lookup d1  ON ts.diverted1_airport_oai_code = d1.airport_oai_code AND ts.flight_date >= d1.effective_from_date AND ts.flight_date < d1.effective_thru_date_clean
+        LEFT JOIN clean_airports_lookup d2  ON ts.diverted2_airport_oai_code = d2.airport_oai_code AND ts.flight_date >= d2.effective_from_date AND ts.flight_date < d2.effective_thru_date_clean
+        LEFT JOIN clean_airports_lookup d3  ON ts.diverted3_airport_oai_code = d3.airport_oai_code AND ts.flight_date >= d3.effective_from_date AND ts.flight_date < d3.effective_thru_date_clean
+        LEFT JOIN clean_airports_lookup d4  ON ts.diverted4_airport_oai_code = d4.airport_oai_code AND ts.flight_date >= d4.effective_from_date AND ts.flight_date < d4.effective_thru_date_clean
+        LEFT JOIN clean_airports_lookup d5  ON ts.diverted5_airport_oai_code = d5.airport_oai_code AND ts.flight_date >= d5.effective_from_date AND ts.flight_date < d5.effective_thru_date_clean
+    ),
+	
+    -- 1.3. vectorized String Tokenization & Temporal Additions (+1 Day Loops)
+    parsed_timestamps AS (
+        SELECT 
+              js.*
+            , CASE WHEN js.report_depart_time_lcl IS NULL THEN NULL WHEN js.r_dep_roll_ind THEN strptime(js.dt_str || js.r_dep, '%Y-%m-%d%H%M') + INTERVAL 1 DAY ELSE strptime(js.dt_str || js.r_dep, '%Y-%m-%d%H%M') END as lcl_r_dep
+            , CASE WHEN js.report_arrive_time_lcl IS NULL THEN NULL WHEN js.r_arr_roll_ind THEN strptime(js.dt_str || js.r_arr, '%Y-%m-%d%H%M') + INTERVAL 1 DAY ELSE strptime(js.dt_str || js.r_arr, '%Y-%m-%d%H%M') END as lcl_r_arr
+            , CASE WHEN js.actual_depart_time_lcl IS NULL THEN NULL WHEN js.a_dep_roll_ind THEN strptime(js.dt_str || js.a_dep, '%Y-%m-%d%H%M') + INTERVAL 1 DAY ELSE strptime(js.dt_str || js.a_dep, '%Y-%m-%d%H%M') END as lcl_a_dep
+            , CASE WHEN js.actual_arrive_time_lcl IS NULL THEN NULL WHEN js.a_arr_roll_ind THEN strptime(js.dt_str || js.a_arr, '%Y-%m-%d%H%M') + INTERVAL 1 DAY ELSE strptime(js.dt_str || js.a_arr, '%Y-%m-%d%H%M') END as lcl_a_arr
+            , CASE WHEN js.wheels_off_time_lcl    IS NULL THEN NULL WHEN js.w_off_roll_ind THEN strptime(js.dt_str || js.w_off, '%Y-%m-%d%H%M') + INTERVAL 1 DAY ELSE strptime(js.dt_str || js.w_off, '%Y-%m-%d%H%M') END as lcl_w_off
+            , CASE WHEN js.wheels_on_time_lcl     IS NULL THEN NULL WHEN js.w_on_roll_ind  THEN strptime(js.dt_str || js.w_on,  '%Y-%m-%d%H%M') + INTERVAL 1 DAY ELSE strptime(js.dt_str || js.w_on,  '%Y-%m-%d%H%M') END as lcl_w_on
+            , CASE WHEN js.first_gate_depart_time IS NULL THEN NULL WHEN js.f_gate_roll_ind then strptime(js.dt_str || js.f_gate, '%Y-%m-%d%H%M') + INTERVAL 1 DAY ELSE strptime(js.dt_str || js.f_gate, '%Y-%m-%d%H%M') END as lcl_f_gate
+            
+            -- Diverted Legs 1..5 Time Vector Offsets
+            , CASE WHEN js.diverted1_airport_oai_code IS NOT NULL AND js.d1_w_on  != '0000' THEN strptime(js.dt_str || js.d1_w_on, '%Y-%m-%d%H%M') + CASE WHEN js.d1_on_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d1_on
+            , CASE WHEN js.diverted1_airport_oai_code IS NOT NULL AND js.d1_w_off != '0000' THEN strptime(js.dt_str || js.d1_w_off, '%Y-%m-%d%H%M') + CASE WHEN js.d1_off_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d1_off
+            
+            , CASE WHEN js.diverted2_airport_oai_code IS NOT NULL AND js.d2_w_on  != '0000' THEN strptime(js.dt_str || js.d2_w_on, '%Y-%m-%d%H%M') + CASE WHEN js.d2_on_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d2_on
+            , CASE WHEN js.diverted2_airport_oai_code IS NOT NULL AND js.d2_w_off != '0000' THEN strptime(js.dt_str || js.d2_w_off, '%Y-%m-%d%H%M') + CASE WHEN js.d2_off_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d2_off
+            
+            , CASE WHEN js.diverted3_airport_oai_code IS NOT NULL AND js.d3_w_on  != '0000' THEN strptime(js.dt_str || js.d3_w_on, '%Y-%m-%d%H%M') + CASE WHEN js.d3_on_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d3_on
+            , CASE WHEN js.diverted3_airport_oai_code IS NOT NULL AND js.d3_w_off != '0000' THEN strptime(js.dt_str || js.d3_w_off, '%Y-%m-%d%H%M') + CASE WHEN js.d3_off_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d3_off
+            
+            , CASE WHEN js.diverted4_airport_oai_code IS NOT NULL AND js.d4_w_on  != '0000' THEN strptime(js.dt_str || js.d4_w_on, '%Y-%m-%d%H%M') + CASE WHEN js.d4_on_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d4_on
+            , CASE WHEN js.diverted4_airport_oai_code IS NOT NULL AND js.d4_w_off != '0000' THEN strptime(js.dt_str || js.d4_w_off, '%Y-%m-%d%H%M') + CASE WHEN js.d4_off_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d4_off
+            
+            , CASE WHEN js.diverted5_airport_oai_code IS NOT NULL AND js.d5_w_on  != '0000' THEN strptime(js.dt_str || js.d5_w_on, '%Y-%m-%d%H%M') + CASE WHEN js.d5_on_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d5_on
+            , CASE WHEN js.diverted5_airport_oai_code IS NOT NULL AND js.d5_w_off != '0000' THEN strptime(js.dt_str || js.d5_w_off, '%Y-%m-%d%H%M') + CASE WHEN js.d5_off_roll_ind THEN INTERVAL 1 DAY ELSE INTERVAL 0 DAY END ELSE NULL END as lcl_d5_off
+        FROM joined_stream js
     )
-    select 
-          md5(fp.airline_oai_code || '|' || fp.flight_nbr || '|' || fp.flight_date::varchar || '|' || fp.depart_airport_oai_code)::char(32) as flight_key
-        , fp.flight_date
-        , fp.airline_oai_code
-        , ae.source_from_date as airline_entity_from_date
-        , ae.airline_entity_id
-        , ae.airline_entity_key
-        , fp.flight_nbr
-        , fp.flight_count
-        , fp.tail_nbr
-        , fp.depart_airport_oai_code
-        , a.effective_from_date as depart_airport_from_date
-        , a.airport_history_id as depart_airport_history_id
-        , a.airport_history_key as depart_airport_history_key
-        , fp.arrive_airport_oai_code
-        , b.effective_from_date as arrive_airport_from_date
-        , b.airport_history_id as arrive_airport_history_id
-        , b.airport_history_key as arrive_airport_history_key
-        , fp.distance_smi
-        , (fp.distance_smi / 1.1508)::numeric(10,2) as distance_nmi
-        , (fp.distance_smi * 1.60934)::numeric(10,2) as distance_kmt
-        , fp.distance_group_id
-        , fp.depart_time_block
-        , fp.arrive_time_block
-        
-        -- localized execution timestamps
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.report_depart_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.report_depart_time_lcl, 4, '0'), 3, 2) as timestamp) as report_depart_tmstz_lcl
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.report_arrive_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.report_arrive_time_lcl, 4, '0'), 3, 2) as timestamp) as report_arrive_tmstz_lcl
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.actual_depart_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.actual_depart_time_lcl, 4, '0'), 3, 2) as timestamp) as actual_depart_tmstz_lcl
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.actual_arrive_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.actual_arrive_time_lcl, 4, '0'), 3, 2) as timestamp) as actual_arrive_tmstz_lcl
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) as wheels_off_tmstz_lcl
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) as wheels_on_tmstz_lcl
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.first_gate_depart_time, 4, '0'), 1, 2) || ':' || substring(lpad(fp.first_gate_depart_time, 4, '0'), 3, 2) as timestamp) as first_gate_depart_tmstz_lcl
-        
-        -- native timeline serialization over timezone layers to utc arrays
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.report_depart_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.report_depart_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone a.time_zone_name) at time zone 'UTC' as report_depart_tmstz_utc
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.report_arrive_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.report_arrive_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone b.time_zone_name) at time zone 'UTC' as report_arrive_tmstz_utc
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.actual_depart_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.actual_depart_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone a.time_zone_name) at time zone 'UTC' as actual_depart_tmstz_utc
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.actual_arrive_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.actual_arrive_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone b.time_zone_name) at time zone 'UTC' as actual_arrive_tmstz_utc
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone a.time_zone_name) at time zone 'UTC' as wheels_off_tmstz_utc
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone b.time_zone_name) at time zone 'UTC' as wheels_on_tmstz_utc
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.first_gate_depart_time, 4, '0'), 1, 2) || ':' || substring(lpad(fp.first_gate_depart_time, 4, '0'), 3, 2) as timestamp) at time zone a.time_zone_name) at time zone 'UTC' as first_gate_depart_tmstz_utc
-        
-        , fp.report_elapsed_time_min
-        , fp.actual_elapsed_time_min
-        , fp.airborne_time_min
-        , fp.taxi_out_min
-        , fp.taxi_in_min
-        , fp.total_ground_time
-        , fp.longest_ground_time
-        , fp.airline_delay_min
-        , fp.weather_delay_min
-        , fp.nas_delay_min
-        , fp.security_delay_min
-        , fp.late_aircraft_delay_min
-        
-        , fp.cancelled_ind
-        , fp.cancellation_code
-        , fp.diverted_ind
-        , case 
-            when fp.cancelled_ind = 1 then 'cancelled'
-            when fp.diverted_ind = 1 then 'diverted'
-            when fp.airline_delay_min is not null then 'arrived_delayed'
-            else 'arrived_on_time'
-          end::varchar(25) as flight_status
+	
+    -- 1.4. final projection with metric serialization
+    SELECT 
+      md5(ppt.airline_oai_code || '|' || ppt.flight_nbr || '|' || ppt.dt_str || '|' || ppt.depart_airport_oai_code)::char(32) as flight_key
+    , ppt.year_nbr
+    , ppt.month_nbr
+    , ppt.flight_date
+    , ppt.airline_oai_code
+    , ppt.airline_usdot_id
+    , ppt.airline_entity_from_date, ppt.airline_entity_id, ppt.airline_entity_key
+    , ppt.flight_nbr, ppt.flight_count, ppt.tail_nbr
+    , ppt.depart_airport_oai_id, ppt.depart_airport_oai_code, ppt.depart_airport_from_date, ppt.depart_airport_history_id, ppt.depart_airport_history_key
+    , ppt.arrive_airport_oai_id, ppt.arrive_airport_oai_code, ppt.arrive_airport_from_date, ppt.arrive_airport_history_id, ppt.arrive_airport_history_key
+    , ppt.distance_smi
+    , (ppt.distance_smi * 0.868976)::numeric(10,2) as distance_nmi
+    , (ppt.distance_smi * 1.60934)::numeric(10,2) as distance_kmt
+    , ppt.distance_group_id, ppt.depart_time_block, ppt.arrive_time_block
+    
+    -- Localized base timestamps
+    , ppt.lcl_r_dep as report_depart_tmstz_lcl, ppt.lcl_r_arr as report_arrive_tmstz_lcl
+    , ppt.lcl_a_dep as actual_depart_tmstz_lcl, ppt.lcl_a_arr as actual_arrive_tmstz_lcl
+    , ppt.lcl_w_off as wheels_off_tmstz_lcl,   ppt.lcl_w_on as wheels_on_tmstz_lcl
+    , ppt.lcl_f_gate as first_gate_depart_tmstz_lcl
+    
+    -- Timezone Normalization to UTC via native 'at time zone' lookups
+    , (ppt.lcl_r_dep at time zone ppt.dep_tz) at time zone 'UTC' as report_depart_tmstz_utc
+    , (ppt.lcl_r_arr at time zone ppt.arr_tz) at time zone 'UTC' as report_arrive_tmstz_utc
+    , (ppt.lcl_a_dep at time zone ppt.dep_tz) at time zone 'UTC' as actual_depart_tmstz_utc
+    , (ppt.lcl_a_arr at time zone ppt.arr_tz) at time zone 'UTC' as actual_arrive_tmstz_utc
+    , (ppt.lcl_w_off at time zone ppt.dep_tz) at time zone 'UTC' as wheels_off_tmstz_utc
+    , (ppt.lcl_w_on at time zone ppt.arr_tz) at time zone 'UTC' as wheels_on_tmstz_utc
+    , (ppt.lcl_f_gate at time zone ppt.dep_tz) at time zone 'UTC' as first_gate_depart_tmstz_utc
+    
+    , ppt.report_elapsed_time_min, ppt.actual_elapsed_time_min, ppt.airborne_time_min, ppt.taxi_out_min, ppt.taxi_in_min, ppt.total_ground_time, ppt.longest_ground_time
+    , ppt.airline_delay_min, ppt.weather_delay_min, ppt.nas_delay_min, ppt.security_delay_min, ppt.late_aircraft_delay_min
+    , ppt.cancelled_ind, ppt.cancellation_code, ppt.diverted_ind
+    , case when ppt.cancelled_ind = 1 then 'cancelled' when ppt.diverted_ind = 1 then 'diverted' when ppt.airline_delay_min is not null then 'arrived_delayed' else 'arrived_on_time' end::varchar(25) as flight_status
 
-        -- structural unpivot parameters for active flight legs (d1..d5)
-        , fp.diverted1_airport_oai_code
-        , d1.effective_from_date as diverted1_airport_from_date
-        , d1.airport_history_id as diverted1_airport_history_id
-        , d1.airport_history_key as diverted1_airport_history_key
-        , fp.diverted1_tail_nbr
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted1_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted1_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted1_wheels_on_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted1_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted1_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d1.time_zone_name) at time zone 'UTC' as diverted1_wheels_on_tmstz_utc
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted1_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted1_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted1_wheels_off_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted1_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted1_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d1.time_zone_name) at time zone 'UTC' as diverted1_wheels_off_tmstz_utc
-        , fp.diverted1_total_ground_time_min
-        , fp.diverted1_longest_ground_time_min
+    -- Diverted Leg Outputs 1..5
+    , ppt.diverted1_airport_oai_code, ppt.diverted1_airport_history_id, ppt.diverted1_airport_history_key, ppt.diverted1_tail_nbr
+    , ppt.lcl_d1_on as diverted1_wheels_on_tmstz_lcl, (ppt.lcl_d1_on at time zone ppt.d1_tz) at time zone 'UTC' as diverted1_wheels_on_tmstz_utc
+    , ppt.lcl_d1_off as diverted1_wheels_off_tmstz_lcl, (ppt.lcl_d1_off at time zone ppt.d1_tz) at time zone 'UTC' as diverted1_wheels_off_tmstz_utc
+    , ppt.diverted1_total_ground_time_min, ppt.diverted1_longest_ground_time_min, ppt.diverted1_airport_from_date
 
-        , fp.diverted2_airport_oai_code
-        , d2.effective_from_date as diverted2_airport_from_date
-        , d2.airport_history_id as diverted2_airport_history_id
-        , d2.airport_history_key as diverted2_airport_history_key
-        , fp.diverted2_tail_nbr
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted2_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted2_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted2_wheels_on_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted2_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted2_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d2.time_zone_name) at time zone 'UTC' as diverted2_wheels_on_tmstz_utc
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted2_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted2_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted2_wheels_off_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted2_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted2_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d2.time_zone_name) at time zone 'UTC' as diverted2_wheels_off_tmstz_utc
-        , fp.diverted2_total_ground_time_min
-        , fp.diverted2_longest_ground_time_min
+    , ppt.diverted2_airport_oai_code, ppt.diverted2_airport_history_id, ppt.diverted2_airport_history_key, ppt.diverted2_tail_nbr
+    , ppt.lcl_d2_on as diverted2_wheels_on_tmstz_lcl, (ppt.lcl_d2_on at time zone ppt.d2_tz) at time zone 'UTC' as diverted2_wheels_on_tmstz_utc
+    , ppt.lcl_d2_off as diverted2_wheels_off_tmstz_lcl, (ppt.lcl_d2_off at time zone ppt.d2_tz) at time zone 'UTC' as diverted2_wheels_off_tmstz_utc
+    , ppt.diverted2_total_ground_time_min, ppt.diverted2_longest_ground_time_min, ppt.diverted2_airport_from_date 
 
-        , fp.diverted3_airport_oai_code
-        , d3.effective_from_date as diverted3_airport_from_date
-        , d3.airport_history_id as diverted3_airport_history_id
-        , d3.airport_history_key as diverted3_airport_history_key
-        , fp.diverted3_tail_nbr
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted3_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted3_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted3_wheels_on_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted3_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted3_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d3.time_zone_name) at time zone 'UTC' as diverted3_wheels_on_tmstz_utc
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted3_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted3_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted3_wheels_off_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted3_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted3_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d3.time_zone_name) at time zone 'UTC' as diverted3_wheels_off_tmstz_utc
-        , fp.diverted3_total_ground_time_min
-        , fp.diverted3_longest_ground_time_min
+    , ppt.diverted3_airport_oai_code, ppt.diverted3_airport_history_id, ppt.diverted3_airport_history_key, ppt.diverted3_tail_nbr
+    , ppt.lcl_d3_on as diverted3_wheels_on_tmstz_lcl, (ppt.lcl_d3_on at time zone ppt.d3_tz) at time zone 'UTC' as diverted3_wheels_on_tmstz_utc
+    , ppt.lcl_d3_off as diverted3_wheels_off_tmstz_lcl, (ppt.lcl_d3_off at time zone ppt.d3_tz) at time zone 'UTC' as diverted3_wheels_off_tmstz_utc
+    , ppt.diverted3_total_ground_time_min, ppt.diverted3_longest_ground_time_min, ppt.diverted3_airport_from_date
 
-        , fp.diverted4_airport_oai_code
-        , d4.effective_from_date as diverted4_airport_from_date
-        , d4.airport_history_id as diverted4_airport_history_id
-        , d4.airport_history_key as diverted4_airport_history_key
-        , fp.diverted4_tail_nbr
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted4_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted4_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted4_wheels_on_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted4_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted4_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d4.time_zone_name) at time zone 'UTC' as diverted4_wheels_on_tmstz_utc
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted4_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted4_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted4_wheels_off_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted4_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted4_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d4.time_zone_name) at time zone 'UTC' as diverted4_wheels_off_tmstz_utc
-        , fp.diverted4_total_ground_time_min
-        , fp.diverted4_longest_ground_time_min
+    , ppt.diverted4_airport_oai_code, ppt.diverted4_airport_history_id, ppt.diverted4_airport_history_key, ppt.diverted4_tail_nbr
+    , ppt.lcl_d4_on as diverted4_wheels_on_tmstz_lcl, (ppt.lcl_d4_on at time zone ppt.d4_tz) at time zone 'UTC' as diverted4_wheels_on_tmstz_utc
+    , ppt.lcl_d4_off as diverted4_wheels_off_tmstz_lcl, (ppt.lcl_d4_off at time zone ppt.d4_tz) at time zone 'UTC' as diverted4_wheels_off_tmstz_utc
+    , ppt.diverted4_total_ground_time_min, ppt.diverted4_longest_ground_time_min, ppt.diverted4_airport_from_date
 
-        , fp.diverted5_airport_oai_code
-        , d5.effective_from_date as diverted5_airport_from_date
-        , d5.airport_history_id as diverted5_airport_history_id
-        , d5.airport_history_key as diverted5_airport_history_key
-        , fp.diverted5_tail_nbr
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted5_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted5_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted5_wheels_on_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted5_wheels_on_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted5_wheels_on_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d5.time_zone_name) at time zone 'UTC' as diverted5_wheels_on_tmstz_utc
-        , try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted5_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted5_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) as diverted5_wheels_off_tmstz_lcl
-        , (try_cast(fp.flight_date::varchar || ' ' || substring(lpad(fp.diverted5_wheels_off_time_lcl, 4, '0'), 1, 2) || ':' || substring(lpad(fp.diverted5_wheels_off_time_lcl, 4, '0'), 3, 2) as timestamp) at time zone d5.time_zone_name) at time zone 'UTC' as diverted5_wheels_off_tmstz_utc
-        , fp.diverted5_total_ground_time_min
-        , fp.diverted5_longest_ground_time_min
-    from raw_local_parquet fp
-    left join air_oai_dims.airline_entities ae 
-      on fp.airline_oai_code = ae.airline_oai_code 
-     and fp.flight_date between ae.source_from_date and coalesce(ae.source_thru_date, current_date)
-    left join air_oai_dims.airport_history a 
-      on fp.depart_airport_oai_code = a.airport_oai_code 
-     and fp.flight_date between a.effective_from_date and coalesce(a.effective_thru_date, current_date)
-    left join air_oai_dims.airport_history b 
-      on fp.arrive_airport_oai_code = b.airport_oai_code 
-     and fp.flight_date between b.effective_from_date and coalesce(b.effective_thru_date, current_date)
-    left join air_oai_dims.airport_history d1 
-      on fp.diverted1_airport_oai_code = d1.airport_oai_code 
-     and fp.flight_date between d1.effective_from_date and coalesce(d1.effective_thru_date, current_date)
-    left join air_oai_dims.airport_history d2 
-      on fp.diverted2_airport_oai_code = d2.airport_oai_code 
-     and fp.flight_date between d2.effective_from_date and coalesce(d2.effective_thru_date, current_date)
-    left join air_oai_dims.airport_history d3 
-      on fp.diverted3_airport_oai_code = d3.airport_oai_code 
-     and fp.flight_date between d3.effective_from_date and coalesce(d3.effective_thru_date, current_date)
-    left join air_oai_dims.airport_history d4 
-      on fp.diverted4_airport_oai_code = d4.airport_oai_code 
-     and fp.flight_date between d4.effective_from_date and coalesce(d4.effective_thru_date, current_date)
-    left join air_oai_dims.airport_history d5 
-      on fp.diverted5_airport_oai_code = d5.airport_oai_code 
-     and fp.flight_date between d5.effective_from_date and coalesce(d5.effective_thru_date, current_date)
-) to 'otp_integrated_hub' (format 'parquet', compression 'zstd', per_thread_output true);
+    , ppt.diverted5_airport_oai_code, ppt.diverted5_airport_history_id, ppt.diverted5_airport_history_key, ppt.diverted5_tail_nbr
+    , ppt.lcl_d5_on as diverted5_wheels_on_tmstz_lcl, (ppt.lcl_d5_on at time zone ppt.d5_tz) at time zone 'UTC' as diverted5_wheels_on_tmstz_utc
+    , ppt.lcl_d5_off as diverted5_wheels_off_tmstz_lcl, (ppt.lcl_d5_off at time zone ppt.d5_tz) at time zone 'UTC' as diverted5_wheels_off_tmstz_utc
+    , ppt.diverted5_total_ground_time_min, ppt.diverted5_longest_ground_time_min, ppt.diverted5_airport_from_date
+FROM parsed_timestamps ppt
 
--- 3. slice final target tables directly from the integrated hub
--- 3.1. airline_flights_completed
+-- 2. slice final target tables directly from the integrated hub
+-- 2.1. airline_flights_completed
 drop table if exists air_oai_facts.airline_flights_completed;
 create table air_oai_facts.airline_flights_completed as
 select 
@@ -283,11 +399,11 @@ select
     , airline_delay_min, weather_delay_min, nas_delay_min, security_delay_min, late_aircraft_delay_min
     , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts
     , null::varchar(32) as updated_by, null::timestamp as updated_ts
-from read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where cancelled_ind = 0 and diverted_ind = 0;
 
 
--- 3.2. airline_flights_cancelled
+-- 2.2. airline_flights_cancelled
 drop table if exists air_oai_facts.airline_flights_cancelled;
 create table air_oai_facts.airline_flights_cancelled as
 select 
@@ -308,11 +424,11 @@ select
     , total_ground_time, longest_ground_time
     , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts
     , null::varchar(32) as updated_by, null::timestamp as updated_ts
-from read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where cancelled_ind = 1;
 
 
--- 3.3. airline_flights_diverted
+-- 2.3. airline_flights_diverted
 drop table if exists air_oai_facts.airline_flights_diverted;
 create table air_oai_facts.airline_flights_diverted as
 select 
@@ -338,11 +454,11 @@ select
     , total_ground_time, longest_ground_time
     , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts
     , null::varchar(32) as updated_by, null::timestamp as updated_ts
-from read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where diverted_ind = 1;
 
 
--- 3.4. airline_flights_diverted_legs
+-- 2.4. airline_flights_diverted_legs
 drop table if exists air_oai_facts.airline_flights_diverted_legs;
 create table air_oai_facts.airline_flights_diverted_legs as
 SELECT flight_key, 1::smallint as diversion_nbr, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
@@ -357,7 +473,7 @@ SELECT flight_key, 1::smallint as diversion_nbr, flight_date, airline_oai_code, 
      , diverted1_wheels_off_tmstz_utc as diverted_wheels_off_tmstz_utc
      , diverted1_total_ground_time_min as diverted_total_ground_time_min, diverted1_longest_ground_time_min as diverted_longest_ground_time_min
      , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts, null::varchar(32) as updated_by, null::timestamp as updated_ts 
-FROM read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where diverted_ind = 1 and diverted1_airport_history_id is not null
 union all
 SELECT flight_key, 2::smallint as diversion_nbr, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
@@ -372,7 +488,7 @@ SELECT flight_key, 2::smallint as diversion_nbr, flight_date, airline_oai_code, 
      , diverted2_wheels_off_tmstz_utc as diverted_wheels_off_tmstz_utc
      , diverted2_total_ground_time_min as diverted_total_ground_time_min, diverted2_longest_ground_time_min as diverted_longest_ground_time_min
      , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts, null::varchar(32) as updated_by, null::timestamp as updated_ts 
-FROM read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where diverted_ind = 1 and diverted2_airport_history_id is not null
 union all
 SELECT flight_key, 3::smallint as diversion_nbr, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
@@ -387,7 +503,7 @@ SELECT flight_key, 3::smallint as diversion_nbr, flight_date, airline_oai_code, 
      , diverted3_wheels_off_tmstz_utc as diverted_wheels_off_tmstz_utc
      , diverted3_total_ground_time_min as diverted_total_ground_time_min, diverted3_longest_ground_time_min as diverted_longest_ground_time_min
      , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts, null::varchar(32) as updated_by, null::timestamp as updated_ts 
-FROM read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where diverted_ind = 1 and diverted3_airport_history_id is not null
 union all
 SELECT flight_key, 4::smallint as diversion_nbr, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
@@ -402,7 +518,7 @@ SELECT flight_key, 4::smallint as diversion_nbr, flight_date, airline_oai_code, 
      , diverted4_wheels_off_tmstz_utc as diverted_wheels_off_tmstz_utc
      , diverted4_total_ground_time_min as diverted_total_ground_time_min, diverted4_longest_ground_time_min as diverted_longest_ground_time_min
      , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts, null::varchar(32) as updated_by, null::timestamp as updated_ts 
-FROM read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where diverted_ind = 1 and diverted4_airport_history_id is not null
 union all
 SELECT flight_key, 5::smallint as diversion_nbr, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
@@ -417,11 +533,11 @@ SELECT flight_key, 5::smallint as diversion_nbr, flight_date, airline_oai_code, 
      , diverted5_wheels_off_tmstz_utc as diverted_wheels_off_tmstz_utc
      , diverted5_total_ground_time_min as diverted_total_ground_time_min, diverted5_longest_ground_time_min as diverted_longest_ground_time_min
      , current_user::varchar(32) as created_by, current_timestamp::timestamp as created_ts, null::varchar(32) as updated_by, null::timestamp as updated_ts 
-FROM read_parquet('otp_integrated_hub/*.parquet')
+from air_oai_facts.airline_flights_completed
 where diverted_ind = 1 and diverted5_airport_history_id is not null;
 
 
--- 3.5. airline_flights_scheduled
+-- 2.5. airline_flights_scheduled
 drop table if exists air_oai_facts.airline_flights_scheduled;
 create table air_oai_facts.airline_flights_scheduled as
 select flight_key, flight_date, airline_oai_code, airline_entity_from_date, airline_entity_id, airline_entity_key
@@ -458,7 +574,7 @@ select flight_key, flight_date, airline_oai_code, airline_entity_from_date, airl
 from air_oai_facts.airline_flights_diverted;
 
 
--- 4. add table constraints
+-- 3. add table constraints
 -- airline_flights_completed
 alter table air_oai_facts.airline_flights_completed alter flight_key set not null;
 alter table air_oai_facts.airline_flights_completed alter flight_date set not null;
@@ -574,7 +690,7 @@ alter table air_oai_facts.airline_flights_scheduled alter created_ts set not nul
 alter table air_oai_facts.airline_flights_scheduled add constraint airline_flights_scheduled_pk primary key (flight_key);
 
 
--- 5. create presentation layer views
+-- 4. create presentation layer views
 -- drop view if exists airlines_ddb.airline_flights_completed_v;
 create or replace view airlines_ddb.airline_flights_completed_v as
 SELECT flight_key, flight_date
