@@ -8,89 +8,90 @@
 -- STEPS:
 -- 0. download and unzip individual pre-zipped data files (stored by year and month) from https://transtats.bts.gov/PREZIP/
 -- 1. process DB1B Ticket data
---  1.1. extraction stage (S3 CSV to db1b_ticket_raw_extract)
---  1.2. create and load air_oai_facts.airfare_survey_itinerary
+    -- 1.1. materialize SCD2 CTEs
+    -- 1.2. position-Based Multi-File CSV Streaming
+    -- 1.3. multi-dimensional range interval lookups and projection
 -- 2. process DB1B Coupon data
---  2.1. extraction stage (S3 CSV to db1b_coupon_raw_extract)
---  2.2. create and load air_oai_facts.airfare_survey_coupon
+    -- 2.1. materialize SCD2 CTEs
+    -- 2.2. position-Based Multi-File CSV Streaming
+    -- 2.3. multi-dimensional range interval lookups and projection
 -- 3. process DB1B Market data
---  3.1. extraction stage (S3 CSV to db1b_market_raw_extract)
---  3.2. create and load air_oai_facts.airfare_survey_market
+    -- 3.1. materialize SCD2 CTEs
+    -- 3.2. position-Based Multi-File CSV Streaming
+    -- 3.3. multi-dimensional range interval lookups and projection
 -- 4. add table constraints
 -- 5. create presentation layer views
 ----------------------------------------------------
 
--- 1. process DB1B Ticket data
--- 1.1. extraction stage (positional 26-column schema map from airfare_survey_ticket_load)
-copy (
-    select 
-          c1::bigint as itinerary_oai_id
-        , c3::integer as year_nbr
-        , c4::integer as quarter_nbr
-        , make_date(c3::integer, (c4::integer - 1) * 3 + 1, 1) as year_quarter_start_date
-        , (c3::integer * 10 + c4::integer)::integer as year_quarter_nbr
-        , nullif(trim(c5), '')::char(3) as depart_airport_oai_code
-        , c7::integer as depart_airport_oai_seq_id
-        , nullif(trim(c18), '')::varchar(3) as reporting_airline_oai_code
-        , c14::smallint as round_trip_fare_ind
-        , c15::smallint as online_purchase_ind
-        , c21::smallint as bulk_fare_ind
-        , c16::smallint as fare_credibility_ind
-        , c23::smallint as distance_group_oai_id
-        , c25::smallint as geographic_type_oai_id
-        , c2::smallint as coupon_qty
-        , c19::smallint as passenger_qty
-        , c22::integer as distance_smi
-        , c24::integer as flown_distance_smi
-        , c20::integer as fare_per_person_usd
-        , c17::numeric(10,5) as fare_per_mile_usd
-    from read_csv(
-          's3://src-aviation/DB1B/ticket/CSV/*.csv.gz'
-          --'s3://src-aviation/DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2025_1.csv.gz'
-        , header=true
-        , dateformat='%m/%d/%Y %I:%M:%S %p'
-        , columns={
-              'c1': 'VARCHAR'  -- itinerary_oai_id
-            , 'c2': 'VARCHAR'  -- coupon_qty
-            , 'c3': 'VARCHAR'  -- year_nbr
-            , 'c4': 'VARCHAR'  -- quarter_nbr
-            , 'c5': 'VARCHAR'  -- depart_airport_oai_code
-            , 'c6': 'VARCHAR'  -- depart_airport_oai_id
-            , 'c7': 'VARCHAR'  -- depart_airport_oai_seq_id
-            , 'c8': 'VARCHAR'  -- depart_market_city_oai_id
-            , 'c9': 'VARCHAR'  -- depart_country_iso_code
-            , 'c10': 'VARCHAR' -- depart_subdivision_fips_code
-            , 'c11': 'VARCHAR' -- depart_subdivision_iso_code
-            , 'c12': 'VARCHAR' -- depart_subdivision_name
-            , 'c13': 'VARCHAR' -- depart_wac_oai_id
-            , 'c14': 'VARCHAR' -- round_trip_ind
-            , 'c15': 'VARCHAR' -- online_ind
-            , 'c16': 'VARCHAR' -- fare_credibility_ind
-            , 'c17': 'VARCHAR' -- fare_per_smi
-            , 'c18': 'VARCHAR' -- reporting_airline_oai_code
-            , 'c19': 'VARCHAR' -- passenger_qty
-            , 'c20': 'VARCHAR' -- fare_per_person_amount_usd
-            , 'c21': 'VARCHAR' -- bulk_fare_ind
-            , 'c22': 'VARCHAR' -- distance_smi
-            , 'c23': 'VARCHAR' -- distance_group_oai_id
-            , 'c24': 'VARCHAR' -- flown_distance_smi
-            , 'c25': 'VARCHAR' -- geographic_type_oai_id
-            , 'c26': 'VARCHAR' -- filler
-          }
-    )
-) to 'db1b_ticket_raw_extract' (format 'parquet', compression 'zstd', per_thread_output true);
-
--- 1.2. create and load air_oai_facts.airfare_survey_itinerary
+-- 1. process DB1B Ticket data  
 drop table if exists air_oai_facts.airfare_survey_itinerary;
 create table air_oai_facts.airfare_survey_itinerary as
-with filtered_airline_entities as (
-    select airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
-    from air_oai_dims.airline_entities
-    where operating_region_code = 'Domestic'
-),
-raw_ticket as (
-    select * from read_parquet('db1b_ticket_raw_extract/*.parquet')
-)
+with 
+  -- 1.1. materialize SCD2 CTEs
+  clean_airlines_lookup as (
+      select *, coalesce(source_thru_date, current_date) as source_thru_date_clean
+      from air_oai_dims.airline_entities
+      where operating_region_code = 'Domestic'
+  ),
+  -- 1.2. position-Based Multi-File CSV Streaming
+  raw_ticket as (
+      select 
+            c1::bigint as itinerary_oai_id
+          , c3::integer as year_nbr
+          , c4::integer as quarter_nbr
+          , make_date(c3::integer, (c4::integer - 1) * 3 + 1, 1) as year_quarter_start_date
+          , (c3::integer * 10 + c4::integer)::integer as year_quarter_nbr
+          , nullif(trim(c5), '')::char(3) as depart_airport_oai_code
+          , c7::integer as depart_airport_oai_seq_id
+          , nullif(trim(c18), '')::varchar(3) as reporting_airline_oai_code
+          , c14::smallint as round_trip_fare_ind
+          , c15::smallint as online_purchase_ind
+          , c21::smallint as bulk_fare_ind
+          , c16::smallint as fare_credibility_ind
+          , c23::smallint as distance_group_oai_id
+          , c25::smallint as geographic_type_oai_id
+          , c2::smallint as coupon_qty
+          , c19::smallint as passenger_qty
+          , c22::integer as distance_smi
+          , c24::integer as flown_distance_smi
+          , c20::integer as fare_per_person_usd
+          , c17::numeric(10,5) as fare_per_mile_usd
+      from read_csv(
+            --'s3://src-aviation/DB1B/ticket/CSV/*.csv.gz'
+            's3://src-aviation/DB1B/ticket/CSV/Origin_and_Destination_Survey_DB1BTicket_2025_1.csv.gz'
+          , header=true
+          , dateformat='%m/%d/%Y %I:%M:%S %p'
+          , columns={
+                'c1': 'VARCHAR'  -- itinerary_oai_id
+              , 'c2': 'VARCHAR'  -- coupon_qty
+              , 'c3': 'VARCHAR'  -- year_nbr
+              , 'c4': 'VARCHAR'  -- quarter_nbr
+              , 'c5': 'VARCHAR'  -- depart_airport_oai_code
+              , 'c6': 'VARCHAR'  -- depart_airport_oai_id
+              , 'c7': 'VARCHAR'  -- depart_airport_oai_seq_id
+              , 'c8': 'VARCHAR'  -- depart_market_city_oai_id
+              , 'c9': 'VARCHAR'  -- depart_country_iso_code
+              , 'c10': 'VARCHAR' -- depart_subdivision_fips_code
+              , 'c11': 'VARCHAR' -- depart_subdivision_iso_code
+              , 'c12': 'VARCHAR' -- depart_subdivision_name
+              , 'c13': 'VARCHAR' -- depart_wac_oai_id
+              , 'c14': 'VARCHAR' -- round_trip_ind
+              , 'c15': 'VARCHAR' -- online_ind
+              , 'c16': 'VARCHAR' -- fare_credibility_ind
+              , 'c17': 'VARCHAR' -- fare_per_smi
+              , 'c18': 'VARCHAR' -- reporting_airline_oai_code
+              , 'c19': 'VARCHAR' -- passenger_qty
+              , 'c20': 'VARCHAR' -- fare_per_person_amount_usd
+              , 'c21': 'VARCHAR' -- bulk_fare_ind
+              , 'c22': 'VARCHAR' -- distance_smi
+              , 'c23': 'VARCHAR' -- distance_group_oai_id
+              , 'c24': 'VARCHAR' -- flown_distance_smi
+              , 'c25': 'VARCHAR' -- geographic_type_oai_id
+              , 'c26': 'VARCHAR' -- filler
+            }
+      )
+  )
+-- 1.3. multi-dimensional range interval lookups and projection
 select 
       t.itinerary_oai_id
     , t.year_quarter_start_date
@@ -116,99 +117,97 @@ select
     , null::varchar(32) as updated_by
     , null::timestamp as updated_tsmt
 from raw_ticket t
-left join filtered_airline_entities ae 
+left join clean_airlines_lookup ae 
   on t.reporting_airline_oai_code = ae.airline_oai_code
  and t.year_quarter_start_date >= ae.source_from_date 
- and t.year_quarter_start_date < coalesce(ae.source_thru_date, current_date)
+ and t.year_quarter_start_date < ae.source_thru_date_clean
 left join air_oai_dims.airport_history ah
   on t.depart_airport_oai_seq_id = ah.airport_oai_seq_id;
 
 -- 2. process DB1B Coupon data
--- 2.1. extraction stage (positional 37-column schema map from airfare_survey_coupon_load)
-copy (
-    select 
-          c1::bigint as itinerary_oai_id
-        , c3::integer as flight_pass_seq
-        , c2::bigint as market_oai_id
-        , c5::integer as year_nbr
-        , c9::integer as quarter_nbr
-        , make_date(c5::integer, (c9::integer - 1) * 3 + 1, 1) as year_quarter_start_date
-        , (c5::integer * 10 + c9::integer)::integer as year_quarter_nbr
-        , nullif(trim(c10), '')::char(3) as depart_airport_oai_code
-        , c7::integer as depart_airport_oai_seq_id
-        , nullif(trim(c19), '')::char(3) as arrive_airport_oai_code
-        , c17::integer as arrive_airport_oai_seq_id
-        , nullif(trim(c25), '')::char(1) as trip_break_code
-        , nullif(trim(c26), '')::char(1) as flight_pass_type
-        , nullif(trim(c27), '')::varchar(3) as ticketing_airline_oai_code
-        , nullif(trim(c28), '')::varchar(3) as operating_airline_oai_code
-        , nullif(trim(c29), '')::varchar(3) as reporting_airline_oai_code
-        , c4::smallint as flight_pass_qty
-        , c30::smallint as passengers_qty
-        , nullif(trim(c31), '')::char(1) as airfare_class_code
-        , c32::integer as distance_smi
-        , c33::smallint as distance_group_oai_id
-        , c34::smallint as gateway_ind
-        , c35::smallint as itinerary_geographic_type_oai_id
-        , c36::smallint as coupon_geographic_type_oai_id
-    from read_csv(
-          's3://src-aviation/DB1B/coupon/CSV/*.csv.gz'
-          --'s3://src-aviation/DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2025_1.csv.gz'
-        , header=true
-        , dateformat='%m/%d/%Y %I:%M:%S %p'
-        , columns={
-              'c1': 'VARCHAR'  -- itinerary_oai_id
-            , 'c2': 'VARCHAR'  -- market_oai_id
-            , 'c3': 'VARCHAR'  -- flight_pass_seq
-            , 'c4': 'VARCHAR'  -- flight_pass_qty
-            , 'c5': 'VARCHAR'  -- year_nbr
-            , 'c6': 'VARCHAR'  -- depart_airport_oai_id
-            , 'c7': 'VARCHAR'  -- depart_airport_oai_seq_id
-            , 'c8': 'VARCHAR'  -- depart_city_market_oai_id
-            , 'c9': 'VARCHAR'  -- quarter_nbr
-            , 'c10': 'VARCHAR' -- depart_airport_oai_code
-            , 'c11': 'VARCHAR' -- depart_country_iso_code
-            , 'c12': 'VARCHAR' -- depart_state_fips_code
-            , 'c13': 'VARCHAR' -- depart_state_iso_code
-            , 'c14': 'VARCHAR' -- depart_state_name
-            , 'c15': 'VARCHAR' -- depart_world_area_oai_id
-            , 'c16': 'VARCHAR' -- arrive_airport_oai_id
-            , 'c17': 'VARCHAR' -- arrive_airport_oai_seq_id
-            , 'c18': 'VARCHAR' -- arrive_city_market_oai_id
-            , 'c19': 'VARCHAR' -- arrive_airport_oai_code
-            , 'c20': 'VARCHAR' -- arrive_country_iso_code
-            , 'c21': 'VARCHAR' -- arrive_state_fips_code
-            , 'c22': 'VARCHAR' -- arrive_state_iso_code
-            , 'c23': 'VARCHAR' -- arrive_state_name
-            , 'c24': 'VARCHAR' -- arrive_world_area_oai_id
-            , 'c25': 'VARCHAR' -- trip_break_code
-            , 'c26': 'VARCHAR' -- flight_pass_type
-            , 'c27': 'VARCHAR' -- ticketing_airline_oai_code
-            , 'c28': 'VARCHAR' -- operating_airline_oai_code
-            , 'c29': 'VARCHAR' -- reporting_airline_oai_code
-            , 'c30': 'VARCHAR' -- passengers_qty
-            , 'c31': 'VARCHAR' -- airfare_class_code
-            , 'c32': 'VARCHAR' -- distance_smi
-            , 'c33': 'VARCHAR' -- distance_group_id
-            , 'c34': 'VARCHAR' -- gateway_ind
-            , 'c35': 'VARCHAR' -- itinerary_geo_type_id
-            , 'c36': 'VARCHAR' -- coupon_geo_type_id
-            , 'c37': 'VARCHAR' -- filler
-          }
-    )
-) to 'db1b_coupon_raw_extract' (format 'parquet', compression 'zstd', per_thread_output true);
-
--- 2.2. create and load air_oai_facts.airfare_survey_coupon
 drop table if exists air_oai_facts.airfare_survey_coupon;
 create table air_oai_facts.airfare_survey_coupon as
-with filtered_airline_entities as (
-    select airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
-    from air_oai_dims.airline_entities
-    where operating_region_code = 'Domestic'
-),
-raw_coupon as (
-    select * from read_parquet('db1b_coupon_raw_extract/*.parquet')
-)
+with 
+  -- 2.1. materialize SCD2 CTEs
+  clean_airlines_lookup as (
+      select *, coalesce(source_thru_date, current_date) as source_thru_date_clean
+      from air_oai_dims.airline_entities
+      where operating_region_code = 'Domestic'
+  ),
+  -- 2.2. position-Based Multi-File CSV Streaming
+  raw_coupon as (
+      select 
+            c1::bigint as itinerary_oai_id
+          , c3::integer as flight_pass_seq
+          , c2::bigint as market_oai_id
+          , c5::integer as year_nbr
+          , c9::integer as quarter_nbr
+          , make_date(c5::integer, (c9::integer - 1) * 3 + 1, 1) as year_quarter_start_date
+          , (c5::integer * 10 + c9::integer)::integer as year_quarter_nbr
+          , nullif(trim(c10), '')::char(3) as depart_airport_oai_code
+          , c7::integer as depart_airport_oai_seq_id
+          , nullif(trim(c19), '')::char(3) as arrive_airport_oai_code
+          , c17::integer as arrive_airport_oai_seq_id
+          , nullif(trim(c25), '')::char(1) as trip_break_code
+          , nullif(trim(c26), '')::char(1) as flight_pass_type
+          , nullif(trim(c27), '')::varchar(3) as ticketing_airline_oai_code
+          , nullif(trim(c28), '')::varchar(3) as operating_airline_oai_code
+          , nullif(trim(c29), '')::varchar(3) as reporting_airline_oai_code
+          , c4::smallint as flight_pass_qty
+          , c30::smallint as passengers_qty
+          , nullif(trim(c31), '')::char(1) as airfare_class_code
+          , c32::integer as distance_smi
+          , c33::smallint as distance_group_oai_id
+          , c34::smallint as gateway_ind
+          , c35::smallint as itinerary_geographic_type_oai_id
+          , c36::smallint as coupon_geographic_type_oai_id
+      from read_csv(
+            --'s3://src-aviation/DB1B/coupon/CSV/*.csv.gz'
+            's3://src-aviation/DB1B/coupon/CSV/Origin_and_Destination_Survey_DB1BCoupon_2025_1.csv.gz'
+          , header=true
+          , dateformat='%m/%d/%Y %I:%M:%S %p'
+          , columns={
+                'c1': 'VARCHAR'  -- itinerary_oai_id
+              , 'c2': 'VARCHAR'  -- market_oai_id
+              , 'c3': 'VARCHAR'  -- flight_pass_seq
+              , 'c4': 'VARCHAR'  -- flight_pass_qty
+              , 'c5': 'VARCHAR'  -- year_nbr
+              , 'c6': 'VARCHAR'  -- depart_airport_oai_id
+              , 'c7': 'VARCHAR'  -- depart_airport_oai_seq_id
+              , 'c8': 'VARCHAR'  -- depart_city_market_oai_id
+              , 'c9': 'VARCHAR'  -- quarter_nbr
+              , 'c10': 'VARCHAR' -- depart_airport_oai_code
+              , 'c11': 'VARCHAR' -- depart_country_iso_code
+              , 'c12': 'VARCHAR' -- depart_state_fips_code
+              , 'c13': 'VARCHAR' -- depart_state_iso_code
+              , 'c14': 'VARCHAR' -- depart_state_name
+              , 'c15': 'VARCHAR' -- depart_world_area_oai_id
+              , 'c16': 'VARCHAR' -- arrive_airport_oai_id
+              , 'c17': 'VARCHAR' -- arrive_airport_oai_seq_id
+              , 'c18': 'VARCHAR' -- arrive_city_market_oai_id
+              , 'c19': 'VARCHAR' -- arrive_airport_oai_code
+              , 'c20': 'VARCHAR' -- arrive_country_iso_code
+              , 'c21': 'VARCHAR' -- arrive_state_fips_code
+              , 'c22': 'VARCHAR' -- arrive_state_iso_code
+              , 'c23': 'VARCHAR' -- arrive_state_name
+              , 'c24': 'VARCHAR' -- arrive_world_area_oai_id
+              , 'c25': 'VARCHAR' -- trip_break_code
+              , 'c26': 'VARCHAR' -- flight_pass_type
+              , 'c27': 'VARCHAR' -- ticketing_airline_oai_code
+              , 'c28': 'VARCHAR' -- operating_airline_oai_code
+              , 'c29': 'VARCHAR' -- reporting_airline_oai_code
+              , 'c30': 'VARCHAR' -- passengers_qty
+              , 'c31': 'VARCHAR' -- airfare_class_code
+              , 'c32': 'VARCHAR' -- distance_smi
+              , 'c33': 'VARCHAR' -- distance_group_id
+              , 'c34': 'VARCHAR' -- gateway_ind
+              , 'c35': 'VARCHAR' -- itinerary_geo_type_id
+              , 'c36': 'VARCHAR' -- coupon_geo_type_id
+              , 'c37': 'VARCHAR' -- filler
+            }
+      )
+  )
+-- 2.3. multi-dimensional range interval lookups and projection
 select 
       c.itinerary_oai_id
     , c.flight_pass_seq
@@ -240,119 +239,117 @@ select
     , null::varchar(32) as updated_by
     , null::timestamp as updated_tsmt
 from raw_coupon c
-left join filtered_airline_entities aet
+left join clean_airlines_lookup aet
   on c.ticketing_airline_oai_code = aet.airline_oai_code
  and c.year_quarter_start_date >= aet.source_from_date 
- and c.year_quarter_start_date < coalesce(aet.source_thru_date, current_date)
-left join filtered_airline_entities aeo
+ and c.year_quarter_start_date < aet.source_thru_date_clean
+left join clean_airlines_lookup aeo
   on c.operating_airline_oai_code = aeo.airline_oai_code
  and c.year_quarter_start_date >= aeo.source_from_date 
- and c.year_quarter_start_date < coalesce(aeo.source_thru_date, current_date)
-left join filtered_airline_entities aer
+ and c.year_quarter_start_date < aeo.source_thru_date_clean
+left join clean_airlines_lookup aer
   on c.reporting_airline_oai_code = aer.airline_oai_code
  and c.year_quarter_start_date >= aer.source_from_date 
- and c.year_quarter_start_date < coalesce(aer.source_thru_date, current_date)
+ and c.year_quarter_start_date < aer.source_thru_date_clean
 left join air_oai_dims.airport_history ahd
   on c.depart_airport_oai_seq_id = ahd.airport_oai_seq_id
 left join air_oai_dims.airport_history aha
   on c.arrive_airport_oai_seq_id = aha.airport_oai_seq_id;
 
 -- 3. process DB1B Market data
--- 3.1. extraction stage (positional 42-column schema map from airfare_survey_market_load)
-copy (
-    select 
-          c1::bigint as itinerary_oai_id
-        , c2::bigint as market_oai_id
-        , c3::smallint as market_coupon_qty
-        , c4::integer as year_nbr
-        , c5::integer as quarter_nbr
-        , make_date(c4::integer, (c5::integer - 1) * 3 + 1, 1) as year_quarter_start_date
-        , (c4::integer * 10 + c5::integer)::integer as year_quarter_nbr
-        , nullif(trim(c9), '')::char(3) as depart_airport_oai_code
-        , c7::integer as depart_airport_oai_seq_id
-        , nullif(trim(c18), '')::char(3) as arrive_airport_oai_code
-        , c16::integer as arrive_airport_oai_seq_id
-        , nullif(trim(c24), '')::varchar(55) as airports_group_oai_code
-        , nullif(trim(c25), '')::varchar(55) as world_areas_group_oai_code
-        , c26::smallint as ticketing_airline_change_ind
-        , nullif(trim(c27), '')::varchar(55) as ticketing_airline_group_code
-        , c28::smallint as operating_airline_change_ind
-        , nullif(trim(c29), '')::varchar(55) as operating_airline_group_code
-        , nullif(trim(c30), '')::varchar(3) as reporting_airline_oai_code
-        , nullif(trim(c31), '')::varchar(3) as ticketing_airline_oai_code
-        , nullif(trim(c32), '')::varchar(3) as operating_airline_oai_code
-        , c33::smallint as bulk_fare_ind
-        , c34::smallint as passenger_qty
-        , c35::numeric(9,2) as market_fare_amount_usd
-        , c36::integer as market_distance_smi
-        , c37::smallint as market_distance_group_oai_id
-        , c38::integer as market_flown_distance_smi
-        , c39::integer as non_stop_distance_smi
-        , c40::smallint as itinerary_geograhic_type_oai_id
-        , c41::smallint as market_geograhic_type_oai_id
-    from read_csv(
-          's3://src-aviation/DB1B/market/CSV/*.csv.gz'
-          --'s3://src-aviation/DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2025_1.csv.gz'
-        , header=true
-        , dateformat='%m/%d/%Y %I:%M:%S %p'
-        , columns={
-              'c1': 'VARCHAR'  -- itinerary_oai_id
-            , 'c2': 'VARCHAR'  -- market_oai_id
-            , 'c3': 'VARCHAR'  -- market_coupon_qty
-            , 'c4': 'VARCHAR'  -- year_nbr
-            , 'c5': 'VARCHAR'  -- quarter_nbr
-            , 'c6': 'VARCHAR'  -- depart_airport_oai_id
-            , 'c7': 'VARCHAR'  -- depart_airport_oai_seq_id
-            , 'c8': 'VARCHAR'  -- depart_city_market_oai_id
-            , 'c9': 'VARCHAR'  -- depart_airport_oai_code
-            , 'c10': 'VARCHAR' -- depart_country_iso_code
-            , 'c11': 'VARCHAR' -- depart_state_fips_code
-            , 'c12': 'VARCHAR' -- depart_state_iso_code
-            , 'c13': 'VARCHAR' -- depart_state_name
-            , 'c14': 'VARCHAR' -- depart_world_area_oai_id
-            , 'c15': 'VARCHAR' -- arrive_airport_oai_id
-            , 'c16': 'VARCHAR' -- arrive_airport_oai_seq_id
-            , 'c17': 'VARCHAR' -- arrive_city_market_oai_id
-            , 'c18': 'VARCHAR' -- arrive_airport_oai_code
-            , 'c19': 'VARCHAR' -- arrive_country_iso_code
-            , 'c20': 'VARCHAR' -- arrive_state_fips_code
-            , 'c21': 'VARCHAR' -- arrive_state_iso_code
-            , 'c22': 'VARCHAR' -- arrive_state_name
-            , 'c23': 'VARCHAR' -- arrive_world_area_oai_id
-            , 'c24': 'VARCHAR' -- airports_group_oai_code
-            , 'c25': 'VARCHAR' -- world_areas_group_oai_code
-            , 'c26': 'VARCHAR' -- ticketing_airline_change_ind
-            , 'c27': 'VARCHAR' -- ticketing_airline_group_code
-            , 'c28': 'VARCHAR' -- operating_airline_change_ind
-            , 'c29': 'VARCHAR' -- operating_airline_group_code
-            , 'c30': 'VARCHAR' -- reporting_airline_oai_code
-            , 'c31': 'VARCHAR' -- ticketing_airline_oai_code
-            , 'c32': 'VARCHAR' -- operating_airline_oai_code
-            , 'c33': 'VARCHAR' -- bulk_fare_ind
-            , 'c34': 'VARCHAR' -- passenger_qty
-            , 'c35': 'VARCHAR' -- market_fare_amt_usd
-            , 'c36': 'VARCHAR' -- market_distance_smi
-            , 'c37': 'VARCHAR' -- market_distance_group_oai_id
-            , 'c38': 'VARCHAR' -- market_flown_distance_smi
-            , 'c39': 'VARCHAR' -- non_stop_distance_smi
-            , 'c40': 'VARCHAR' -- itinerary_geograhic_type_oai_id
-            , 'c41': 'VARCHAR' -- market_geograhic_type_oai_id
-            , 'c42': 'VARCHAR' -- filler
-          }
-    )
-) to 'db1b_market_raw_extract' (format 'parquet', compression 'zstd', per_thread_output true);
-
--- 3.2. create and load air_oai_facts.airfare_survey_market
 drop table if exists air_oai_facts.airfare_survey_market;
 create table air_oai_facts.airfare_survey_market as
-with filtered_airline_entities as (
-    select airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
-    from air_oai_dims.airline_entities
-    where operating_region_code = 'Domestic'
-),
-raw_market as (
-    select * from read_parquet('db1b_market_raw_extract/*.parquet')
-)
+with 
+  -- 3.1. materialize SCD2 CTEs
+  clean_airlines_lookup as (
+      select *, coalesce(source_thru_date, current_date) as source_thru_date_clean
+      from air_oai_dims.airline_entities
+      where operating_region_code = 'Domestic'
+  ),
+  -- 3.2. position-Based Multi-File CSV Streaming
+  raw_market as (
+      select 
+            c1::bigint as itinerary_oai_id
+          , c2::bigint as market_oai_id
+          , c3::smallint as market_coupon_qty
+          , c4::integer as year_nbr
+          , c5::integer as quarter_nbr
+          , make_date(c4::integer, (c5::integer - 1) * 3 + 1, 1) as year_quarter_start_date
+          , (c4::integer * 10 + c5::integer)::integer as year_quarter_nbr
+          , nullif(trim(c9), '')::char(3) as depart_airport_oai_code
+          , c7::integer as depart_airport_oai_seq_id
+          , nullif(trim(c18), '')::char(3) as arrive_airport_oai_code
+          , c16::integer as arrive_airport_oai_seq_id
+          , nullif(trim(c24), '')::varchar(55) as airports_group_oai_code
+          , nullif(trim(c25), '')::varchar(55) as world_areas_group_oai_code
+          , c26::smallint as ticketing_airline_change_ind
+          , nullif(trim(c27), '')::varchar(55) as ticketing_airline_group_code
+          , c28::smallint as operating_airline_change_ind
+          , nullif(trim(c29), '')::varchar(55) as operating_airline_group_code
+          , nullif(trim(c30), '')::varchar(3) as reporting_airline_oai_code
+          , nullif(trim(c31), '')::varchar(3) as ticketing_airline_oai_code
+          , nullif(trim(c32), '')::varchar(3) as operating_airline_oai_code
+          , c33::smallint as bulk_fare_ind
+          , c34::smallint as passenger_qty
+          , c35::numeric(9,2) as market_fare_amount_usd
+          , c36::integer as market_distance_smi
+          , c37::smallint as market_distance_group_oai_id
+          , c38::integer as market_flown_distance_smi
+          , c39::integer as non_stop_distance_smi
+          , c40::smallint as itinerary_geograhic_type_oai_id
+          , c41::smallint as market_geograhic_type_oai_id
+      from read_csv(
+            --'s3://src-aviation/DB1B/market/CSV/*.csv.gz'
+            's3://src-aviation/DB1B/market/CSV/Origin_and_Destination_Survey_DB1BMarket_2025_1.csv.gz'
+          , header=true
+          , dateformat='%m/%d/%Y %I:%M:%S %p'
+          , columns={
+                'c1': 'VARCHAR'  -- itinerary_oai_id
+              , 'c2': 'VARCHAR'  -- market_oai_id
+              , 'c3': 'VARCHAR'  -- market_coupon_qty
+              , 'c4': 'VARCHAR'  -- year_nbr
+              , 'c5': 'VARCHAR'  -- quarter_nbr
+              , 'c6': 'VARCHAR'  -- depart_airport_oai_id
+              , 'c7': 'VARCHAR'  -- depart_airport_oai_seq_id
+              , 'c8': 'VARCHAR'  -- depart_market_city_oai_id
+              , 'c9': 'VARCHAR'  -- depart_airport_oai_code
+              , 'c10': 'VARCHAR' -- depart_country_iso_code
+              , 'c11': 'VARCHAR' -- depart_state_fips_code
+              , 'c12': 'VARCHAR' -- depart_state_iso_code
+              , 'c13': 'VARCHAR' -- depart_state_name
+              , 'c14': 'VARCHAR' -- depart_world_area_oai_id
+              , 'c15': 'VARCHAR' -- arrive_airport_oai_id
+              , 'c16': 'VARCHAR' -- arrive_airport_oai_seq_id
+              , 'c17': 'VARCHAR' -- arrive_city_market_oai_id
+              , 'c18': 'VARCHAR' -- arrive_airport_oai_code
+              , 'c19': 'VARCHAR' -- arrive_country_iso_code
+              , 'c20': 'VARCHAR' -- arrive_state_fips_code
+              , 'c21': 'VARCHAR' -- arrive_state_iso_code
+              , 'c22': 'VARCHAR' -- arrive_state_name
+              , 'c23': 'VARCHAR' -- arrive_world_area_oai_id
+              , 'c24': 'VARCHAR' -- airports_group_oai_code
+              , 'c25': 'VARCHAR' -- world_areas_group_oai_code
+              , 'c26': 'VARCHAR' -- ticketing_airline_change_ind
+              , 'c27': 'VARCHAR' -- ticketing_airline_group_code
+              , 'c28': 'VARCHAR' -- operating_airline_change_ind
+              , 'c29': 'VARCHAR' -- operating_airline_group_code
+              , 'c30': 'VARCHAR' -- reporting_airline_oai_code
+              , 'c31': 'VARCHAR' -- ticketing_airline_oai_code
+              , 'c32': 'VARCHAR' -- operating_airline_oai_code
+              , 'c33': 'VARCHAR' -- bulk_fare_ind
+              , 'c34': 'VARCHAR' -- passenger_qty
+              , 'c35': 'VARCHAR' -- market_fare_amt_usd
+              , 'c36': 'VARCHAR' -- market_distance_smi
+              , 'c37': 'VARCHAR' -- market_distance_group_oai_id
+              , 'c38': 'VARCHAR' -- market_flown_distance_smi
+              , 'c39': 'VARCHAR' -- non_stop_distance_smi
+              , 'c40': 'VARCHAR' -- itinerary_geograhic_type_oai_id
+              , 'c41': 'VARCHAR' -- market_geograhic_type_oai_id
+              , 'c42': 'VARCHAR' -- filler
+            }
+      )
+  )
+-- 3.3. multi-dimensional range interval lookups and projection
 select 
       m.itinerary_oai_id
     , m.market_oai_id
@@ -389,18 +386,18 @@ select
     , null::varchar(32) as updated_by
     , null::timestamp as updated_tsmt
 from raw_market m
-left join filtered_airline_entities aet
+left join clean_airlines_lookup aet
   on m.ticketing_airline_oai_code = aet.airline_oai_code
  and m.year_quarter_start_date >= aet.source_from_date 
- and m.year_quarter_start_date < coalesce(aet.source_thru_date, current_date)
-left join filtered_airline_entities aeo
+ and m.year_quarter_start_date < aet.source_thru_date_clean
+left join clean_airlines_lookup aeo
   on m.operating_airline_oai_code = aeo.airline_oai_code
  and m.year_quarter_start_date >= aeo.source_from_date 
- and m.year_quarter_start_date < coalesce(aeo.source_thru_date, current_date)
-left join filtered_airline_entities aer
+ and m.year_quarter_start_date < aeo.source_thru_date_clean
+left join clean_airlines_lookup aer
   on m.reporting_airline_oai_code = aer.airline_oai_code
  and m.year_quarter_start_date >= aer.source_from_date 
- and m.year_quarter_start_date < coalesce(aer.source_thru_date, current_date)
+ and m.year_quarter_start_date < aer.source_thru_date_clean
 left join air_oai_dims.airport_history ahd
   on m.depart_airport_oai_seq_id = ahd.airport_oai_seq_id
 left join air_oai_dims.airport_history aha
