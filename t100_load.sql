@@ -192,7 +192,7 @@ group by year_month_nbr, service_class_code, airline_entity_key, depart_airport_
 drop table if exists air_oai_facts.airline_traffic_segment;
 create table air_oai_facts.airline_traffic_segment as
 with 
-  -- 1.1. materialize SCD2 CTEs
+  -- 2.1. materialize SCD2 CTEs
   clean_airlines_lookup as (
     select *, coalesce(source_thru_date, current_date) as source_thru_date_clean
     from air_oai_dims.airline_entities
@@ -201,7 +201,7 @@ clean_airports_lookup as (
     select *, coalesce(effective_thru_date, current_date) as effective_thru_date_clean
     from air_oai_dims.airport_history
 ),
--- 1.2. position-Based Multi-File CSV Streaming & Midnight Encodings
+-- 2.2. position-Based Multi-File CSV Streaming & Midnight Encodings
 raw_segment as (
     select 
           c1::float4 as scheduled_departures_qty
@@ -291,7 +291,7 @@ raw_segment as (
           }
     )
   ),
-  -- 1.3. clean-up stage
+  -- 2.3. clean-up stage
   cleaned as (
     select 
         f.anchor_date
@@ -345,7 +345,7 @@ raw_segment as (
         , f.data_source_code
     from raw_segment f
 ),
--- 1.4. multi-Dimensional Range Interval Asymmetric Lookups
+-- 2.4. multi-Dimensional Range Interval Asymmetric Lookups
 integrated as (
     select 
         f.year_month_nbr
@@ -397,7 +397,7 @@ integrated as (
      and f.anchor_date >= h2.effective_from_date
      and f.anchor_date < h2.effective_thru_date_clean
 )
--- 1.5. final projection
+-- 2.5. final projection
 select 
     md5(year_month_nbr::varchar
         ||'|'||service_class_code
@@ -445,7 +445,6 @@ where year_month_nbr is not null
   and depart_airport_history_key is not null 
   and arrive_airport_history_key is not null
 group by year_month_nbr, service_class_code, airline_entity_key, depart_airport_history_key, arrive_airport_history_key, aircraft_type_oai_nbr, aircraft_configuration_ref;
-
 
 -- 3. create and load air_oai_dims.aircraft_configurations based on air_oai_facts.airline_traffic_segment
 drop table if exists air_oai_dims.aircraft_configurations;
