@@ -55,7 +55,6 @@ CREATE TABLE air_oai_facts.airfare_survey_ticket_load
 	, distance_group_oai_id							integer
 	, flown_distance_smi							real
 	, geographic_type_oai_id						integer
-	, filler										varchar(10)
 );
  
 -- 1.2. ingest ticket csv data (Redshift COPY from S3)
@@ -76,8 +75,7 @@ IAM_ROLE default
 CSV GZIP
 DELIMITER ','
 IGNOREHEADER 1
-REGION 'us-west-2'
-FILLRECORD;
+REGION 'us-west-2';
  
 -- 1.3. create fact table air_oai_facts.airfare_survey_itinerary 
 DROP TABLE IF EXISTS air_oai_facts.airfare_survey_itinerary;
@@ -211,7 +209,6 @@ CREATE TABLE air_oai_facts.airfare_survey_coupon_load
 	, gateway_ind              			real
 	, itinerary_geo_type_id     		integer
 	, coupon_geo_type_id        		integer
-	, filler							varchar(10)
 );
  
 -- 2.2. ingest coupon csv data (Redshift COPY from S3)
@@ -232,8 +229,7 @@ IAM_ROLE default
 CSV GZIP
 DELIMITER ','
 IGNOREHEADER 1
-REGION 'us-west-2'
-FILLRECORD;
+REGION 'us-west-2';
  
 -- 2.3. create fact table air_oai_facts.airfare_survey_coupon
 DROP TABLE IF EXISTS air_oai_facts.airfare_survey_coupon;
@@ -398,7 +394,6 @@ CREATE TABLE air_oai_facts.airfare_survey_market_load
 	, non_stop_distance_smi				real
 	, itinerary_geograhic_type_oai_id   integer
 	, market_geograhic_type_oai_id      integer
-	, filler							varchar(10)
 );
 
 -- 3.2. ingest market csv data (Redshift COPY from S3)
@@ -420,8 +415,7 @@ FORMAT AS CSV
 DELIMITER ','
 IGNOREHEADER 1
 GZIP
-REGION 'us-west-2'
-FILLRECORD;
+REGION 'us-west-2';
 
 -- 3.3. create fact table
 DROP TABLE IF EXISTS air_oai_facts.airfare_survey_market;
