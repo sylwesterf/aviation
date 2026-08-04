@@ -18,6 +18,8 @@ drop view if exists cal_gen.make_minute_of_hour_v;
 drop view if exists cal_gen.make_hour_of_day_v; 
 drop view if exists cal_gen.make_gregorian_year_v;
 
+drop table if exists cal_gen_numbers;
+
 
 ---------------------------------------------------------
 ----------------------- t100 -----------------------------

@@ -3,7 +3,6 @@
 -- https://www.transtats.bts.gov/Tables.asp?QO_VQ=EGI&QO_anzr=Nv4%FDPn44vr4%FDSv0n0pvny%FDer21465%FD%FLS14z%FDHE%FDSv0n0pvny%FDQn6n%FM&QO_fu146_anzr=Nv4%FDPn44vr4%FDSv0n0pvny
 
 ----------------------------------------------------
--- STEPS:
 -- 0. download and unzip pre-zipped data file: Annual Inventory of Airframe and Aircraft Engines
 -- 1. create air_oai_dims.f41_schedule_b43_fdw table in postgre
 -- 2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw
@@ -13,72 +12,117 @@
 -- 6. create presentation layer views
 ----------------------------------------------------
 
--- 1. create air_oai_dims.f41_schedule_b43_fdw table in postgre
-DROP TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
-CREATE TABLE air_oai_dims.f41_schedule_b43_fdw
+-- 1.  create air_oai_dims.f41_schedule_b43_fdw table
+drop table if exists air_oai_dims.f41_schedule_b43_fdw;
+create table air_oai_dims.f41_schedule_b43_fdw
 ( 
-	year_nbr 							smallint
-	, carrier_oai_code 					varchar(3)
-	, carrier_name 						varchar(125)
-	, manufacture_year_nbr 				smallint
-	, carrier_unique_name 				varchar(125)
-	, serial_nbr 						varchar(25)
-	, tail_nbr 							varchar(25)
-	, aircraft_status_code 				varchar(25)
-	, operating_status_code 			varchar(25)
-	, seats_qty 						integer
-	, manufacturer_name 				varchar(75)
-	, aircraft_oai_type					varchar(15)
-	, model_ref 						varchar(25)
-	, capacity_lbr 						integer
-	, acquisition_date 					date
-	, airline_id 						smallint
-	, carrier_unique_oai_code 			varchar(7)
-	--, filler_txt 						varchar(10)
-)
+    year_nbr                smallint,        -- Reporting year
+    carrier_oai_code        varchar(3),      -- Carrier OAI code
+    carrier_name            varchar(125),    -- Carrier name
+    manufacture_year_nbr    smallint,        -- Aircraft manufacture year
+    carrier_unique_name     varchar(125),    -- Carrier unique name
+    serial_nbr              varchar(25),     -- Aircraft serial number
+    tail_nbr                varchar(25),     -- Aircraft tail number
+    aircraft_status_code    varchar(25),     -- Aircraft status code (raw)
+    operating_status_code   varchar(25),     -- Operating status code (raw)
+    seats_qty               integer,         -- Number of seats
+    manufacturer_name       varchar(300),    -- Aircraft manufacturer
+    aircraft_oai_type       varchar(15),     -- OAI aircraft type
+    model_ref               varchar(25),     -- Model reference
+    capacity_lbr            integer,         -- Capacity in pounds
+    acquisition_date        date,            -- Acquisition date
+    airline_id              smallint,        -- Airline identifier (source)
+    carrier_unique_oai_code varchar(7)       -- Carrier unique OAI code
+    -- filler_txt            varchar(10)     -- Optional filler field (unused)
+);
+
 
 -- 2. copy Annual Inventory of Airframe and Aircraft Engines data into air_oai_dims.f41_schedule_b43_fdw
--- 2.1. mstr psql version of the data load
--- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.f41_schedule_b43_fdw FROM 'T_F41SCHEDULE_B43.csv.gz' CSV HEADER";
--- 2.2. AWS Aurora data load
-SELECT aws_s3.table_import_from_s3('air_oai_dims.f41_schedule_b43_fdw','', '(FORMAT CSV, HEADER true)',aws_commons.create_s3_uri('src-aviation', '/FIN/CSV/T_F41SCHEDULE_B43.csv.gz', 'us-west-2'));
+copy air_oai_dims.f41_schedule_b43_fdw
+from 's3://src-aviation/FIN/CSV/T_F41SCHEDULE_B43.csv.gz'
+iam_role default
+csv 
+gzip
+ignoreheader 1
+dateformat 'auto'
+
+-- 3.  create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
+drop table if exists air_oai_dims.airframe_and_engine_inventory_annual;
+create table air_oai_dims.airframe_and_engine_inventory_annual (
+    inventory_key          char(32) not null, -- MD5 business key
+    airline_entity_id      integer,          -- Airline entity surrogate ID
+    airline_entity_key     char(32),         -- Airline entity business key
+    airline_oai_code       varchar(3),       -- Airline OAI code (normalized)
+    year_nbr               smallint,         -- Reporting year
+    tail_nbr               varchar(10),      -- Tail number (normalized)
+    serial_nbr             varchar(10),      -- Serial number (normalized)
+    manufacturer_name      varchar(75),      -- Standardized manufacturer name
+    model_ref              varchar(15),      -- Standardized model reference
+    aircraft_oai_type      varchar(10),      -- Normalized OAI aircraft type
+    aircraft_icao_type     char(4),          -- ICAO aircraft type code (future use)
+    aircraft_iata_type     varchar(3),       -- IATA aircraft type code (future use)
+    manufacture_year_nbr   smallint,         -- Manufacture year
+    acquisition_date       date,             -- Acquisition date
+    aircraft_status_code   char(1),          -- Aggregated aircraft status
+    operating_status_ind   char(1),          -- Aggregated operating status
+    seats_qty              integer,          -- Maximum seats across records
+    capacity_lbr           integer,          -- Maximum capacity (lbs)
+    created_by             varchar(32),      -- Audit: record creator
+    created_ts             timestamp,        -- Audit: creation timestamp
+    updated_by             varchar(25),      -- Audit: last updater
+    updated_ts             timestamp         -- Audit: last update timestamp
+)
+--distkey(airline_entity_id)                    -- Distribution key for Redshift
+--sortkey(airline_entity_id, year_nbr, tail_nbr, serial_nbr); -- Sort key for queries
 
 -- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
-drop table if exists air_oai_dims.airframe_and_engine_inventory_annual;
-create table air_oai_dims.airframe_and_engine_inventory_annual 
-as
+insert into air_oai_dims.airframe_and_engine_inventory_annual
 select 
-	md5(year_nbr::text ||'~'|| replace(f.carrier_oai_code,' ','') ||'~'|| tail_nbr ||'~'|| serial_nbr)::char(32) as inventory_key -- add seats_qty, capacity_lbr
-     , ae.airline_entity_id
-     , max(ae.airline_entity_key)::char(32) as airline_entity_key
-     , max(replace(f.carrier_oai_code,' ',''))::varchar(3) as airline_oai_code
-     , f.year_nbr 
-	 , f.tail_nbr::varchar(10)
-	 , f.serial_nbr::varchar(10) 
-	 , max(upper(f.manufacturer_name))::varchar(75)  as manufacturer_name
-	 , max(f.model_ref)::varchar(15) as model_ref
-	 , max(replace(f.aircraft_oai_type,' ',''))::varchar(10) as aircraft_oai_type
-	 , null::char(4) as aircraft_icao_type
-	 , null::varchar(3) as aircraft_iata_type
-	 --, max(at.aircraft_type_brief_name) as aircraft_type_brief_name
-	 , min(f.manufacture_year_nbr)::smallint as manufacture_year_nbr
-	 , min(f.acquisition_date)::date as acquisition_date
-	 , max(f.aircraft_status_code)::char(1) as aircraft_status_code
-	 , max(f.operating_status_code)::char(1) as operating_status_ind
-	 , max(f.seats_qty) as seats_qty
-	 , max(f.capacity_lbr) as capacity_lbr
-     , current_user::varchar(32) as created_by
-     , current_timestamp::timestamp(0) as created_ts
-     , null::varchar(25) as updated_by
-     , null::timestamp(0) as updated_ts
+    md5(
+        year_nbr::varchar
+        ||'~'|| replace(f.carrier_oai_code,' ','')
+        ||'~'|| tail_nbr
+        ||'~'|| serial_nbr
+    )::char(32)                               as inventory_key,
+    ae.airline_entity_id                      as airline_entity_id,
+    max(ae.airline_entity_key)::char(32)      as airline_entity_key,
+    max(replace(f.carrier_oai_code,' ',''))::varchar(3) as airline_oai_code,
+    f.year_nbr                                as year_nbr,
+    f.tail_nbr::varchar(10)                   as tail_nbr,
+    f.serial_nbr::varchar(10)                 as serial_nbr,
+    max(upper(f.manufacturer_name))::varchar(75) as manufacturer_name,
+    max(f.model_ref)::varchar(15)             as model_ref,
+    max(replace(f.aircraft_oai_type,' ',''))::varchar(10) as aircraft_oai_type,
+    null::char(4)                             as aircraft_icao_type,
+    null::varchar(3)                          as aircraft_iata_type,
+    min(f.manufacture_year_nbr)::smallint     as manufacture_year_nbr,
+    min(f.acquisition_date)::date             as acquisition_date,
+    max(f.aircraft_status_code)::char(1)      as aircraft_status_code,
+    max(f.operating_status_code)::char(1)     as operating_status_ind,
+    max(f.seats_qty)                          as seats_qty,
+    max(f.capacity_lbr)                       as capacity_lbr,
+    current_user::varchar(32)                 as created_by,
+    current_timestamp                         as created_ts,
+    null::varchar(25)                         as updated_by,
+    null::timestamp                           as updated_ts
 from air_oai_dims.f41_schedule_b43_fdw f
-left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') ae 
+left join (
+    -- Filter airline_entities to domestic operations only
+    select *
+    from air_oai_dims.airline_entities
+    where operating_region_code = 'Domestic'
+) ae 
   on replace(f.carrier_oai_code,' ','') = replace(ae.airline_oai_code,' ','')
---left join air_oai_dims.aircraft_types at on f.aircraft_oai_type = at.aircraft_type_oai_nbr::text
-where (f.year_nbr::text ||'-01-01')::date between source_from_date and coalesce(source_thru_date, current_date)
---and at.aircraft_type_oai_nbr is not null
-group by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr, replace(f.carrier_oai_code,' ','')
+-- Apply temporal validity filter using source_from_date / source_thru_date
+where (f.year_nbr::varchar || '-01-01')::date
+      between ae.source_from_date and coalesce(ae.source_thru_date, current_date)
+group by ae.airline_entity_id,
+         f.year_nbr,
+         f.tail_nbr,
+         f.serial_nbr,
+         replace(f.carrier_oai_code,' ','')
 order by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr;
+
 
 -- 4. define keys and indexes
 alter table air_oai_dims.airframe_and_engine_inventory_annual add constraint airframe_and_engine_inventory_annual_pk primary key (inventory_key);
@@ -105,13 +149,13 @@ comment on column air_oai_dims.airframe_and_engine_inventory_annual.operating_st
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.seats_qty is 'Number Of Seats available for passengers.';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.capacity_lbr is 'Available Capacity in Pounds, presumably payload.';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.created_by is 'audit column, who loaded this row?';
-comment on column air_oai_dims.airframe_and_engine_inventory_annual.created_ts is 'audit column, when was this row loaded?';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.created_ts  is 'audit column, when was this row loaded?';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_by is 'audit column, who modified this row?';
-comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_ts is 'audit column, when was this row modified?';
+comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_ts  is 'audit column, when was this row modified?';
 
 -- 6. create presentation layer views
--- drop view if exists airlines_pg.airframe_and_engine_inventory_annual_v;
-create or replace view airlines_pg.airframe_and_engine_inventory_annual_v as
+--  drop view if exists airlines_rs.airframe_and_engine_inventory_annual_v;
+create or replace view airlines_rs.airframe_and_engine_inventory_annual_v as
 select inventory_key
 	, airline_entity_id
 	, airline_entity_key
@@ -133,25 +177,25 @@ select inventory_key
 	, capacity_lbr
 from air_oai_dims.airframe_and_engine_inventory_annual;
 
--- drop view if exists airlines_pg.airline_aircraft_by_tail_v;
-CREATE OR REPLACE VIEW airlines_pg.airline_aircraft_by_tail_v AS 
-SELECT airline_entity_id,
-    max(airline_entity_key) AS airline_entity_key,
-    max(airline_oai_code::text) AS airline_oai_code,
-    min(year_nbr) AS min_year_nbr,
-    max(year_nbr) AS max_year_nbr,
-    tail_nbr,
-    max(serial_nbr::text) AS serial_nbr,
-    max(manufacturer_name::text) AS manufacturer_name,
-    max(model_ref::text) AS model_ref,
-    max(aircraft_oai_type::text) AS aircraft_oai_type,
-    max(aircraft_icao_type) AS aircraft_icao_type,
-    max(aircraft_iata_type::text) AS aircraft_iata_type,
-    max(manufacture_year_nbr) AS manufacture_year_nbr,
-    max(acquisition_date) AS acquisition_date,
-    max(aircraft_status_code) AS aircraft_status_code,
-    max(operating_status_ind) AS operating_status_ind,
-    max(seats_qty) AS seats_qty,
-    max(capacity_lbr) AS capacity_lbr
-FROM air_oai_dims.airframe_and_engine_inventory_annual
-GROUP BY airline_entity_id, tail_nbr;
+-- drop view if exists airlines_rs.airline_aircraft_by_tail_v;
+create or replace view airlines_rs.airline_aircraft_by_tail_v as 
+select airline_entity_id,
+       max(airline_entity_key)       as airline_entity_key,   -- Latest airline entity key
+       max(airline_oai_code)         as airline_oai_code,     -- Airline OAI code
+       min(year_nbr)                 as min_year_nbr,         -- First year recorded
+       max(year_nbr)                 as max_year_nbr,         -- Last year recorded
+       tail_nbr,                                             -- Tail number
+       max(serial_nbr)               as serial_nbr,           -- Serial number
+       max(manufacturer_name)        as manufacturer_name,    -- Manufacturer
+       max(model_ref)                as model_ref,            -- Model
+       max(aircraft_oai_type)        as aircraft_oai_type,    -- OAI type
+       max(aircraft_icao_type)       as aircraft_icao_type,   -- ICAO type
+       max(aircraft_iata_type)       as aircraft_iata_type,   -- IATA type
+       max(manufacture_year_nbr)     as manufacture_year_nbr, -- Manufacture year
+       max(acquisition_date)         as acquisition_date,     -- Acquisition date
+       max(aircraft_status_code)     as aircraft_status_code, -- Status
+       max(operating_status_ind)     as operating_status_ind, -- Operating status
+       max(seats_qty)                as seats_qty,            -- Max seats
+       max(capacity_lbr)             as capacity_lbr          -- Max capacity
+from air_oai_dims.airframe_and_engine_inventory_annual
+group by airline_entity_id, tail_nbr;
