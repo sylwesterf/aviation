@@ -160,8 +160,8 @@ REGION 'us-west-2'
 ACCEPTINVCHARS;
 
 -- 3.1. Materialized view for initial data quality work (removed spaces)
-DROP TABLE IF EXISTS air_oai_facts.airline_flight_performance_mv CASCADE;
-CREATE TABLE air_oai_facts.airline_flight_performance_mv
+DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.airline_flight_performance_mv;
+CREATE MATERIALIZED VIEW air_oai_facts.airline_flight_performance_mv
 AS
 SELECT flight_date
      , airline_oai_code
@@ -171,7 +171,7 @@ SELECT flight_date
      , arrive_airport_oai_code
      , report_depart_time_lcl
      , CASE WHEN REPLACE(actual_depart_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(actual_depart_time_lcl AS CHAR(4)) END      AS actual_depart_time_lcl
+            ELSE actual_depart_time_lcl END::CHAR(4)             AS actual_depart_time_lcl
      , depart_delay_min
      , depart_delay_pos_min
      , depart_delay_15min_ind
@@ -179,13 +179,13 @@ SELECT flight_date
      , depart_time_block
      , taxi_out_min
      , CASE WHEN REPLACE(wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(wheels_off_time_lcl AS CHAR(4)) END         AS wheels_off_time_lcl
+            ELSE wheels_off_time_lcl END::CHAR(4)                AS wheels_off_time_lcl
      , CASE WHEN REPLACE(wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(wheels_on_time_lcl AS CHAR(4)) END          AS wheels_on_time_lcl
+            ELSE wheels_on_time_lcl END::CHAR(4)                 AS wheels_on_time_lcl
      , taxi_in_min
      , report_arrive_time_lcl
      , CASE WHEN REPLACE(actual_arrive_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(actual_arrive_time_lcl AS CHAR(4)) END      AS actual_arrive_time_lcl
+            ELSE actual_arrive_time_lcl END::CHAR(4)             AS actual_arrive_time_lcl
      , arrive_delay_min
      , arrive_delay_pos_min
      , arrive_delay_15min_ind
@@ -206,7 +206,7 @@ SELECT flight_date
      , security_delay_min
      , late_aircraft_delay_min
      , CASE WHEN REPLACE(first_gate_depart_time, ' ', '') = '' THEN NULL
-            ELSE CAST(first_gate_depart_time AS CHAR(4)) END      AS first_gate_depart_time
+            ELSE first_gate_depart_time END::CHAR(4)             AS first_gate_depart_time
      , total_ground_time
      , longest_ground_time
      , diverted_airport_landing_count
@@ -216,50 +216,72 @@ SELECT flight_date
      , diverted_distance_smi
      , diverted1_airport_oai_code
      , CASE WHEN REPLACE(diverted1_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted1_wheels_on_time_lcl AS CHAR(4)) END AS diverted1_wheels_on_time_lcl
+            ELSE diverted1_wheels_on_time_lcl END::CHAR(4)       AS diverted1_wheels_on_time_lcl
      , diverted1_total_ground_time_min
      , diverted1_longest_ground_time_min
      , CASE WHEN REPLACE(diverted1_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted1_wheels_off_time_lcl AS CHAR(4)) END AS diverted1_wheels_off_time_lcl
+            ELSE diverted1_wheels_off_time_lcl END::CHAR(4)      AS diverted1_wheels_off_time_lcl
      , diverted1_tail_nbr
      , diverted2_airport_oai_code
      , CASE WHEN REPLACE(diverted2_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted2_wheels_on_time_lcl AS CHAR(4)) END AS diverted2_wheels_on_time_lcl
+            ELSE diverted2_wheels_on_time_lcl END::CHAR(4)       AS diverted2_wheels_on_time_lcl
      , diverted2_total_ground_time_min
      , diverted2_longest_ground_time_min
      , CASE WHEN REPLACE(diverted2_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted2_wheels_off_time_lcl AS CHAR(4)) END AS diverted2_wheels_off_time_lcl
+            ELSE diverted2_wheels_off_time_lcl END::CHAR(4)      AS diverted2_wheels_off_time_lcl
      , diverted2_tail_nbr
      , diverted3_airport_oai_code
      , CASE WHEN REPLACE(diverted3_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted3_wheels_on_time_lcl AS CHAR(4)) END AS diverted3_wheels_on_time_lcl
+            ELSE diverted3_wheels_on_time_lcl END::CHAR(4)       AS diverted3_wheels_on_time_lcl
      , diverted3_total_ground_time_min
      , diverted3_longest_ground_time_min
      , CASE WHEN REPLACE(diverted3_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted3_wheels_off_time_lcl AS CHAR(4)) END AS diverted3_wheels_off_time_lcl
+            ELSE diverted3_wheels_off_time_lcl END::CHAR(4)      AS diverted3_wheels_off_time_lcl
      , diverted3_tail_nbr
      , diverted4_airport_oai_code
      , CASE WHEN REPLACE(diverted4_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted4_wheels_on_time_lcl AS CHAR(4)) END AS diverted4_wheels_on_time_lcl
+            ELSE diverted4_wheels_on_time_lcl END::CHAR(4)       AS diverted4_wheels_on_time_lcl
      , diverted4_total_ground_time_min
      , diverted4_longest_ground_time_min
      , CASE WHEN REPLACE(diverted4_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted4_wheels_off_time_lcl AS CHAR(4)) END AS diverted4_wheels_off_time_lcl
+            ELSE diverted4_wheels_off_time_lcl END::CHAR(4)      AS diverted4_wheels_off_time_lcl
      , diverted4_tail_nbr
      , diverted5_airport_oai_code
      , CASE WHEN REPLACE(diverted5_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted5_wheels_on_time_lcl AS CHAR(4)) END AS diverted5_wheels_on_time_lcl
+            ELSE diverted5_wheels_on_time_lcl END::CHAR(4)       AS diverted5_wheels_on_time_lcl
      , diverted5_total_ground_time_min
      , diverted5_longest_ground_time_min
      , CASE WHEN REPLACE(diverted5_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE CAST(diverted5_wheels_off_time_lcl AS CHAR(4)) END AS diverted5_wheels_off_time_lcl
+            ELSE diverted5_wheels_off_time_lcl END::CHAR(4)      AS diverted5_wheels_off_time_lcl
      , diverted5_tail_nbr
 FROM air_oai_facts.airline_flight_performance_fdw;
-
+ 
+CREATE OR REPLACE FUNCTION air_oai_facts.f_build_lcl_timestamp(p_date DATE, p_time VARCHAR)
+RETURNS TIMESTAMP
+STABLE
+AS $$
+    SELECT CASE
+        -- blank / null input
+        WHEN $2 IS NULL OR TRIM($2) = '' THEN NULL
+        -- not purely numeric (guards against any other garbage values)
+        WHEN TRIM($2) !~ '^[0-9]{1,4}$' THEN NULL
+        -- minutes portion out of range (00-59)
+        WHEN SUBSTRING(LPAD(TRIM($2), 4, '0'), 3, 2)::INT NOT BETWEEN 0 AND 59 THEN NULL
+        -- hours portion out of range (00-24, where 24 means midnight next day)
+        WHEN LEFT(LPAD(TRIM($2), 4, '0'), 2)::INT NOT BETWEEN 0 AND 24 THEN NULL
+        -- the airline-data convention of "24xx" meaning midnight of the next day
+        WHEN LEFT(LPAD(TRIM($2), 4, '0'), 2) = '24'
+            THEN (($1 + 1)::VARCHAR(10) || ' 00:' ||
+                  SUBSTRING(LPAD(TRIM($2), 4, '0'), 3, 2))::TIMESTAMP
+        ELSE ($1::VARCHAR(10) || ' ' ||
+              LEFT(LPAD(TRIM($2), 4, '0'), 2) || ':' ||
+              SUBSTRING(LPAD(TRIM($2), 4, '0'), 3, 2))::TIMESTAMP
+    END
+$$ LANGUAGE sql;
+ 
 -- 3.2. define a "final" materialized view with some data transformations (timezone, data types)
--- 3.2. define a "final" table with some data transformations
-DROP TABLE IF EXISTS air_oai_facts.airline_flight_performance_integrated_mv CASCADE;
-CREATE TABLE air_oai_facts.airline_flight_performance_integrated_mv
+DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.airline_flight_performance_integrated_mv;
+CREATE MATERIALIZED VIEW air_oai_facts.airline_flight_performance_integrated_mv
 AS
 SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR(10)||'|'||fp.depart_airport_oai_code)::CHAR(32) AS flight_key
      , fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR(10)||'|'||fp.depart_airport_oai_code               AS flight_key_comp
@@ -295,190 +317,48 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.distance_group_id::SMALLINT                                                                                             AS distance_group_id
      , fp.depart_time_block
      , fp.arrive_time_block
-
-     -- report_depart_time_lcl
      , fp.report_depart_time_lcl
      , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           CASE WHEN fp.report_depart_time_lcl IS NULL                             THEN NULL
-                WHEN fp.report_depart_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.report_depart_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.report_depart_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.report_depart_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.report_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.report_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS report_depart_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_depart_time_lcl))   AS report_depart_tmstz_lcl
      , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           CASE WHEN fp.report_depart_time_lcl IS NULL                             THEN NULL
-                WHEN fp.report_depart_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.report_depart_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.report_depart_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.report_depart_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.report_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.report_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS report_depart_tmstz_utc
-
-     -- report_arrive_time_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_depart_time_lcl))   AS report_depart_tmstz_utc
      , fp.report_arrive_time_lcl
      , CONVERT_TIMEZONE('UTC', b.time_zone_name,
-           CASE WHEN fp.report_arrive_time_lcl IS NULL                             THEN NULL
-                WHEN fp.report_arrive_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.report_arrive_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.report_arrive_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.report_arrive_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.report_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.report_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS report_arrive_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_arrive_time_lcl))   AS report_arrive_tmstz_lcl
      , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
-           CASE WHEN fp.report_arrive_time_lcl IS NULL                             THEN NULL
-                WHEN fp.report_arrive_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.report_arrive_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.report_arrive_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.report_arrive_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.report_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.report_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS report_arrive_tmstz_utc
-
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_arrive_time_lcl))   AS report_arrive_tmstz_utc
      , fp.report_elapsed_time_min
-
-     -- actual_depart_time_lcl
      , fp.actual_depart_time_lcl
      , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           CASE WHEN fp.actual_depart_time_lcl IS NULL                             THEN NULL
-                WHEN fp.actual_depart_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.actual_depart_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.actual_depart_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.actual_depart_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.actual_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.actual_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS actual_depart_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_depart_time_lcl))   AS actual_depart_tmstz_lcl
      , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           CASE WHEN fp.actual_depart_time_lcl IS NULL                             THEN NULL
-                WHEN fp.actual_depart_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.actual_depart_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.actual_depart_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.actual_depart_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.actual_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.actual_depart_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS actual_depart_tmstz_utc
-
-     -- actual_arrive_time_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_depart_time_lcl))   AS actual_depart_tmstz_utc
      , fp.actual_arrive_time_lcl
      , CONVERT_TIMEZONE('UTC', b.time_zone_name,
-           CASE WHEN fp.actual_arrive_time_lcl IS NULL                             THEN NULL
-                WHEN fp.actual_arrive_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.actual_arrive_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.actual_arrive_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.actual_arrive_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.actual_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.actual_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS actual_arrive_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_arrive_time_lcl))   AS actual_arrive_tmstz_lcl
      , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
-           CASE WHEN fp.actual_arrive_time_lcl IS NULL                             THEN NULL
-                WHEN fp.actual_arrive_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.actual_arrive_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.actual_arrive_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.actual_arrive_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.actual_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.actual_arrive_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS actual_arrive_tmstz_utc
-
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_arrive_time_lcl))   AS actual_arrive_tmstz_utc
+ 
      , fp.actual_elapsed_time_min
-
-     -- wheels_off_time_lcl
      , fp.wheels_off_time_lcl
      , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           CASE WHEN fp.wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS wheels_off_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_off_time_lcl))      AS wheels_off_tmstz_lcl
      , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           CASE WHEN fp.wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS wheels_off_tmstz_utc
-
-     -- wheels_on_time_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_off_time_lcl))      AS wheels_off_tmstz_utc
      , fp.wheels_on_time_lcl
      , CONVERT_TIMEZONE('UTC', b.time_zone_name,
-           CASE WHEN fp.wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS wheels_on_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_on_time_lcl))       AS wheels_on_tmstz_lcl
      , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
-           CASE WHEN fp.wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS wheels_on_tmstz_utc
-
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_on_time_lcl))       AS wheels_on_tmstz_utc
+ 
      , fp.airborne_time_min
      , fp.taxi_out_min::SMALLINT                                                                                                  AS taxi_out_min
      , fp.taxi_in_min::SMALLINT                                                                                                   AS taxi_in_min
-
-     -- first_gate_depart_time
      , fp.first_gate_depart_time
      , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           CASE WHEN fp.first_gate_depart_time IS NULL                             THEN NULL
-                WHEN fp.first_gate_depart_time::FLOAT <= 0                         THEN NULL
-                WHEN fp.first_gate_depart_time::FLOAT > 2400                       THEN NULL
-                WHEN (fp.first_gate_depart_time::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.first_gate_depart_time::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.first_gate_depart_time::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.first_gate_depart_time::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS first_gate_depart_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.first_gate_depart_time))   AS first_gate_depart_tmstz_lcl
      , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           CASE WHEN fp.first_gate_depart_time IS NULL                             THEN NULL
-                WHEN fp.first_gate_depart_time::FLOAT <= 0                         THEN NULL
-                WHEN fp.first_gate_depart_time::FLOAT > 2400                       THEN NULL
-                WHEN (fp.first_gate_depart_time::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.first_gate_depart_time::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.first_gate_depart_time::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.first_gate_depart_time::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS first_gate_depart_tmstz_utc
-
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.first_gate_depart_time))   AS first_gate_depart_tmstz_utc
      , NULLIF(TRIM(fp.total_ground_time), '')::NUMERIC(3,0)::SMALLINT                                                            AS total_ground_time
      , NULLIF(TRIM(fp.longest_ground_time), '')::NUMERIC(3,0)::SMALLINT                                                          AS longest_ground_time
      , fp.airline_delay_min::SMALLINT                                                                                             AS airline_delay_min
@@ -491,8 +371,6 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.diverted_actual_elapsed_time_min::SMALLINT                                                                              AS diverted_actual_elapsed_time_min
      , fp.diverted_arrive_delay_min::SMALLINT                                                                                     AS diverted_arrive_delay_min
      , fp.diverted_distance_smi::INTEGER                                                                                          AS diverted_distance_smi
-
-     -- diverted1
      , fp.diverted1_airport_oai_code::CHAR(3)                                                                                    AS diverted1_airport_oai_code
      , d1.effective_from_date                                                                                                     AS diverted1_airport_from_date
      , d1.airport_history_id                                                                                                      AS diverted1_airport_history_id
@@ -501,54 +379,16 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.diverted1_tail_nbr::VARCHAR(10)                                                                                         AS diverted1_tail_nbr
      , fp.diverted1_wheels_on_time_lcl
      , CONVERT_TIMEZONE('UTC', d1.time_zone_name,
-           CASE WHEN fp.diverted1_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted1_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted1_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted1_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted1_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted1_wheels_on_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_on_time_lcl))   AS diverted1_wheels_on_tmstz_lcl
      , CONVERT_TIMEZONE(d1.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted1_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted1_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted1_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted1_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted1_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted1_wheels_on_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_on_time_lcl))   AS diverted1_wheels_on_tmstz_utc
      , fp.diverted1_wheels_off_time_lcl
      , CONVERT_TIMEZONE('UTC', d1.time_zone_name,
-           CASE WHEN fp.diverted1_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted1_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted1_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted1_wheels_off_time_lcl::INTEGER % 100)NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted1_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted1_wheels_off_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_off_time_lcl))  AS diverted1_wheels_off_tmstz_lcl
      , CONVERT_TIMEZONE(d1.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted1_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted1_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted1_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted1_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted1_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted1_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted1_wheels_off_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_off_time_lcl))  AS diverted1_wheels_off_tmstz_utc
      , fp.diverted1_total_ground_time_min::SMALLINT                                                                               AS diverted1_total_ground_time_min
      , fp.diverted1_longest_ground_time_min::SMALLINT                                                                             AS diverted1_longest_ground_time_min
-
-     -- diverted2
      , fp.diverted2_airport_oai_code::CHAR(3)                                                                                    AS diverted2_airport_oai_code
      , d2.effective_from_date                                                                                                     AS diverted2_airport_from_date
      , d2.airport_history_id                                                                                                      AS diverted2_airport_history_id
@@ -557,54 +397,16 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.diverted2_tail_nbr::VARCHAR(10)                                                                                         AS diverted2_tail_nbr
      , fp.diverted2_wheels_on_time_lcl
      , CONVERT_TIMEZONE('UTC', d2.time_zone_name,
-           CASE WHEN fp.diverted2_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted2_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted2_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted2_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted2_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted2_wheels_on_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_on_time_lcl))   AS diverted2_wheels_on_tmstz_lcl
      , CONVERT_TIMEZONE(d2.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted2_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted2_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted2_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted2_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted2_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted2_wheels_on_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_on_time_lcl))   AS diverted2_wheels_on_tmstz_utc
      , fp.diverted2_wheels_off_time_lcl
      , CONVERT_TIMEZONE('UTC', d2.time_zone_name,
-           CASE WHEN fp.diverted2_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted2_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted2_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted2_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted2_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted2_wheels_off_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_off_time_lcl))  AS diverted2_wheels_off_tmstz_lcl
      , CONVERT_TIMEZONE(d2.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted2_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted2_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted2_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted2_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted2_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted2_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted2_wheels_off_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_off_time_lcl))  AS diverted2_wheels_off_tmstz_utc
      , fp.diverted2_total_ground_time_min::SMALLINT                                                                               AS diverted2_total_ground_time_min
      , fp.diverted2_longest_ground_time_min::SMALLINT                                                                             AS diverted2_longest_ground_time_min
-
-     -- diverted3
      , fp.diverted3_airport_oai_code::CHAR(3)                                                                                    AS diverted3_airport_oai_code
      , d3.effective_from_date                                                                                                     AS diverted3_airport_from_date
      , d3.airport_history_id                                                                                                      AS diverted3_airport_history_id
@@ -613,54 +415,16 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.diverted3_tail_nbr::VARCHAR(10)                                                                                         AS diverted3_tail_nbr
      , fp.diverted3_wheels_on_time_lcl
      , CONVERT_TIMEZONE('UTC', d3.time_zone_name,
-           CASE WHEN fp.diverted3_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted3_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted3_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted3_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted3_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted3_wheels_on_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_on_time_lcl))   AS diverted3_wheels_on_tmstz_lcl
      , CONVERT_TIMEZONE(d3.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted3_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted3_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted3_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted3_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted3_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted3_wheels_on_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_on_time_lcl))   AS diverted3_wheels_on_tmstz_utc
      , fp.diverted3_wheels_off_time_lcl
      , CONVERT_TIMEZONE('UTC', d3.time_zone_name,
-           CASE WHEN fp.diverted3_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted3_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted3_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted3_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted3_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted3_wheels_off_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_off_time_lcl))  AS diverted3_wheels_off_tmstz_lcl
      , CONVERT_TIMEZONE(d3.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted3_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted3_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted3_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted3_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted3_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted3_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted3_wheels_off_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_off_time_lcl))  AS diverted3_wheels_off_tmstz_utc
      , fp.diverted3_total_ground_time_min::SMALLINT                                                                               AS diverted3_total_ground_time_min
      , fp.diverted3_longest_ground_time_min::SMALLINT                                                                             AS diverted3_longest_ground_time_min
-
-     -- diverted4
      , fp.diverted4_airport_oai_code::CHAR(3)                                                                                    AS diverted4_airport_oai_code
      , d4.effective_from_date                                                                                                     AS diverted4_airport_from_date
      , d4.airport_history_id                                                                                                      AS diverted4_airport_history_id
@@ -669,54 +433,16 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.diverted4_tail_nbr::VARCHAR(10)                                                                                         AS diverted4_tail_nbr
      , fp.diverted4_wheels_on_time_lcl
      , CONVERT_TIMEZONE('UTC', d4.time_zone_name,
-           CASE WHEN fp.diverted4_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted4_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted4_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted4_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted4_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted4_wheels_on_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_on_time_lcl))   AS diverted4_wheels_on_tmstz_lcl
      , CONVERT_TIMEZONE(d4.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted4_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted4_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted4_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted4_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted4_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted4_wheels_on_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_on_time_lcl))   AS diverted4_wheels_on_tmstz_utc
      , fp.diverted4_wheels_off_time_lcl
      , CONVERT_TIMEZONE('UTC', d4.time_zone_name,
-           CASE WHEN fp.diverted4_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted4_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted4_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted4_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted4_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted4_wheels_off_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_off_time_lcl))  AS diverted4_wheels_off_tmstz_lcl
      , CONVERT_TIMEZONE(d4.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted4_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted4_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted4_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted4_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted4_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted4_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted4_wheels_off_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_off_time_lcl))  AS diverted4_wheels_off_tmstz_utc
      , fp.diverted4_total_ground_time_min::SMALLINT                                                                               AS diverted4_total_ground_time_min
      , fp.diverted4_longest_ground_time_min::SMALLINT                                                                             AS diverted4_longest_ground_time_min
-
-     -- diverted5
      , fp.diverted5_airport_oai_code::CHAR(3)                                                                                    AS diverted5_airport_oai_code
      , d5.effective_from_date                                                                                                     AS diverted5_airport_from_date
      , d5.airport_history_id                                                                                                      AS diverted5_airport_history_id
@@ -725,53 +451,16 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.diverted5_tail_nbr::VARCHAR(10)                                                                                         AS diverted5_tail_nbr
      , fp.diverted5_wheels_on_time_lcl
      , CONVERT_TIMEZONE('UTC', d5.time_zone_name,
-           CASE WHEN fp.diverted5_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted5_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted5_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted5_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted5_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted5_wheels_on_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_on_time_lcl))   AS diverted5_wheels_on_tmstz_lcl
      , CONVERT_TIMEZONE(d5.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted5_wheels_on_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted5_wheels_on_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted5_wheels_on_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted5_wheels_on_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted5_wheels_on_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_on_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted5_wheels_on_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_on_time_lcl))   AS diverted5_wheels_on_tmstz_utc
      , fp.diverted5_wheels_off_time_lcl
      , CONVERT_TIMEZONE('UTC', d5.time_zone_name,
-           CASE WHEN fp.diverted5_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted5_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted5_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted5_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted5_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted5_wheels_off_tmstz_lcl
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_off_time_lcl))  AS diverted5_wheels_off_tmstz_lcl
      , CONVERT_TIMEZONE(d5.time_zone_name, 'UTC',
-           CASE WHEN fp.diverted5_wheels_off_time_lcl IS NULL                             THEN NULL
-                WHEN fp.diverted5_wheels_off_time_lcl::FLOAT <= 0                         THEN NULL
-                WHEN fp.diverted5_wheels_off_time_lcl::FLOAT > 2400                       THEN NULL
-                WHEN (fp.diverted5_wheels_off_time_lcl::INTEGER % 100) NOT BETWEEN 0 AND 59 THEN NULL
-                WHEN fp.diverted5_wheels_off_time_lcl::INTEGER = 2400
-                    THEN (DATEADD(day, 1, fp.flight_date::DATE)::VARCHAR(10) || ' 00:00')::TIMESTAMP
-                ELSE (fp.flight_date::VARCHAR(10) || ' ' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 1, 2) || ':' ||
-                      SUBSTRING(LPAD(fp.diverted5_wheels_off_time_lcl::INTEGER::VARCHAR, 4, '0'), 3, 2))::TIMESTAMP
-           END)                                                                                                                    AS diverted5_wheels_off_tmstz_utc
+           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_off_time_lcl))  AS diverted5_wheels_off_tmstz_utc
      , fp.diverted5_total_ground_time_min::SMALLINT                                                                               AS diverted5_total_ground_time_min
      , fp.diverted5_longest_ground_time_min::SMALLINT                                                                             AS diverted5_longest_ground_time_min
-
 FROM air_oai_facts.airline_flight_performance_mv fp
 LEFT OUTER JOIN
 (
@@ -779,56 +468,49 @@ LEFT OUTER JOIN
     FROM air_oai_dims.airline_entities
     WHERE operating_region_code = 'Domestic'
 ) ae ON fp.airline_oai_code = ae.airline_oai_code
- AND fp.flight_date BETWEEN ae.source_from_date AND COALESCE(ae.source_thru_date, SYSDATE::DATE)
+    AND fp.flight_date BETWEEN ae.source_from_date AND COALESCE(ae.source_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code,
-           effective_from_date, effective_thru_date, time_zone_name
+    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
     FROM air_oai_dims.airport_history
 ) a ON fp.depart_airport_oai_code = a.airport_oai_code
- AND fp.flight_date BETWEEN a.effective_from_date AND COALESCE(a.effective_thru_date, SYSDATE::DATE)
+   AND fp.flight_date BETWEEN a.effective_from_date AND COALESCE(a.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code,
-           effective_from_date, effective_thru_date, time_zone_name
+    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
     FROM air_oai_dims.airport_history
 ) b ON fp.arrive_airport_oai_code = b.airport_oai_code
- AND fp.flight_date BETWEEN b.effective_from_date AND COALESCE(b.effective_thru_date, SYSDATE::DATE)
+   AND fp.flight_date BETWEEN b.effective_from_date AND COALESCE(b.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code,
-           effective_from_date, effective_thru_date, time_zone_name
+    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
     FROM air_oai_dims.airport_history
 ) d1 ON fp.diverted1_airport_oai_code = d1.airport_oai_code
- AND fp.flight_date BETWEEN d1.effective_from_date AND COALESCE(d1.effective_thru_date, SYSDATE::DATE)
+    AND fp.flight_date BETWEEN d1.effective_from_date AND COALESCE(d1.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code,
-           effective_from_date, effective_thru_date, time_zone_name
+    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
     FROM air_oai_dims.airport_history
 ) d2 ON fp.diverted2_airport_oai_code = d2.airport_oai_code
- AND fp.flight_date BETWEEN d2.effective_from_date AND COALESCE(d2.effective_thru_date, SYSDATE::DATE)
+    AND fp.flight_date BETWEEN d2.effective_from_date AND COALESCE(d2.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code,
-           effective_from_date, effective_thru_date, time_zone_name
+    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
     FROM air_oai_dims.airport_history
 ) d3 ON fp.diverted3_airport_oai_code = d3.airport_oai_code
- AND fp.flight_date BETWEEN d3.effective_from_date AND COALESCE(d3.effective_thru_date, SYSDATE::DATE)
+    AND fp.flight_date BETWEEN d3.effective_from_date AND COALESCE(d3.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code,
-           effective_from_date, effective_thru_date, time_zone_name
+    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
     FROM air_oai_dims.airport_history
 ) d4 ON fp.diverted4_airport_oai_code = d4.airport_oai_code
- AND fp.flight_date BETWEEN d4.effective_from_date AND COALESCE(d4.effective_thru_date, SYSDATE::DATE)
+    AND fp.flight_date BETWEEN d4.effective_from_date AND COALESCE(d4.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code,
-           effective_from_date, effective_thru_date, time_zone_name
+    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
     FROM air_oai_dims.airport_history
 ) d5 ON fp.diverted5_airport_oai_code = d5.airport_oai_code
- AND fp.flight_date BETWEEN d5.effective_from_date AND COALESCE(d5.effective_thru_date, SYSDATE::DATE);
+    AND fp.flight_date BETWEEN d5.effective_from_date AND COALESCE(d5.effective_thru_date, CURRENT_DATE);
 
 -- 4.1. air_oai_facts.airline_flights_completed
 DROP TABLE IF EXISTS air_oai_facts.airline_flights_completed;
