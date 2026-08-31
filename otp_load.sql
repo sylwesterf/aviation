@@ -158,7 +158,7 @@ DELIMITER ','
 IGNOREHEADER 1
 REGION 'us-west-2'
 ACCEPTINVCHARS;
-
+----------------------------------
 -- 3.1. Materialized view for initial data quality work (removed spaces)
 DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.airline_flight_performance_mv;
 CREATE MATERIALIZED VIEW air_oai_facts.airline_flight_performance_mv
@@ -256,6 +256,13 @@ SELECT flight_date
      , diverted5_tail_nbr
 FROM air_oai_facts.airline_flight_performance_fdw;
  
+-- =====================================================================
+-- Helper function: safely build a local timestamp from a flight_date +
+-- an HHMM local time string, correctly handling:
+--   - NULL / blank time values
+--   - the airline-data convention of "2400" meaning midnight of the
+--     *next* day (rather than an invalid hour 24)
+-- =====================================================================
 CREATE OR REPLACE FUNCTION air_oai_facts.f_build_lcl_timestamp(p_date DATE, p_time VARCHAR)
 RETURNS TIMESTAMP
 STABLE
@@ -511,7 +518,7 @@ LEFT OUTER JOIN
     FROM air_oai_dims.airport_history
 ) d5 ON fp.diverted5_airport_oai_code = d5.airport_oai_code
     AND fp.flight_date BETWEEN d5.effective_from_date AND COALESCE(d5.effective_thru_date, CURRENT_DATE);
-
+------------------------------------------------
 -- 4.1. air_oai_facts.airline_flights_completed
 DROP TABLE IF EXISTS air_oai_facts.airline_flights_completed;
 CREATE TABLE air_oai_facts.airline_flights_completed
@@ -521,18 +528,18 @@ CREATE TABLE air_oai_facts.airline_flights_completed
   , airline_oai_code                VARCHAR(10)
   , airline_entity_from_date        DATE
   , airline_entity_id               INTEGER
-  , airline_entity_key              INTEGER
+  , airline_entity_key              VARCHAR(32)
   , flight_nbr                      VARCHAR(10)
   , flight_count                    INTEGER
   , tail_nbr                        VARCHAR(10)
   , depart_airport_oai_code         VARCHAR(10)
   , depart_airport_from_date        DATE
   , depart_airport_history_id       INTEGER
-  , depart_airport_history_key      INTEGER
+  , depart_airport_history_key      VARCHAR(32)
   , arrive_airport_oai_code         VARCHAR(10)
   , arrive_airport_from_date        DATE
   , arrive_airport_history_id       INTEGER
-  , arrive_airport_history_key      INTEGER
+  , arrive_airport_history_key      VARCHAR(32)
   , distance_smi                    DECIMAL(10,2)
   , distance_nmi                    DECIMAL(10,2)
   , distance_kmt                    DECIMAL(10,2)
@@ -571,24 +578,24 @@ CREATE TABLE air_oai_facts.airline_flights_completed
   , updated_by                      VARCHAR(32)
   , updated_ts                      TIMESTAMP
 );
-
+ 
 INSERT INTO air_oai_facts.airline_flights_completed
 SELECT flight_key
      , flight_date
      , airline_oai_code
      , airline_entity_from_date
-     , airline_entity_id
+     , NULLIF(TRIM(airline_entity_id::VARCHAR), '')::INTEGER
      , airline_entity_key
      , flight_nbr
      , flight_count
      , tail_nbr
      , depart_airport_oai_code
      , depart_airport_from_date
-     , depart_airport_history_id
+     , NULLIF(TRIM(depart_airport_history_id::VARCHAR), '')::INTEGER
      , depart_airport_history_key
      , arrive_airport_oai_code
      , arrive_airport_from_date
-     , arrive_airport_history_id
+     , NULLIF(TRIM(arrive_airport_history_id::VARCHAR), '')::INTEGER
      , arrive_airport_history_key
      , distance_smi
      , distance_nmi
@@ -651,7 +658,6 @@ FROM air_oai_facts.airline_flight_performance_integrated_mv
 WHERE cancelled_ind = 0
   AND diverted_ind  = 0;
 
-
 -- 4.2. air_oai_facts.airline_flights_cancelled
 DROP TABLE IF EXISTS air_oai_facts.airline_flights_cancelled;
 CREATE TABLE air_oai_facts.airline_flights_cancelled
@@ -661,18 +667,18 @@ CREATE TABLE air_oai_facts.airline_flights_cancelled
   , airline_oai_code                VARCHAR(10)
   , airline_entity_from_date        DATE
   , airline_entity_id               INTEGER
-  , airline_entity_key              INTEGER
+  , airline_entity_key              VARCHAR(32)
   , flight_nbr                      VARCHAR(10)
   , flight_count                    INTEGER
   , tail_nbr                        VARCHAR(10)
   , depart_airport_oai_code         VARCHAR(10)
   , depart_airport_from_date        DATE
   , depart_airport_history_id       INTEGER
-  , depart_airport_history_key      INTEGER
+  , depart_airport_history_key      VARCHAR(32)
   , arrive_airport_oai_code         VARCHAR(10)
   , arrive_airport_from_date        DATE
   , arrive_airport_history_id       INTEGER
-  , arrive_airport_history_key      INTEGER
+  , arrive_airport_history_key      VARCHAR(32)
   , distance_smi                    DECIMAL(10,2)
   , distance_nmi                    DECIMAL(10,2)
   , distance_kmt                    DECIMAL(10,2)
@@ -699,24 +705,24 @@ CREATE TABLE air_oai_facts.airline_flights_cancelled
   , updated_by                      VARCHAR(32)
   , updated_ts                      TIMESTAMP
 );
-
+ 
 INSERT INTO air_oai_facts.airline_flights_cancelled
 SELECT flight_key
      , flight_date
      , airline_oai_code
      , airline_entity_from_date
-     , airline_entity_id
+     , NULLIF(TRIM(airline_entity_id::VARCHAR), '')::INTEGER
      , airline_entity_key
      , flight_nbr
      , flight_count
      , tail_nbr
      , depart_airport_oai_code
      , depart_airport_from_date
-     , depart_airport_history_id
+     , NULLIF(TRIM(depart_airport_history_id::VARCHAR), '')::INTEGER
      , depart_airport_history_key
      , arrive_airport_oai_code
      , arrive_airport_from_date
-     , arrive_airport_history_id
+     , NULLIF(TRIM(arrive_airport_history_id::VARCHAR), '')::INTEGER
      , arrive_airport_history_key
      , distance_smi
      , distance_nmi
@@ -752,28 +758,27 @@ SELECT flight_key
 FROM air_oai_facts.airline_flight_performance_integrated_mv
 WHERE cancelled_ind = 1;
 
-
 -- 4.3. air_oai_facts.airline_flights_diverted
 DROP TABLE IF EXISTS air_oai_facts.airline_flights_diverted;
 CREATE TABLE air_oai_facts.airline_flights_diverted
 (
-    flight_key                      VARCHAR(255)    NOT NULL  -- ⬅️ clave del fix
+    flight_key                      VARCHAR(255)    NOT NULL
   , flight_date                     DATE
   , airline_oai_code                VARCHAR(10)
   , airline_entity_from_date        DATE
   , airline_entity_id               INTEGER
-  , airline_entity_key              INTEGER
+  , airline_entity_key              VARCHAR(32)
   , flight_nbr                      VARCHAR(10)
   , flight_count                    INTEGER
   , tail_nbr                        VARCHAR(10)
   , depart_airport_oai_code         VARCHAR(10)
   , depart_airport_from_date        DATE
   , depart_airport_history_id       INTEGER
-  , depart_airport_history_key      INTEGER
+  , depart_airport_history_key      VARCHAR(32)
   , arrive_airport_oai_code         VARCHAR(10)
   , arrive_airport_from_date        DATE
   , arrive_airport_history_id       INTEGER
-  , arrive_airport_history_key      INTEGER
+  , arrive_airport_history_key      VARCHAR(32)
   , distance_smi                    DECIMAL(10,2)
   , distance_nmi                    DECIMAL(10,2)
   , distance_kmt                    DECIMAL(10,2)
@@ -807,24 +812,24 @@ CREATE TABLE air_oai_facts.airline_flights_diverted
   , updated_by                      VARCHAR(32)
   , updated_ts                      TIMESTAMP
 );
-
+ 
 INSERT INTO air_oai_facts.airline_flights_diverted
 SELECT flight_key
      , flight_date
      , airline_oai_code
      , airline_entity_from_date
-     , airline_entity_id
+     , NULLIF(TRIM(airline_entity_id::VARCHAR), '')::INTEGER
      , airline_entity_key
      , flight_nbr
      , flight_count
      , tail_nbr
      , depart_airport_oai_code
      , depart_airport_from_date
-     , depart_airport_history_id
+     , NULLIF(TRIM(depart_airport_history_id::VARCHAR), '')::INTEGER
      , depart_airport_history_key
      , arrive_airport_oai_code
      , arrive_airport_from_date
-     , arrive_airport_history_id
+     , NULLIF(TRIM(arrive_airport_history_id::VARCHAR), '')::INTEGER
      , arrive_airport_history_key
      , distance_smi
      , distance_nmi
