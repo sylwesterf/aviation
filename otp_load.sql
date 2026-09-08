@@ -158,7 +158,7 @@ DELIMITER ','
 IGNOREHEADER 1
 REGION 'us-west-2'
 ACCEPTINVCHARS;
-----------------------------------
+
 -- 3.1. Materialized view for initial data quality work (removed spaces)
 DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.airline_flight_performance_mv;
 CREATE MATERIALIZED VIEW air_oai_facts.airline_flight_performance_mv
@@ -169,23 +169,13 @@ SELECT flight_date
      , flight_nbr
      , depart_airport_oai_code
      , arrive_airport_oai_code
-     , report_depart_time_lcl
-     , CASE WHEN REPLACE(actual_depart_time_lcl, ' ', '') = '' THEN NULL
-            ELSE actual_depart_time_lcl END::CHAR(4)             AS actual_depart_time_lcl
      , depart_delay_min
      , depart_delay_pos_min
      , depart_delay_15min_ind
      , depart_delay_group_id
      , depart_time_block
      , taxi_out_min
-     , CASE WHEN REPLACE(wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE wheels_off_time_lcl END::CHAR(4)                AS wheels_off_time_lcl
-     , CASE WHEN REPLACE(wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE wheels_on_time_lcl END::CHAR(4)                 AS wheels_on_time_lcl
      , taxi_in_min
-     , report_arrive_time_lcl
-     , CASE WHEN REPLACE(actual_arrive_time_lcl, ' ', '') = '' THEN NULL
-            ELSE actual_arrive_time_lcl END::CHAR(4)             AS actual_arrive_time_lcl
      , arrive_delay_min
      , arrive_delay_pos_min
      , arrive_delay_15min_ind
@@ -205,8 +195,6 @@ SELECT flight_date
      , nas_delay_min
      , security_delay_min
      , late_aircraft_delay_min
-     , CASE WHEN REPLACE(first_gate_depart_time, ' ', '') = '' THEN NULL
-            ELSE first_gate_depart_time END::CHAR(4)             AS first_gate_depart_time
      , total_ground_time
      , longest_ground_time
      , diverted_airport_landing_count
@@ -215,76 +203,264 @@ SELECT flight_date
      , diverted_arrive_delay_min
      , diverted_distance_smi
      , diverted1_airport_oai_code
-     , CASE WHEN REPLACE(diverted1_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted1_wheels_on_time_lcl END::CHAR(4)       AS diverted1_wheels_on_time_lcl
      , diverted1_total_ground_time_min
      , diverted1_longest_ground_time_min
-     , CASE WHEN REPLACE(diverted1_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted1_wheels_off_time_lcl END::CHAR(4)      AS diverted1_wheels_off_time_lcl
      , diverted1_tail_nbr
      , diverted2_airport_oai_code
-     , CASE WHEN REPLACE(diverted2_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted2_wheels_on_time_lcl END::CHAR(4)       AS diverted2_wheels_on_time_lcl
      , diverted2_total_ground_time_min
      , diverted2_longest_ground_time_min
-     , CASE WHEN REPLACE(diverted2_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted2_wheels_off_time_lcl END::CHAR(4)      AS diverted2_wheels_off_time_lcl
      , diverted2_tail_nbr
      , diverted3_airport_oai_code
-     , CASE WHEN REPLACE(diverted3_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted3_wheels_on_time_lcl END::CHAR(4)       AS diverted3_wheels_on_time_lcl
      , diverted3_total_ground_time_min
      , diverted3_longest_ground_time_min
-     , CASE WHEN REPLACE(diverted3_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted3_wheels_off_time_lcl END::CHAR(4)      AS diverted3_wheels_off_time_lcl
      , diverted3_tail_nbr
      , diverted4_airport_oai_code
-     , CASE WHEN REPLACE(diverted4_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted4_wheels_on_time_lcl END::CHAR(4)       AS diverted4_wheels_on_time_lcl
      , diverted4_total_ground_time_min
      , diverted4_longest_ground_time_min
-     , CASE WHEN REPLACE(diverted4_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted4_wheels_off_time_lcl END::CHAR(4)      AS diverted4_wheels_off_time_lcl
      , diverted4_tail_nbr
      , diverted5_airport_oai_code
-     , CASE WHEN REPLACE(diverted5_wheels_on_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted5_wheels_on_time_lcl END::CHAR(4)       AS diverted5_wheels_on_time_lcl
      , diverted5_total_ground_time_min
      , diverted5_longest_ground_time_min
-     , CASE WHEN REPLACE(diverted5_wheels_off_time_lcl, ' ', '') = '' THEN NULL
-            ELSE diverted5_wheels_off_time_lcl END::CHAR(4)      AS diverted5_wheels_off_time_lcl
      , diverted5_tail_nbr
+     , NULLIF(TRIM(report_depart_time_lcl),        '')::CHAR(4)   AS report_depart_time_lcl
+     , NULLIF(TRIM(report_arrive_time_lcl),        '')::CHAR(4)   AS report_arrive_time_lcl
+     , NULLIF(TRIM(actual_depart_time_lcl),        '')::CHAR(4)   AS actual_depart_time_lcl
+     , NULLIF(TRIM(actual_arrive_time_lcl),        '')::CHAR(4)   AS actual_arrive_time_lcl
+     , NULLIF(TRIM(wheels_off_time_lcl),           '')::CHAR(4)   AS wheels_off_time_lcl
+     , NULLIF(TRIM(wheels_on_time_lcl),            '')::CHAR(4)   AS wheels_on_time_lcl
+     , NULLIF(TRIM(first_gate_depart_time),        '')::CHAR(4)   AS first_gate_depart_time
+     , NULLIF(TRIM(diverted1_wheels_on_time_lcl),  '')::CHAR(4)   AS diverted1_wheels_on_time_lcl
+     , NULLIF(TRIM(diverted1_wheels_off_time_lcl), '')::CHAR(4)   AS diverted1_wheels_off_time_lcl
+     , NULLIF(TRIM(diverted2_wheels_on_time_lcl),  '')::CHAR(4)   AS diverted2_wheels_on_time_lcl
+     , NULLIF(TRIM(diverted2_wheels_off_time_lcl), '')::CHAR(4)   AS diverted2_wheels_off_time_lcl
+     , NULLIF(TRIM(diverted3_wheels_on_time_lcl),  '')::CHAR(4)   AS diverted3_wheels_on_time_lcl
+     , NULLIF(TRIM(diverted3_wheels_off_time_lcl), '')::CHAR(4)   AS diverted3_wheels_off_time_lcl
+     , NULLIF(TRIM(diverted4_wheels_on_time_lcl),  '')::CHAR(4)   AS diverted4_wheels_on_time_lcl
+     , NULLIF(TRIM(diverted4_wheels_off_time_lcl), '')::CHAR(4)   AS diverted4_wheels_off_time_lcl
+     , NULLIF(TRIM(diverted5_wheels_on_time_lcl),  '')::CHAR(4)   AS diverted5_wheels_on_time_lcl
+     , NULLIF(TRIM(diverted5_wheels_off_time_lcl), '')::CHAR(4)   AS diverted5_wheels_off_time_lcl
+     , CASE WHEN NULLIF(TRIM(report_depart_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(report_depart_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(report_depart_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(report_depart_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(report_depart_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(report_depart_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(report_depart_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS report_depart_time_norm
+     , CASE WHEN NULLIF(TRIM(report_depart_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(report_depart_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(report_depart_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS report_depart_roll_ind
+     , CASE WHEN NULLIF(TRIM(report_arrive_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(report_arrive_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(report_arrive_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(report_arrive_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(report_arrive_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(report_arrive_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(report_arrive_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS report_arrive_time_norm
+     , CASE WHEN NULLIF(TRIM(report_arrive_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(report_arrive_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(report_arrive_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS report_arrive_roll_ind
+     , CASE WHEN NULLIF(TRIM(actual_depart_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(actual_depart_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(actual_depart_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(actual_depart_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(actual_depart_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(actual_depart_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(actual_depart_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS actual_depart_time_norm
+     , CASE WHEN NULLIF(TRIM(actual_depart_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(actual_depart_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(actual_depart_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS actual_depart_roll_ind
+     , CASE WHEN NULLIF(TRIM(actual_arrive_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(actual_arrive_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(actual_arrive_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(actual_arrive_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(actual_arrive_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(actual_arrive_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(actual_arrive_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS actual_arrive_time_norm
+     , CASE WHEN NULLIF(TRIM(actual_arrive_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(actual_arrive_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(actual_arrive_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS actual_arrive_roll_ind
+     , CASE WHEN NULLIF(TRIM(wheels_off_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(wheels_off_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(wheels_off_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(wheels_off_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(wheels_off_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(wheels_off_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS wheels_off_time_norm
+     , CASE WHEN NULLIF(TRIM(wheels_off_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(wheels_off_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS wheels_off_roll_ind
+     , CASE WHEN NULLIF(TRIM(wheels_on_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(wheels_on_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(wheels_on_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(wheels_on_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(wheels_on_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(wheels_on_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS wheels_on_time_norm
+     , CASE WHEN NULLIF(TRIM(wheels_on_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(wheels_on_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS wheels_on_roll_ind
+     , CASE WHEN NULLIF(TRIM(first_gate_depart_time), '') IS NULL                        THEN NULL
+            WHEN TRIM(first_gate_depart_time) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(first_gate_depart_time), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(first_gate_depart_time), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(first_gate_depart_time), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(first_gate_depart_time), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(first_gate_depart_time), 4, '0')
+       END::CHAR(4)                                      AS first_gate_depart_time_norm
+     , CASE WHEN NULLIF(TRIM(first_gate_depart_time), '') IS NULL                        THEN 0
+            WHEN TRIM(first_gate_depart_time) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(first_gate_depart_time), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS first_gate_depart_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted1_wheels_on_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted1_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted1_wheels_on_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted1_wheels_on_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted1_wheels_on_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted1_wheels_on_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted1_wheels_on_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted1_wheels_on_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted1_wheels_on_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted1_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted1_wheels_on_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted1_wheels_on_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted1_wheels_off_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted1_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted1_wheels_off_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted1_wheels_off_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted1_wheels_off_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted1_wheels_off_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted1_wheels_off_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted1_wheels_off_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted1_wheels_off_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted1_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted1_wheels_off_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted1_wheels_off_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted2_wheels_on_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted2_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted2_wheels_on_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted2_wheels_on_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted2_wheels_on_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted2_wheels_on_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted2_wheels_on_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted2_wheels_on_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted2_wheels_on_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted2_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted2_wheels_on_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted2_wheels_on_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted2_wheels_off_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted2_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted2_wheels_off_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted2_wheels_off_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted2_wheels_off_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted2_wheels_off_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted2_wheels_off_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted2_wheels_off_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted2_wheels_off_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted2_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted2_wheels_off_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted2_wheels_off_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted3_wheels_on_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted3_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted3_wheels_on_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted3_wheels_on_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted3_wheels_on_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted3_wheels_on_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted3_wheels_on_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted3_wheels_on_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted3_wheels_on_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted3_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted3_wheels_on_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted3_wheels_on_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted3_wheels_off_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted3_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted3_wheels_off_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted3_wheels_off_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted3_wheels_off_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted3_wheels_off_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted3_wheels_off_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted3_wheels_off_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted3_wheels_off_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted3_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted3_wheels_off_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted3_wheels_off_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted4_wheels_on_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted4_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted4_wheels_on_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted4_wheels_on_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted4_wheels_on_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted4_wheels_on_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted4_wheels_on_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted4_wheels_on_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted4_wheels_on_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted4_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted4_wheels_on_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted4_wheels_on_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted4_wheels_off_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted4_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted4_wheels_off_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted4_wheels_off_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted4_wheels_off_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted4_wheels_off_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted4_wheels_off_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted4_wheels_off_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted4_wheels_off_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted4_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted4_wheels_off_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted4_wheels_off_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted5_wheels_on_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted5_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted5_wheels_on_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted5_wheels_on_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted5_wheels_on_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted5_wheels_on_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted5_wheels_on_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted5_wheels_on_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted5_wheels_on_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted5_wheels_on_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted5_wheels_on_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted5_wheels_on_roll_ind
+     , CASE WHEN NULLIF(TRIM(diverted5_wheels_off_time_lcl), '') IS NULL                        THEN NULL
+            WHEN TRIM(diverted5_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN NULL
+            WHEN SUBSTRING(LPAD(TRIM(diverted5_wheels_off_time_lcl), 4, '0'), 3, 2)::INT > 59                          THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted5_wheels_off_time_lcl), 4, '0'), 2)::INT > 24                                  THEN NULL
+            WHEN LEFT(LPAD(TRIM(diverted5_wheels_off_time_lcl), 4, '0'), 2) = '24'
+                 THEN '00' || SUBSTRING(LPAD(TRIM(diverted5_wheels_off_time_lcl), 4, '0'), 3, 2)
+            ELSE LPAD(TRIM(diverted5_wheels_off_time_lcl), 4, '0')
+       END::CHAR(4)                                      AS diverted5_wheels_off_time_norm
+     , CASE WHEN NULLIF(TRIM(diverted5_wheels_off_time_lcl), '') IS NULL                        THEN 0
+            WHEN TRIM(diverted5_wheels_off_time_lcl) !~ '^[0-9]{1,4}$'                       THEN 0
+            WHEN LEFT(LPAD(TRIM(diverted5_wheels_off_time_lcl), 4, '0'), 2) = '24'                                     THEN 1
+            ELSE 0
+       END::SMALLINT                                     AS diverted5_wheels_off_roll_ind
 FROM air_oai_facts.airline_flight_performance_fdw;
- 
--- =====================================================================
--- Helper function: safely build a local timestamp from a flight_date +
--- an HHMM local time string, correctly handling:
---   - NULL / blank time values
---   - the airline-data convention of "2400" meaning midnight of the
---     *next* day (rather than an invalid hour 24)
--- =====================================================================
-CREATE OR REPLACE FUNCTION air_oai_facts.f_build_lcl_timestamp(p_date DATE, p_time VARCHAR)
-RETURNS TIMESTAMP
-STABLE
-AS $$
-    SELECT CASE
-        -- blank / null input
-        WHEN $2 IS NULL OR TRIM($2) = '' THEN NULL
-        -- not purely numeric (guards against any other garbage values)
-        WHEN TRIM($2) !~ '^[0-9]{1,4}$' THEN NULL
-        -- minutes portion out of range (00-59)
-        WHEN SUBSTRING(LPAD(TRIM($2), 4, '0'), 3, 2)::INT NOT BETWEEN 0 AND 59 THEN NULL
-        -- hours portion out of range (00-24, where 24 means midnight next day)
-        WHEN LEFT(LPAD(TRIM($2), 4, '0'), 2)::INT NOT BETWEEN 0 AND 24 THEN NULL
-        -- the airline-data convention of "24xx" meaning midnight of the next day
-        WHEN LEFT(LPAD(TRIM($2), 4, '0'), 2) = '24'
-            THEN (($1 + 1)::VARCHAR(10) || ' 00:' ||
-                  SUBSTRING(LPAD(TRIM($2), 4, '0'), 3, 2))::TIMESTAMP
-        ELSE ($1::VARCHAR(10) || ' ' ||
-              LEFT(LPAD(TRIM($2), 4, '0'), 2) || ':' ||
-              SUBSTRING(LPAD(TRIM($2), 4, '0'), 3, 2))::TIMESTAMP
-    END
-$$ LANGUAGE sql;
  
 -- 3.2. define a "final" materialized view with some data transformations (timezone, data types)
 DROP MATERIALIZED VIEW IF EXISTS air_oai_facts.airline_flight_performance_integrated_mv;
@@ -324,48 +500,11 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , fp.distance_group_id::SMALLINT                                                                                             AS distance_group_id
      , fp.depart_time_block
      , fp.arrive_time_block
-     , fp.report_depart_time_lcl
-     , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_depart_time_lcl))   AS report_depart_tmstz_lcl
-     , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_depart_time_lcl))   AS report_depart_tmstz_utc
-     , fp.report_arrive_time_lcl
-     , CONVERT_TIMEZONE('UTC', b.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_arrive_time_lcl))   AS report_arrive_tmstz_lcl
-     , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.report_arrive_time_lcl))   AS report_arrive_tmstz_utc
      , fp.report_elapsed_time_min
-     , fp.actual_depart_time_lcl
-     , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_depart_time_lcl))   AS actual_depart_tmstz_lcl
-     , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_depart_time_lcl))   AS actual_depart_tmstz_utc
-     , fp.actual_arrive_time_lcl
-     , CONVERT_TIMEZONE('UTC', b.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_arrive_time_lcl))   AS actual_arrive_tmstz_lcl
-     , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.actual_arrive_time_lcl))   AS actual_arrive_tmstz_utc
- 
      , fp.actual_elapsed_time_min
-     , fp.wheels_off_time_lcl
-     , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_off_time_lcl))      AS wheels_off_tmstz_lcl
-     , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_off_time_lcl))      AS wheels_off_tmstz_utc
-     , fp.wheels_on_time_lcl
-     , CONVERT_TIMEZONE('UTC', b.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_on_time_lcl))       AS wheels_on_tmstz_lcl
-     , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.wheels_on_time_lcl))       AS wheels_on_tmstz_utc
- 
      , fp.airborne_time_min
      , fp.taxi_out_min::SMALLINT                                                                                                  AS taxi_out_min
      , fp.taxi_in_min::SMALLINT                                                                                                   AS taxi_in_min
-     , fp.first_gate_depart_time
-     , CONVERT_TIMEZONE('UTC', a.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.first_gate_depart_time))   AS first_gate_depart_tmstz_lcl
-     , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.first_gate_depart_time))   AS first_gate_depart_tmstz_utc
      , NULLIF(TRIM(fp.total_ground_time), '')::NUMERIC(3,0)::SMALLINT                                                            AS total_ground_time
      , NULLIF(TRIM(fp.longest_ground_time), '')::NUMERIC(3,0)::SMALLINT                                                          AS longest_ground_time
      , fp.airline_delay_min::SMALLINT                                                                                             AS airline_delay_min
@@ -384,16 +523,6 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , d1.airport_history_key                                                                                                     AS diverted1_airport_history_key
      , d1.time_zone_name                                                                                                          AS diverted1_time_zone_name
      , fp.diverted1_tail_nbr::VARCHAR(10)                                                                                         AS diverted1_tail_nbr
-     , fp.diverted1_wheels_on_time_lcl
-     , CONVERT_TIMEZONE('UTC', d1.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_on_time_lcl))   AS diverted1_wheels_on_tmstz_lcl
-     , CONVERT_TIMEZONE(d1.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_on_time_lcl))   AS diverted1_wheels_on_tmstz_utc
-     , fp.diverted1_wheels_off_time_lcl
-     , CONVERT_TIMEZONE('UTC', d1.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_off_time_lcl))  AS diverted1_wheels_off_tmstz_lcl
-     , CONVERT_TIMEZONE(d1.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted1_wheels_off_time_lcl))  AS diverted1_wheels_off_tmstz_utc
      , fp.diverted1_total_ground_time_min::SMALLINT                                                                               AS diverted1_total_ground_time_min
      , fp.diverted1_longest_ground_time_min::SMALLINT                                                                             AS diverted1_longest_ground_time_min
      , fp.diverted2_airport_oai_code::CHAR(3)                                                                                    AS diverted2_airport_oai_code
@@ -402,16 +531,6 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , d2.airport_history_key                                                                                                     AS diverted2_airport_history_key
      , d2.time_zone_name                                                                                                          AS diverted2_time_zone_name
      , fp.diverted2_tail_nbr::VARCHAR(10)                                                                                         AS diverted2_tail_nbr
-     , fp.diverted2_wheels_on_time_lcl
-     , CONVERT_TIMEZONE('UTC', d2.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_on_time_lcl))   AS diverted2_wheels_on_tmstz_lcl
-     , CONVERT_TIMEZONE(d2.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_on_time_lcl))   AS diverted2_wheels_on_tmstz_utc
-     , fp.diverted2_wheels_off_time_lcl
-     , CONVERT_TIMEZONE('UTC', d2.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_off_time_lcl))  AS diverted2_wheels_off_tmstz_lcl
-     , CONVERT_TIMEZONE(d2.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted2_wheels_off_time_lcl))  AS diverted2_wheels_off_tmstz_utc
      , fp.diverted2_total_ground_time_min::SMALLINT                                                                               AS diverted2_total_ground_time_min
      , fp.diverted2_longest_ground_time_min::SMALLINT                                                                             AS diverted2_longest_ground_time_min
      , fp.diverted3_airport_oai_code::CHAR(3)                                                                                    AS diverted3_airport_oai_code
@@ -420,16 +539,6 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , d3.airport_history_key                                                                                                     AS diverted3_airport_history_key
      , d3.time_zone_name                                                                                                          AS diverted3_time_zone_name
      , fp.diverted3_tail_nbr::VARCHAR(10)                                                                                         AS diverted3_tail_nbr
-     , fp.diverted3_wheels_on_time_lcl
-     , CONVERT_TIMEZONE('UTC', d3.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_on_time_lcl))   AS diverted3_wheels_on_tmstz_lcl
-     , CONVERT_TIMEZONE(d3.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_on_time_lcl))   AS diverted3_wheels_on_tmstz_utc
-     , fp.diverted3_wheels_off_time_lcl
-     , CONVERT_TIMEZONE('UTC', d3.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_off_time_lcl))  AS diverted3_wheels_off_tmstz_lcl
-     , CONVERT_TIMEZONE(d3.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted3_wheels_off_time_lcl))  AS diverted3_wheels_off_tmstz_utc
      , fp.diverted3_total_ground_time_min::SMALLINT                                                                               AS diverted3_total_ground_time_min
      , fp.diverted3_longest_ground_time_min::SMALLINT                                                                             AS diverted3_longest_ground_time_min
      , fp.diverted4_airport_oai_code::CHAR(3)                                                                                    AS diverted4_airport_oai_code
@@ -438,16 +547,6 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , d4.airport_history_key                                                                                                     AS diverted4_airport_history_key
      , d4.time_zone_name                                                                                                          AS diverted4_time_zone_name
      , fp.diverted4_tail_nbr::VARCHAR(10)                                                                                         AS diverted4_tail_nbr
-     , fp.diverted4_wheels_on_time_lcl
-     , CONVERT_TIMEZONE('UTC', d4.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_on_time_lcl))   AS diverted4_wheels_on_tmstz_lcl
-     , CONVERT_TIMEZONE(d4.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_on_time_lcl))   AS diverted4_wheels_on_tmstz_utc
-     , fp.diverted4_wheels_off_time_lcl
-     , CONVERT_TIMEZONE('UTC', d4.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_off_time_lcl))  AS diverted4_wheels_off_tmstz_lcl
-     , CONVERT_TIMEZONE(d4.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted4_wheels_off_time_lcl))  AS diverted4_wheels_off_tmstz_utc
      , fp.diverted4_total_ground_time_min::SMALLINT                                                                               AS diverted4_total_ground_time_min
      , fp.diverted4_longest_ground_time_min::SMALLINT                                                                             AS diverted4_longest_ground_time_min
      , fp.diverted5_airport_oai_code::CHAR(3)                                                                                    AS diverted5_airport_oai_code
@@ -456,69 +555,247 @@ SELECT MD5(fp.airline_oai_code||'|'||fp.flight_nbr||'|'||fp.flight_date::VARCHAR
      , d5.airport_history_key                                                                                                     AS diverted5_airport_history_key
      , d5.time_zone_name                                                                                                          AS diverted5_time_zone_name
      , fp.diverted5_tail_nbr::VARCHAR(10)                                                                                         AS diverted5_tail_nbr
-     , fp.diverted5_wheels_on_time_lcl
-     , CONVERT_TIMEZONE('UTC', d5.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_on_time_lcl))   AS diverted5_wheels_on_tmstz_lcl
-     , CONVERT_TIMEZONE(d5.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_on_time_lcl))   AS diverted5_wheels_on_tmstz_utc
-     , fp.diverted5_wheels_off_time_lcl
-     , CONVERT_TIMEZONE('UTC', d5.time_zone_name,
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_off_time_lcl))  AS diverted5_wheels_off_tmstz_lcl
-     , CONVERT_TIMEZONE(d5.time_zone_name, 'UTC',
-           air_oai_facts.f_build_lcl_timestamp(fp.flight_date, fp.diverted5_wheels_off_time_lcl))  AS diverted5_wheels_off_tmstz_utc
      , fp.diverted5_total_ground_time_min::SMALLINT                                                                               AS diverted5_total_ground_time_min
      , fp.diverted5_longest_ground_time_min::SMALLINT                                                                             AS diverted5_longest_ground_time_min
+	, fp.report_depart_time_lcl
+    , CONVERT_TIMEZONE('UTC', a.time_zone_name,
+          CASE WHEN fp.report_depart_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.report_depart_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.report_depart_time_norm, 2) || ':' || RIGHT(fp.report_depart_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS report_depart_tmstz_lcl
+    , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
+          CASE WHEN fp.report_depart_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.report_depart_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.report_depart_time_norm, 2) || ':' || RIGHT(fp.report_depart_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS report_depart_tmstz_utc
+    , fp.report_arrive_time_lcl
+    , CONVERT_TIMEZONE('UTC', b.time_zone_name,
+          CASE WHEN fp.report_arrive_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.report_arrive_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.report_arrive_time_norm, 2) || ':' || RIGHT(fp.report_arrive_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS report_arrive_tmstz_lcl
+    , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
+          CASE WHEN fp.report_arrive_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.report_arrive_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.report_arrive_time_norm, 2) || ':' || RIGHT(fp.report_arrive_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS report_arrive_tmstz_utc
+    , fp.actual_depart_time_lcl
+    , CONVERT_TIMEZONE('UTC', a.time_zone_name,
+          CASE WHEN fp.actual_depart_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.actual_depart_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.actual_depart_time_norm, 2) || ':' || RIGHT(fp.actual_depart_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS actual_depart_tmstz_lcl
+    , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
+          CASE WHEN fp.actual_depart_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.actual_depart_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.actual_depart_time_norm, 2) || ':' || RIGHT(fp.actual_depart_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS actual_depart_tmstz_utc
+    , fp.actual_arrive_time_lcl
+    , CONVERT_TIMEZONE('UTC', b.time_zone_name,
+          CASE WHEN fp.actual_arrive_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.actual_arrive_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.actual_arrive_time_norm, 2) || ':' || RIGHT(fp.actual_arrive_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS actual_arrive_tmstz_lcl
+    , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
+          CASE WHEN fp.actual_arrive_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.actual_arrive_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.actual_arrive_time_norm, 2) || ':' || RIGHT(fp.actual_arrive_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS actual_arrive_tmstz_utc
+    , fp.wheels_off_time_lcl
+    , CONVERT_TIMEZONE('UTC', a.time_zone_name,
+          CASE WHEN fp.wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.wheels_off_time_norm, 2) || ':' || RIGHT(fp.wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS wheels_off_tmstz_lcl
+    , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
+          CASE WHEN fp.wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.wheels_off_time_norm, 2) || ':' || RIGHT(fp.wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS wheels_off_tmstz_utc
+    , fp.wheels_on_time_lcl
+    , CONVERT_TIMEZONE('UTC', b.time_zone_name,
+          CASE WHEN fp.wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.wheels_on_time_norm, 2) || ':' || RIGHT(fp.wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS wheels_on_tmstz_lcl
+    , CONVERT_TIMEZONE(b.time_zone_name, 'UTC',
+          CASE WHEN fp.wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.wheels_on_time_norm, 2) || ':' || RIGHT(fp.wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS wheels_on_tmstz_utc
+    , fp.first_gate_depart_time
+    , CONVERT_TIMEZONE('UTC', a.time_zone_name,
+          CASE WHEN fp.first_gate_depart_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.first_gate_depart_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.first_gate_depart_time_norm, 2) || ':' || RIGHT(fp.first_gate_depart_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS first_gate_depart_tmstz_lcl
+    , CONVERT_TIMEZONE(a.time_zone_name, 'UTC',
+          CASE WHEN fp.first_gate_depart_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.first_gate_depart_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.first_gate_depart_time_norm, 2) || ':' || RIGHT(fp.first_gate_depart_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS first_gate_depart_tmstz_utc
+    , fp.diverted1_wheels_on_time_lcl
+    , CONVERT_TIMEZONE('UTC', d1.time_zone_name,
+          CASE WHEN fp.diverted1_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted1_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted1_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted1_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted1_wheels_on_tmstz_lcl
+    , CONVERT_TIMEZONE(d1.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted1_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted1_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted1_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted1_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted1_wheels_on_tmstz_utc
+    , fp.diverted1_wheels_off_time_lcl
+    , CONVERT_TIMEZONE('UTC', d1.time_zone_name,
+          CASE WHEN fp.diverted1_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted1_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted1_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted1_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted1_wheels_off_tmstz_lcl
+    , CONVERT_TIMEZONE(d1.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted1_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted1_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted1_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted1_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted1_wheels_off_tmstz_utc
+    , fp.diverted2_wheels_on_time_lcl
+    , CONVERT_TIMEZONE('UTC', d2.time_zone_name,
+          CASE WHEN fp.diverted2_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted2_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted2_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted2_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted2_wheels_on_tmstz_lcl
+    , CONVERT_TIMEZONE(d2.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted2_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted2_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted2_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted2_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted2_wheels_on_tmstz_utc
+    , fp.diverted2_wheels_off_time_lcl
+    , CONVERT_TIMEZONE('UTC', d2.time_zone_name,
+          CASE WHEN fp.diverted2_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted2_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted2_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted2_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted2_wheels_off_tmstz_lcl
+    , CONVERT_TIMEZONE(d2.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted2_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted2_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted2_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted2_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted2_wheels_off_tmstz_utc
+    , fp.diverted3_wheels_on_time_lcl
+    , CONVERT_TIMEZONE('UTC', d3.time_zone_name,
+          CASE WHEN fp.diverted3_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted3_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted3_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted3_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted3_wheels_on_tmstz_lcl
+    , CONVERT_TIMEZONE(d3.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted3_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted3_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted3_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted3_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted3_wheels_on_tmstz_utc
+    , fp.diverted3_wheels_off_time_lcl
+    , CONVERT_TIMEZONE('UTC', d3.time_zone_name,
+          CASE WHEN fp.diverted3_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted3_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted3_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted3_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted3_wheels_off_tmstz_lcl
+    , CONVERT_TIMEZONE(d3.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted3_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted3_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted3_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted3_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted3_wheels_off_tmstz_utc
+    , fp.diverted4_wheels_on_time_lcl
+    , CONVERT_TIMEZONE('UTC', d4.time_zone_name,
+          CASE WHEN fp.diverted4_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted4_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted4_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted4_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted4_wheels_on_tmstz_lcl
+    , CONVERT_TIMEZONE(d4.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted4_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted4_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted4_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted4_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted4_wheels_on_tmstz_utc
+    , fp.diverted4_wheels_off_time_lcl
+    , CONVERT_TIMEZONE('UTC', d4.time_zone_name,
+          CASE WHEN fp.diverted4_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted4_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted4_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted4_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted4_wheels_off_tmstz_lcl
+    , CONVERT_TIMEZONE(d4.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted4_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted4_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted4_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted4_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted4_wheels_off_tmstz_utc
+    , fp.diverted5_wheels_on_time_lcl
+    , CONVERT_TIMEZONE('UTC', d5.time_zone_name,
+          CASE WHEN fp.diverted5_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted5_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted5_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted5_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted5_wheels_on_tmstz_lcl
+    , CONVERT_TIMEZONE(d5.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted5_wheels_on_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted5_wheels_on_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted5_wheels_on_time_norm, 2) || ':' || RIGHT(fp.diverted5_wheels_on_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted5_wheels_on_tmstz_utc
+    , fp.diverted5_wheels_off_time_lcl
+    , CONVERT_TIMEZONE('UTC', d5.time_zone_name,
+          CASE WHEN fp.diverted5_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted5_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted5_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted5_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted5_wheels_off_tmstz_lcl
+    , CONVERT_TIMEZONE(d5.time_zone_name, 'UTC',
+          CASE WHEN fp.diverted5_wheels_off_time_norm IS NULL THEN NULL
+               ELSE (DATEADD(day, fp.diverted5_wheels_off_roll_ind, fp.flight_date)::DATE::VARCHAR(10) || ' ' ||
+                     LEFT(fp.diverted5_wheels_off_time_norm, 2) || ':' || RIGHT(fp.diverted5_wheels_off_time_norm, 2))::TIMESTAMP
+          END)                                                                       AS diverted5_wheels_off_tmstz_utc
 FROM air_oai_facts.airline_flight_performance_mv fp
 LEFT OUTER JOIN
 (
-    SELECT airline_entity_id, airline_entity_key, airline_oai_code, source_from_date, source_thru_date
-    FROM air_oai_dims.airline_entities
-    WHERE operating_region_code = 'Domestic'
+   SELECT airline_entity_id, airline_entity_key, airline_oai_code, source_from_date, source_thru_date
+   FROM air_oai_dims.airline_entities
+   WHERE operating_region_code = 'Domestic'
 ) ae ON fp.airline_oai_code = ae.airline_oai_code
-    AND fp.flight_date BETWEEN ae.source_from_date AND COALESCE(ae.source_thru_date, CURRENT_DATE)
+   AND fp.flight_date BETWEEN ae.source_from_date AND COALESCE(ae.source_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
-    FROM air_oai_dims.airport_history
+   SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
+   FROM air_oai_dims.airport_history
 ) a ON fp.depart_airport_oai_code = a.airport_oai_code
-   AND fp.flight_date BETWEEN a.effective_from_date AND COALESCE(a.effective_thru_date, CURRENT_DATE)
+  AND fp.flight_date BETWEEN a.effective_from_date AND COALESCE(a.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
-    FROM air_oai_dims.airport_history
+   SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
+   FROM air_oai_dims.airport_history
 ) b ON fp.arrive_airport_oai_code = b.airport_oai_code
-   AND fp.flight_date BETWEEN b.effective_from_date AND COALESCE(b.effective_thru_date, CURRENT_DATE)
+  AND fp.flight_date BETWEEN b.effective_from_date AND COALESCE(b.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
-    FROM air_oai_dims.airport_history
+   SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
+   FROM air_oai_dims.airport_history
 ) d1 ON fp.diverted1_airport_oai_code = d1.airport_oai_code
-    AND fp.flight_date BETWEEN d1.effective_from_date AND COALESCE(d1.effective_thru_date, CURRENT_DATE)
+   AND fp.flight_date BETWEEN d1.effective_from_date AND COALESCE(d1.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
-    FROM air_oai_dims.airport_history
+   SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
+   FROM air_oai_dims.airport_history
 ) d2 ON fp.diverted2_airport_oai_code = d2.airport_oai_code
-    AND fp.flight_date BETWEEN d2.effective_from_date AND COALESCE(d2.effective_thru_date, CURRENT_DATE)
+   AND fp.flight_date BETWEEN d2.effective_from_date AND COALESCE(d2.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
-    FROM air_oai_dims.airport_history
+   SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
+   FROM air_oai_dims.airport_history
 ) d3 ON fp.diverted3_airport_oai_code = d3.airport_oai_code
-    AND fp.flight_date BETWEEN d3.effective_from_date AND COALESCE(d3.effective_thru_date, CURRENT_DATE)
+   AND fp.flight_date BETWEEN d3.effective_from_date AND COALESCE(d3.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
-    FROM air_oai_dims.airport_history
+   SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
+   FROM air_oai_dims.airport_history
 ) d4 ON fp.diverted4_airport_oai_code = d4.airport_oai_code
-    AND fp.flight_date BETWEEN d4.effective_from_date AND COALESCE(d4.effective_thru_date, CURRENT_DATE)
+   AND fp.flight_date BETWEEN d4.effective_from_date AND COALESCE(d4.effective_thru_date, CURRENT_DATE)
 LEFT OUTER JOIN
 (
-    SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
-    FROM air_oai_dims.airport_history
+   SELECT airport_history_id, airport_history_key, airport_oai_code, effective_from_date, effective_thru_date, time_zone_name
+   FROM air_oai_dims.airport_history
 ) d5 ON fp.diverted5_airport_oai_code = d5.airport_oai_code
-    AND fp.flight_date BETWEEN d5.effective_from_date AND COALESCE(d5.effective_thru_date, CURRENT_DATE);
-------------------------------------------------
+   AND fp.flight_date BETWEEN d5.effective_from_date AND COALESCE(d5.effective_thru_date, CURRENT_DATE);
+
+
 -- 4.1. air_oai_facts.airline_flights_completed
 DROP TABLE IF EXISTS air_oai_facts.airline_flights_completed;
 CREATE TABLE air_oai_facts.airline_flights_completed
