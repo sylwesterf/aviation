@@ -1734,5 +1734,5 @@ SELECT flight_key, flight_date
      , report_depart_tmstz_utc, report_depart_tmstz_utc::DATE AS report_depart_date_utc
      , report_arrive_tmstz_lcl, report_arrive_tmstz_lcl::DATE AS report_arrive_date_lcl
      , report_arrive_tmstz_utc, report_arrive_tmstz_utc::DATE AS report_arrive_date_utc
-     , report_elapsed_time_min
+     , report_elapsed_time_min, flight_status
 FROM air_oai_facts.airline_flights_scheduled;
