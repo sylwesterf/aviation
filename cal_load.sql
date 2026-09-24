@@ -382,7 +382,7 @@ CREATE TABLE calendar_rs.hour_of_day (
     hour_of_day_code          CHAR(2),
     hour_of_day_time          TIME,
     period_code               CHAR(2),
-    CONSTRAINT hour_of_day_pk              PRIMARY KEY (hour_of_day_nbr);
+    CONSTRAINT hour_of_day_pk              PRIMARY KEY (hour_of_day_nbr)
 );
 INSERT INTO calendar_rs.hour_of_day
 SELECT * FROM cal_gen.make_hour_of_day_v;
@@ -391,7 +391,7 @@ DROP TABLE IF EXISTS calendar_rs.minute_of_hour;
 CREATE TABLE calendar_rs.minute_of_hour (
     minute_of_hour_code       CHAR(2),
     minute_of_hour_nbr        SMALLINT   NOT NULL,
-    CONSTRAINT minute_of_hour_pk           PRIMARY KEY (minute_of_hour_nbr);
+    CONSTRAINT minute_of_hour_pk           PRIMARY KEY (minute_of_hour_nbr)
 );
 INSERT INTO calendar_rs.minute_of_hour
 SELECT * FROM cal_gen.make_minute_of_hour_v;
