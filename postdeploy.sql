@@ -25,10 +25,14 @@ drop table if exists cal_gen_numbers;
 ----------------------- t100 -----------------------------
 ---------------------------------------------------------
 -- 5. vacuum the tables
-vacuum analyze air_oai_dims.airline_traffic_market;
-vacuum analyze air_oai_dims.airline_traffic_segment;
-vacuum analyze air_oai_dims.aircraft_configurations;
-vacuum analyze air_oai_dims.airline_service_classes;
+vacuum air_oai_facts.airline_traffic_market;
+analyze air_oai_facts.airline_traffic_market;
+vacuum air_oai_facts.airline_traffic_segment;
+analyze air_oai_facts.airline_traffic_segment;
+vacuum air_oai_dims.aircraft_configurations;
+analyze air_oai_dims.aircraft_configurations;
+vacuum air_oai_dims.airline_service_classes;
+analyze air_oai_dims.airline_service_classes;
 
 -- 6. data validation
 -- TODO
@@ -49,11 +53,17 @@ drop table if exists air_oai_facts.f41_traffic_t100_segment_archive;
 ----------------------- otp -----------------------------
 ---------------------------------------------------------
 -- 6. vacuum
-vacuum analyze air_oai_facts.airline_flights_scheduled;
-vacuum analyze air_oai_facts.airline_flights_completed;
-vacuum analyze air_oai_facts.airline_flights_cancelled;
-vacuum analyze air_oai_facts.airline_flights_diverted;
-vacuum analyze air_oai_facts.airline_flights_diverted_legs;
+vacuum air_oai_facts.airline_flights_scheduled;
+analyze air_oai_facts.airline_flights_scheduled;
+vacuum air_oai_facts.airline_flights_completed;
+analyze air_oai_facts.airline_flights_completed;
+vacuum air_oai_facts.airline_flights_cancelled;
+analyze air_oai_facts.airline_flights_cancelled;
+vacuum air_oai_facts.airline_flights_diverted;
+analyze air_oai_facts.airline_flights_diverted;
+vacuum air_oai_facts.airline_flights_diverted_legs;
+analyze air_oai_facts.airline_flights_diverted_legs;
+
 
 -- 7. validation
 -- TODO
@@ -116,13 +126,22 @@ drop table if exists air_oai_dims.f41_schedule_b43_fdw
 ----------------------- dim -----------------------------
 ---------------------------------------------------------
 -- 12. vacuum the tables
-vacuum analyze air_oai_dims.aircraft_types;
-vacuum analyze air_oai_dims.world_areas;
-vacuum analyze air_oai_dims.airport_history;
-vacuum analyze air_oai_dims.aircraft_type_groups;
-vacuum analyze air_oai_dims.airline_entity_new_groups;
-vacuum analyze air_oai_dims.airline_entity_legacy_groups;
-vacuum analyze air_oai_dims.airline_entities
+VACUUM FULL air_oai_dims.aircraft_types;
+VACUUM FULL air_oai_dims.world_areas;
+VACUUM FULL air_oai_dims.airport_history;
+VACUUM FULL air_oai_dims.aircraft_type_groups;
+VACUUM FULL air_oai_dims.airline_entity_new_groups;
+VACUUM FULL air_oai_dims.airline_entity_legacy_groups;
+VACUUM FULL air_oai_dims.airline_entities;
+
+ANALYZE air_oai_dims.aircraft_types;
+ANALYZE air_oai_dims.world_areas;
+ANALYZE air_oai_dims.airport_history;
+ANALYZE air_oai_dims.aircraft_type_groups;
+ANALYZE air_oai_dims.airline_entity_new_groups;
+ANALYZE air_oai_dims.airline_entity_legacy_groups;
+ANALYZE air_oai_dims.airline_entities;
+
 
 
 -- 13. test/validation queries
@@ -152,7 +171,7 @@ select 'airline_entity_legacy_groups', case when count(distinct airline_old_grou
 from air_oai_dims.airline_entity_legacy_groups 
 union all
 select 'airline_entities', case when count(distinct airline_entity_id) = 2791 then 'passed' else 'error' end
-from air_oai_dims.airline_entities
+from air_oai_dims.airline_entities;
 
 	
 -- ### 1
@@ -160,7 +179,7 @@ select aircraft_type_oai_nbr, count(*) from air_oai_dims.aircraft_types_fdw grou
 
 select * from air_oai_dims.aircraft_types; 
 select * from air_oai_dims.aircraft_types_fdw; -- 433
-drop foreign table if exists air_oai_dims.aircraft_types_fdw;
+drop table if exists air_oai_dims.aircraft_types_fdw;
 
 
 -- ### 2

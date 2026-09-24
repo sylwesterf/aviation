@@ -44,7 +44,7 @@ iam_role default
 csv 
 gzip
 ignoreheader 1
-dateformat 'auto'
+dateformat 'auto';
 
 -- 3.  create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
 drop table if exists air_oai_dims.airframe_and_engine_inventory_annual;
@@ -71,9 +71,8 @@ create table air_oai_dims.airframe_and_engine_inventory_annual (
     created_ts             timestamp,        -- Audit: creation timestamp
     updated_by             varchar(25),      -- Audit: last updater
     updated_ts             timestamp         -- Audit: last update timestamp
-)
---distkey(airline_entity_id)                    -- Distribution key for Redshift
---sortkey(airline_entity_id, year_nbr, tail_nbr, serial_nbr); -- Sort key for queries
+);
+
 
 -- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from air_oai_dims.f41_schedule_b43_fdw
 insert into air_oai_dims.airframe_and_engine_inventory_annual
@@ -125,8 +124,9 @@ order by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr;
 
 
 -- 4. define keys and indexes
-alter table air_oai_dims.airframe_and_engine_inventory_annual add constraint airframe_and_engine_inventory_annual_pk primary key (inventory_key);
-create unique index airframe_and_engine_inventory_annual_nk on air_oai_dims.airframe_and_engine_inventory_annual (airline_entity_id, year_nbr, tail_nbr, serial_nbr);
+alter table air_oai_dims.airframe_and_engine_inventory_annual
+    add constraint airframe_and_engine_inventory_annual_nk
+    unique (airline_entity_id, year_nbr, tail_nbr, serial_nbr);
 
 -- 5. add comments 
 comment on table air_oai_dims.airframe_and_engine_inventory_annual is 'Annual Inventory of Airframe and Aircraft Engines.';

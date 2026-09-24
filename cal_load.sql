@@ -16,34 +16,26 @@ LIMIT 3001;
  
 -- cal_gen.make_gregorian_year_v
 create or replace view cal_gen.make_gregorian_year_v as
-select
-      year_nbr::smallint                            as year_nbr
-    , year_cd::char(4)                              as year_code
-    , case
-        when mod(year_nbr, 400) = 0 then 1
-        when mod(year_nbr, 100) = 0 then 0
-        when mod(year_nbr,   4) = 0 then 1
-        else 0
-      end::smallint                                 as leap_year_ind
-    , (year_cd || '-01-01')::date                   as year_from_date
-    , (year_cd || '-12-31')::date                   as year_thru_date
-    , (year_cd || '-12-31')::date
-        - (year_cd || '-01-01')::date + 1           as day_qty  
-    , lag(year_nbr, 1) over (order by year_nbr)     as last_year_nbr
-from (
-    select
-          lpad((v1.n * 10 + v2.n)::varchar, 2, '0') ||
-          lpad((v3.n * 10 + v4.n)::varchar, 2, '0')               as year_cd
-        , cast(
-              lpad((v1.n * 10 + v2.n)::varchar, 2, '0') ||
-              lpad((v3.n * 10 + v4.n)::varchar, 2, '0')
-              as smallint)                                         as year_nbr
-    from            (select n from cal_gen_numbers where n between 0 and 9) v1
-    cross join      (select n from cal_gen_numbers where n between 0 and 9) v2
-    cross join      (select n from cal_gen_numbers where n between 0 and 9) v3
-    cross join      (select n from cal_gen_numbers where n between 0 and 9) v4
-) yoe
-where year_nbr between 1000 and 3000
+SELECT
+      n.n::smallint                                     AS year_nbr
+    , n.n::char(4)                                      AS year_code
+    , CASE
+        WHEN (n.n % 400) = 0 THEN 1
+        WHEN (n.n % 100) = 0 THEN 0
+        WHEN (n.n % 4)   = 0 THEN 1
+        ELSE 0
+      END::smallint                                     AS leap_year_ind
+    , (n.n::text || '-01-01')::date                     AS year_from_date
+    , (n.n::text || '-12-31')::date                     AS year_thru_date
+    , CASE
+        WHEN (n.n % 400) = 0 THEN 366
+        WHEN (n.n % 100) = 0 THEN 365
+        WHEN (n.n % 4)   = 0 THEN 366
+        ELSE 365
+      END::smallint                                     AS day_qty
+    , CASE WHEN n.n = 1000 THEN NULL ELSE (n.n - 1) END::smallint AS last_year_nbr
+FROM cal_gen_numbers n
+WHERE n.n BETWEEN 1000 AND 3000;
 order by year_nbr;
  
 -- cal_gen.make_hour_of_day_v
@@ -183,46 +175,33 @@ order by year_month_nbr;
 
 -- cal_gen.make_calendar_date_v
 create or replace view cal_gen.make_calendar_date_v as
-with nums as (
-    select 0 as n 
-    union all select 1 
-    union all select 2
-    union all select 3 
-    union all select 4 
-    union all select 5
-    union all select 6 
-    union all select 7 
-    union all select 8
-    union all select 9
-),
-dates as (
-    select dateadd(day, (a.n * 10000 + b.n * 1000 + c.n * 100 + d.n * 10 + e.n), date '1000-01-01') as calendar_date
-    from nums a
-    cross join nums b
-    cross join nums c
-    cross join nums d
-    cross join nums e
-    where dateadd(day, (a.n * 10000 + b.n * 1000 + c.n * 100 + d.n * 10 + e.n), date '1000-01-01') <= date '3000-12-31'
+WITH date_grid AS (
+    SELECT 
+        DATEADD(day, (a.n * (select count(*) from cal_gen_numbers) + b.n), DATE '1000-01-01')::date AS calendar_date,
+        DATE_PART('year',  DATEADD(day, (a.n * (select count(*) from cal_gen_numbers) + b.n), DATE '1000-01-01'))::int AS yr,
+        DATE_PART('month', DATEADD(day, (a.n * (select count(*) from cal_gen_numbers) + b.n), DATE '1000-01-01'))::int AS mo
+    FROM cal_gen_numbers a
+    CROSS JOIN cal_gen_numbers b
+    WHERE DATEADD(day, (a.n * 2712 + b.n), DATE '1000-01-01') <= DATE '3000-12-31'
 )
-select
-      d.calendar_date
-    , (((date_part('dow', d.calendar_date)::int + 6) % 7) + 1)::smallint      as day_of_week_iso_nbr
-    , date_part('week', d.calendar_date)::smallint                             as week_of_year_nbr
-    , (to_char(d.calendar_date, 'IYYY') ||
-       lpad(to_char(d.calendar_date, 'IW'), 2, '0'))::integer                 as year_week_nbr
-    , m.year_month_nbr
-    , m.year_quarter_nbr
-    , date_part('year', d.calendar_date)::smallint                             as year_nbr
-    , dateadd(day,   -1, d.calendar_date)::date                                as yesterday_date
-    , dateadd(week,  -1, d.calendar_date)::date                                as this_day_last_week
-    , dateadd(month, -1, d.calendar_date)::date                                as this_day_last_month
-    , dateadd(month, -3, d.calendar_date)::date                                as this_day_last_quarter
-    , dateadd(year,  -1, d.calendar_date)::date                                as this_day_last_year
-from dates d
-left join cal_gen.make_gregorian_year_month_v m
-  on  date_part('year',  d.calendar_date)::int = m.year_nbr
-  and date_part('month', d.calendar_date)::int = m.month_of_year_nbr
-order by d.calendar_date;
+SELECT 
+    d.calendar_date,
+    (((DATE_PART('dow', d.calendar_date)::int + 6) % 7) + 1)::smallint AS day_of_week_iso_nbr,
+    DATE_PART('week', d.calendar_date)::smallint                       AS week_of_year_nbr,
+    (TO_CHAR(d.calendar_date, 'IYYY') || TO_CHAR(d.calendar_date, 'IW'))::int AS year_week_nbr,
+    m.year_month_nbr,
+    m.year_quarter_nbr,
+    d.yr::smallint AS year_nbr,
+    DATEADD(day,   -1, d.calendar_date)::date AS yesterday_date,
+    DATEADD(week,  -1, d.calendar_date)::date AS this_day_last_week,
+    DATEADD(month, -1, d.calendar_date)::date AS this_day_last_month,
+    DATEADD(month, -3, d.calendar_date)::date AS this_day_last_quarter,
+    DATEADD(year,  -1, d.calendar_date)::date AS this_day_last_year
+FROM date_grid d
+LEFT JOIN cal_gen.make_gregorian_year_month_v m
+  ON  d.yr = m.year_nbr
+  AND d.mo = m.month_of_year_nbr
+order by 1;
 
 -- cal_gen.make_year_week_v
 create or replace view cal_gen.make_year_week_v as
@@ -274,10 +253,12 @@ cross join cal_gen.make_hour_of_day_v h
 order by d.calendar_date, h.hour_of_day_nbr;
 
 --- 2. Create calendar tables based on base views and start/end year
--- start_year = 1900, end_year = 2090
- 
+SET session.start_year TO 1900;
+SET session.end_year TO 2090;
+
+DROP TABLE IF EXISTS calendar_rs.day_of_week;
 CREATE TABLE calendar_rs.day_of_week (
-    day_of_week_iso_nbr       SMALLINT    NOT NULL,
+    day_of_week_iso_nbr       SMALLINT    NOT NULL PRIMARY KEY,
     day_of_week_common_nbr    SMALLINT,
     day_of_week_pgsql_nbr     SMALLINT,
     day_of_week_abbr          CHAR(3),
@@ -285,9 +266,10 @@ CREATE TABLE calendar_rs.day_of_week (
 );
 INSERT INTO calendar_rs.day_of_week
 SELECT * FROM cal_gen.make_day_of_week_v;
- 
+
+DROP TABLE IF EXISTS calendar_rs.gregorian_month_of_year;
 CREATE TABLE calendar_rs.gregorian_month_of_year (
-    month_of_year_nbr         SMALLINT    NOT NULL,
+    month_of_year_nbr         SMALLINT    NOT NULL PRIMARY KEY,
     month_of_year_code        CHAR(2),
     quarter_of_year_nbr       SMALLINT,
     standard_year_day_qty     SMALLINT,
@@ -297,18 +279,20 @@ CREATE TABLE calendar_rs.gregorian_month_of_year (
 );
 INSERT INTO calendar_rs.gregorian_month_of_year
 SELECT * FROM cal_gen.make_gregorian_month_of_year_v;
- 
+
+DROP TABLE IF EXISTS calendar_rs.gregorian_quarter_of_year;
 CREATE TABLE calendar_rs.gregorian_quarter_of_year (
-    quarter_of_year_nbr       SMALLINT    NOT NULL,
+    quarter_of_year_nbr       SMALLINT    NOT NULL PRIMARY KEY,
     quarter_of_year_code      CHAR(1),
     quarter_of_year_abbr      CHAR(2),
     quarter_of_year_name      VARCHAR(15)
 );
 INSERT INTO calendar_rs.gregorian_quarter_of_year
 SELECT * FROM cal_gen.make_gregorian_quarter_of_year_v;
- 
+
+DROP TABLE IF EXISTS calendar_rs.gregorian_year;
 CREATE TABLE calendar_rs.gregorian_year (
-    year_nbr                  SMALLINT    NOT NULL,
+    year_nbr                  SMALLINT    NOT NULL PRIMARY KEY,
     year_code                 CHAR(4),
     leap_year_ind             SMALLINT,
     year_from_date            DATE,
@@ -318,10 +302,11 @@ CREATE TABLE calendar_rs.gregorian_year (
 );
 INSERT INTO calendar_rs.gregorian_year
 SELECT * FROM cal_gen.make_gregorian_year_v
-WHERE year_nbr BETWEEN 1900 AND 2090;
- 
+WHERE year_nbr BETWEEN current_setting('session.start_year')::int AND current_setting('session.end_year')::int;
+
+DROP TABLE IF EXISTS calendar_rs.gregorian_year_quarter;
 CREATE TABLE calendar_rs.gregorian_year_quarter (
-    year_quarter_nbr           INTEGER    NOT NULL,
+    year_quarter_nbr           INTEGER    NOT NULL PRIMARY KEY,
     year_quarter_standard_code CHAR(7),
     year_nbr                   SMALLINT,
     quarter_of_year_nbr        SMALLINT,
@@ -332,10 +317,11 @@ CREATE TABLE calendar_rs.gregorian_year_quarter (
 );
 INSERT INTO calendar_rs.gregorian_year_quarter
 SELECT * FROM cal_gen.make_gregorian_year_quarter_v
-WHERE year_nbr BETWEEN 1900 AND 2090;
- 
+WHERE year_nbr BETWEEN current_setting('session.start_year')::int AND current_setting('session.end_year')::int;
+
+DROP TABLE IF EXISTS calendar_rs.gregorian_year_month;
 CREATE TABLE calendar_rs.gregorian_year_month (
-    year_month_nbr              INTEGER    NOT NULL,
+    year_month_nbr              INTEGER    NOT NULL PRIMARY KEY,
     year_month_standard_code    CHAR(7),
     month_of_year_nbr           SMALLINT,
     year_quarter_nbr            INTEGER,
@@ -348,10 +334,11 @@ CREATE TABLE calendar_rs.gregorian_year_month (
 );
 INSERT INTO calendar_rs.gregorian_year_month
 SELECT * FROM cal_gen.make_gregorian_year_month_v
-WHERE year_nbr BETWEEN 1900 AND 2090;
- 
+WHERE year_nbr BETWEEN current_setting('session.start_year')::int AND current_setting('session.end_year')::int;
+
+DROP TABLE IF EXISTS calendar_rs.year_week;
 CREATE TABLE calendar_rs.year_week (
-    year_week_nbr             INTEGER    NOT NULL,
+    year_week_nbr             INTEGER    NOT NULL PRIMARY KEY,
     week_of_year_nbr          SMALLINT,
     year_nbr                  SMALLINT,
     year_week_std_cd          CHAR(8),
@@ -360,10 +347,11 @@ CREATE TABLE calendar_rs.year_week (
 );
 INSERT INTO calendar_rs.year_week
 SELECT * FROM cal_gen.make_year_week_v
-WHERE year_nbr BETWEEN 1900 AND 2090;
- 
+WHERE year_nbr BETWEEN current_setting('session.start_year')::int AND current_setting('session.end_year')::int;
+
+DROP TABLE IF EXISTS calendar_rs.calendar_date;
 CREATE TABLE calendar_rs.calendar_date (
-    calendar_date             DATE       NOT NULL,
+    calendar_date             DATE       NOT NULL PRIMARY KEY,
     day_of_week_iso_nbr       SMALLINT,
     week_of_year_nbr          SMALLINT,
     year_week_nbr             INTEGER,
@@ -378,27 +366,30 @@ CREATE TABLE calendar_rs.calendar_date (
 );
 INSERT INTO calendar_rs.calendar_date
 SELECT * FROM cal_gen.make_calendar_date_v
-WHERE year_nbr BETWEEN 1900 AND 2090;
- 
+WHERE year_nbr BETWEEN current_setting('session.start_year')::int AND current_setting('session.end_year')::int;
+
+DROP TABLE IF EXISTS calendar_rs.hour_of_day;
 CREATE TABLE calendar_rs.hour_of_day (
-    hour_of_day_nbr           INTEGER    NOT NULL,
+    hour_of_day_nbr           INTEGER    NOT NULL PRIMARY KEY,
     hour_of_day_code          CHAR(2),
     hour_of_day_time          TIME,
     period_code               CHAR(2)
 );
 INSERT INTO calendar_rs.hour_of_day
 SELECT * FROM cal_gen.make_hour_of_day_v;
- 
+
+DROP TABLE IF EXISTS calendar_rs.minute_of_hour;
 CREATE TABLE calendar_rs.minute_of_hour (
     minute_of_hour_code       CHAR(2),
-    minute_of_hour_nbr        SMALLINT   NOT NULL
+    minute_of_hour_nbr        SMALLINT   NOT NULL PRIMARY KEY
 );
 INSERT INTO calendar_rs.minute_of_hour
 SELECT * FROM cal_gen.make_minute_of_hour_v;
- 
+
+DROP TABLE IF EXISTS calendar_rs.calendar_date_hour_min;
 CREATE TABLE calendar_rs.calendar_date_hour_min (
     calendar_timestamp        TIMESTAMP,
-    calendar_date             DATE       NOT NULL,
+    calendar_date             DATE       NOT NULL PRIMARY KEY,
     hour_of_day_nbr           INTEGER,
     hour_of_day_code          CHAR(2),
     hour_of_day_time          TIME,
@@ -408,11 +399,12 @@ CREATE TABLE calendar_rs.calendar_date_hour_min (
 );
 INSERT INTO calendar_rs.calendar_date_hour_min
 SELECT * FROM cal_gen.make_calendar_date_hour_min_v
-WHERE date_part('year', calendar_date) BETWEEN 1900 AND 2090;
- 
+WHERE date_part('year', calendar_date) BETWEEN current_setting('session.start_year')::int AND current_setting('session.end_year')::int;
+
+DROP TABLE IF EXISTS calendar_rs.calendar_date_hour;
 CREATE TABLE calendar_rs.calendar_date_hour (
     calendar_timestamp        TIMESTAMP,
-    calendar_date             DATE       NOT NULL,
+    calendar_date             DATE       NOT NULL PRIMARY KEY,
     hour_of_day_nbr           INTEGER,
     hour_of_day_code          CHAR(2),
     hour_of_day_time          TIME,
@@ -420,34 +412,7 @@ CREATE TABLE calendar_rs.calendar_date_hour (
 );
 INSERT INTO calendar_rs.calendar_date_hour
 SELECT * FROM cal_gen.make_calendar_date_hour_v
-WHERE date_part('year', calendar_date) BETWEEN 1900 AND 2090;
- 
--- add keys to calendar tables
--- primary keys
-ALTER TABLE calendar_rs.day_of_week               ADD CONSTRAINT day_of_week_pk               PRIMARY KEY (day_of_week_iso_nbr);
-ALTER TABLE calendar_rs.gregorian_month_of_year   ADD CONSTRAINT gregorian_month_of_year_pk   PRIMARY KEY (month_of_year_nbr);
-ALTER TABLE calendar_rs.gregorian_quarter_of_year ADD CONSTRAINT gregorian_quarter_of_year_pk PRIMARY KEY (quarter_of_year_nbr);
-ALTER TABLE calendar_rs.gregorian_year            ADD CONSTRAINT gregorian_year_pk            PRIMARY KEY (year_nbr);
-ALTER TABLE calendar_rs.gregorian_year_quarter    ADD CONSTRAINT gregorian_year_quarter_pk    PRIMARY KEY (year_quarter_nbr);
-ALTER TABLE calendar_rs.gregorian_year_month      ADD CONSTRAINT gregorian_year_month_pk      PRIMARY KEY (year_month_nbr);
-ALTER TABLE calendar_rs.year_week                 ADD CONSTRAINT year_week_pk                 PRIMARY KEY (year_week_nbr);
-ALTER TABLE calendar_rs.calendar_date             ADD CONSTRAINT calendar_date_pk             PRIMARY KEY (calendar_date);
-ALTER TABLE calendar_rs.hour_of_day               ADD CONSTRAINT hour_of_day_pk              PRIMARY KEY (hour_of_day_nbr);
-ALTER TABLE calendar_rs.minute_of_hour            ADD CONSTRAINT minute_of_hour_pk           PRIMARY KEY (minute_of_hour_nbr);
-
--- add indexes for calendar_pg tables   ----    NOT SUPPORTED
-/*CREATE UNIQUE INDEX gregorian_month_of_year_ak1 ON calendar_rs.gregorian_month_of_year (month_of_year_code);
-CREATE UNIQUE INDEX gregorian_year_quarter_ak1 ON calendar_rs.gregorian_year_quarter (year_quarter_standard_code);
-CREATE UNIQUE INDEX year_week_ak1 ON calendar_rs.year_week (year_nbr, week_of_year_nbr);
-CREATE INDEX calendar_date_year_week_if1 ON calendar_rs.calendar_date (year_week_nbr);
-CREATE INDEX calendar_date_year_month_if2 ON calendar_rs.calendar_date (year_month_nbr);
-CREATE INDEX calendar_date_day_of_week_if3 ON calendar_rs.calendar_date (day_of_week_iso_nbr);
-CREATE INDEX gregorian_month_of_year_quarter_of_year_if1 ON calendar_rs.gregorian_month_of_year (quarter_of_year_nbr);
-CREATE INDEX gregorian_year_month_year_quarter_if1 ON calendar_rs.gregorian_year_month (year_quarter_nbr);
-CREATE INDEX gregorian_year_month_of_year_if1 ON calendar_rs.gregorian_year_month (month_of_year_nbr);
-CREATE INDEX gregorian_year_quarter_year_if1 ON calendar_rs.gregorian_year_quarter (year_nbr);
-CREATE INDEX gregorian_year_quarter_of_year_if2 ON calendar_rs.gregorian_year_quarter (quarter_of_year_nbr);
-CREATE INDEX year_week_if1 ON calendar_rs.year_week (year_nbr);*/
+WHERE date_part('year', calendar_date) BETWEEN current_setting('session.start_year')::int AND current_setting('session.end_year')::int;
 
 -- add comments to calendar tables
 COMMENT ON TABLE calendar_rs.day_of_week IS 'Monday is the first day of the working week, ISO 2105/8601.';
