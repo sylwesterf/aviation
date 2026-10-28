@@ -77,60 +77,60 @@ DELIMITER ','
 IGNOREHEADER 1
 REGION 'us-west-2';
  
--- 1.3. create fact table air_oai_facts.airfare_survey_itinerary 
+-- 1.3. create fact table air_oai_facts.airfare_survey_itinerary
 DROP TABLE IF EXISTS air_oai_facts.airfare_survey_itinerary;
 CREATE TABLE air_oai_facts.airfare_survey_itinerary
 (
-	  itinerary_oai_id								bigint    not null
-	, year_quarter_start_date						date      not null
-	, year_quarter_nbr								integer   not null
-	, reporting_airline_entity_id					integer  not null
-	, reporting_airline_entity_key					char(32)  not null
-	, depart_airport_history_id						integer   not null
-	, depart_airport_history_key					char(32)  not null
-	, round_trip_fare_ind            				integer
-	, online_purchase_ind							integer
-	, bulk_fare_ind									integer
-	, fare_credibility_ind							integer
-	, distance_group_oai_id							integer
-	, geographic_type_oai_id						integer
-	, coupon_qty									integer
-	, passenger_qty           						integer
-	, distance_smi									integer
-	, flown_distance_smi							integer
-	, fare_per_person_usd							integer
-	, fare_per_mile_usd								numeric(10,5)
-	, created_by 									varchar(32)  not null
-	, created_tmst 									timestamp    not null
-	, updated_by 									varchar(32)
-	, updated_tsmt 									timestamp
-	, constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
-)
+    itinerary_oai_id                bigint    not null
+  , year_quarter_start_date            date      not null
+  , year_quarter_nbr                integer   not null
+  , reporting_airline_entity_id          integer  not null
+  , reporting_airline_entity_key          char(32)  not null
+  , depart_airport_history_id            integer   not null
+  , depart_airport_history_key          char(32)  not null
+  , round_trip_fare_ind                    integer
+  , online_purchase_ind              integer
+  , bulk_fare_ind                  integer
+  , fare_credibility_ind              integer
+  , distance_group_oai_id              integer
+  , geographic_type_oai_id            integer
+  , coupon_qty                  integer
+  , passenger_qty                       integer
+  , distance_smi                  integer
+  , flown_distance_smi              integer
+  , fare_per_person_usd              integer
+  , fare_per_mile_usd                numeric(10,5)
+  , created_by                   varchar(32)  not null
+  , created_tmst                   timestamp    not null
+  , updated_by                   varchar(32)
+  , updated_tsmt                   timestamp
+  , constraint airfare_survey_itinerary_pk primary key (itinerary_oai_id, year_quarter_start_date)
+);
  
 -- 1.4. insert data into fact table
 INSERT INTO air_oai_facts.airfare_survey_itinerary
 (
-	  itinerary_oai_id
-	, year_quarter_start_date
-	, year_quarter_nbr
-	, reporting_airline_entity_id
-	, reporting_airline_entity_key
-	, depart_airport_history_id
-	, depart_airport_history_key
-	, round_trip_fare_ind
-	, online_purchase_ind
-	, bulk_fare_ind
-	, fare_credibility_ind
-	, distance_group_oai_id
-	, geographic_type_oai_id
-	, coupon_qty
-	, passenger_qty
-	, distance_smi
-	, flown_distance_smi
-	, fare_per_person_usd
-	, fare_per_mile_usd
-	, created_by
-	, created_tmst
+    itinerary_oai_id
+  , year_quarter_start_date
+  , year_quarter_nbr
+  , reporting_airline_entity_id
+  , reporting_airline_entity_key
+  , depart_airport_history_id
+  , depart_airport_history_key
+  , round_trip_fare_ind
+  , online_purchase_ind
+  , bulk_fare_ind
+  , fare_credibility_ind
+  , distance_group_oai_id
+  , geographic_type_oai_id
+  , coupon_qty
+  , passenger_qty
+  , distance_smi
+  , flown_distance_smi
+  , fare_per_person_usd
+  , fare_per_mile_usd
+  , created_by
+  , created_tmst
 )
 WITH filtered_airline_entities AS (
     SELECT airline_oai_code, airline_entity_id, airline_entity_key, source_from_date, source_thru_date
@@ -138,26 +138,26 @@ WITH filtered_airline_entities AS (
     WHERE operating_region_code = 'Domestic'
 )
 SELECT asf.itinerary_oai_id
-	, ac.year_quarter_from_date      as year_quarter_start_date
-	, ac.year_quarter_nbr
+  , ac.year_quarter_from_date      as year_quarter_start_date
+  , ac.year_quarter_nbr
     , ae.airline_entity_id           as reporting_airline_entity_id
     , ae.airline_entity_key          as reporting_airline_entity_key
     , ah.airport_history_id          as depart_airport_history_id
     , ah.airport_history_key         as depart_airport_history_key
     , asf.round_trip_ind
-	, asf.online_ind
-	, asf.bulk_fare_ind
-	, asf.fare_credibility_ind
+  , asf.online_ind
+  , asf.bulk_fare_ind
+  , asf.fare_credibility_ind
     , asf.distance_group_oai_id
-	, asf.geographic_type_oai_id
-	, asf.coupon_qty
-	, asf.passenger_qty
-	, asf.distance_smi
-	, asf.flown_distance_smi
-	, asf.fare_per_person_amount_usd
-	, asf.fare_per_smi
-	, current_user::varchar(32)
-	, current_timestamp::timestamp
+  , asf.geographic_type_oai_id
+  , asf.coupon_qty
+  , asf.passenger_qty
+  , asf.distance_smi
+  , asf.flown_distance_smi
+  , asf.fare_per_person_amount_usd
+  , asf.fare_per_smi
+  , current_user::varchar(32)
+  , current_timestamp::timestamp
 FROM air_oai_facts.airfare_survey_ticket_load asf
 join calendar_rs.gregorian_year_quarter ac
   ON asf.year_nbr = ac.year_nbr AND asf.quarter_nbr = ac.quarter_of_year_nbr
@@ -265,9 +265,9 @@ CREATE TABLE air_oai_facts.airfare_survey_coupon
 	, updated_by 						varchar(32)
 	, updated_tsmt 						timestamp
 	, constraint airfare_survey_coupon_pk primary key (itinerary_oai_id, flight_pass_seq, year_quarter_start_date)
-)
+);
  
--- 2.5. insert data into fact table
+-- 2.4. insert data into fact table
 INSERT INTO air_oai_facts.airfare_survey_coupon
 (
 	  itinerary_oai_id
@@ -456,9 +456,9 @@ CREATE TABLE air_oai_facts.airfare_survey_market
 	, updated_by 						varchar(32)
 	, updated_tsmt 						timestamp
 	, constraint airfare_survey_market_pk primary key (itinerary_oai_id, market_oai_id, year_quarter_start_date)
-)
+);
 
--- 3.5. insert data into fact table
+-- 3.4. insert data into fact table
 INSERT INTO air_oai_facts.airfare_survey_market
 (
 	  itinerary_oai_id

@@ -545,17 +545,27 @@ where ah.airport_history_id = abc.airport_history_id
 UPDATE air_oai_dims.airport_history
 SET 
     time_zone_name = sub.time_zone_name,
-    updated_by = CURRENT_USER,
-    updated_tsmt = SYSDATE
+    updated_by     = CURRENT_USER,
+    updated_tsmt   = SYSDATE
 FROM (
-    -- Subquery to perform the spatial join
     SELECT 
         a.airport_history_id, 
         b.tzid AS time_zone_name
     FROM air_oai_dims.airport_history a
     JOIN public.timezone_boundaries b 
-      ON ST_Intersects(b.geom, a.point_geom)
+      ON ST_Intersects(
+            ST_SetSRID(b.geom, 4326),       
+            ST_SetSRID(
+                ST_Point(
+                    a.longitude_decimal_nbr,
+                    a.latitude_decimal_nbr
+                ),
+                4326
+            )
+         )
     WHERE a.time_zone_name IS NULL
+      AND a.latitude_decimal_nbr  IS NOT NULL
+      AND a.longitude_decimal_nbr IS NOT NULL
 ) AS sub
 WHERE air_oai_dims.airport_history.airport_history_id = sub.airport_history_id
   AND air_oai_dims.airport_history.time_zone_name IS NULL;
