@@ -4,71 +4,66 @@
 
 ----------------------------------------------------
 -- STEPS:
--- 0. download and unzip individual pre-zipped data files: AircraftTypes, Carrier Decode, Master Coordinate, World Area Codes
+-- 0. download source data files: T_AIRCRAFT_TYPES, T_CARRIER_DECODE, T_MASTER_CORD, T_WAC_COUNTRY_STATE, L_AIRCRAFT_GROUP, L_CARRIER_GROUP, L_CARRIER_GROUP_NEW
 -- 1. create aircraft types lookup 
---  1.1. create air_oai_dims.aircraft_types_fdw table 
---  1.2. copy aircraft types data into air_oai_dims.aircraft_types_fdw
---  1.3. create air_oai_dims.aircraft_types table 
---  1.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
+--  1.1. create staging table 
+--  1.2. load/virtualize source csv data 
+--  1.3. create target table and load data from staging
 -- 2. create world areas lookup 
---  2.1. create air_oai_dims.wac_country_state_fdw table 
---  2.2. copy world areas data into air_oai_dims.wac_country_state_fdw
---  2.3. create air_oai_dims.world_areas table 
---  2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
+--  2.1. create staging table 
+--  2.2. load/virtualize source csv data 
+--  2.3. create target table and load data from staging
 -- 3. create airline entities lookup 
---  3.1. create air_oai_dims.carrier_decode_fdw table 
---  3.2. copy aircraft types data into air_oai_dims.carrier_decode_fdw
---  3.3. create air_oai_dims.world_areas table 
---  3.4. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw
---  3.4.1. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
---  3.4.2. copy data into air_oai_dims.world_areas from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
+--  3.1. create staging table 
+--  3.2. load/virtualize source csv data 
+--  3.3. create target table and load data from staging
 -- 4. create airport history lookup 
---  4.1. create air_oai_dims.master_cord_fdw table   
---  4.2. copy world areas data into air_oai_dims.master_cord_fdw
---  4.3. create air_oai_dims.airport_history table 
---  4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
---  4.5. update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
---  4.6. update the time zone boundaries in air_oai_dims.airport_history 
+--  4.1. create staging table 
+--  4.2. load/virtualize source csv data 
+--  4.3. create target table and load data from staging
+--  4.4. update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas
+--  4.5. update the time zone boundaries in air_oai_dims.airport_history 
 -- 5. create aircraft types group lookup 
---  5.1. create air_oai_dims.aircraft_type_groups
---  5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
+--  5.1. create staging table 
+--  5.2. load/virtualize source csv data 
+--  5.3. create target table and load data from staging
 -- 6. create airline entity group (new) lookup 
---  6.1. create air_oai_dims.airline_entity_new_groups
---  6.2. load air_oai_dims.airline_entity_new_groups from air_oai_dims.airline_entities
+--  6.1. create staging table 
+--  6.2. load/virtualize source csv data 
+--  6.3. create target table and load data from staging
 -- 7. create airport types group (legacy) lookup 
---  7.1. create air_oai_dims.airline_entity_legacy_groups
---  7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_entities
--- 8. create geographic types lookup (hardcoded)
--- 9. create airfare classes lookup (hardcoded)
--- 10. create traffic data sources lookup (hardcoded)
--- 11. define column comments
--- 12. create presentation layer views
+--  7.1. create staging table 
+--  7.2. load/virtualize source csv data 
+--  7.3. create target table and load data from staging
+-- 8. define column comments
+-- 9. create presentation layer views
 ----------------------------------------------------
 
--- 1.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 1.2.1 instead of 1.2.2)
--- DROP TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
--- CREATE TABLE air_oai_dims.aircraft_types_fdw
--- ( 
--- 	aircraft_type_oai_nbr			smallint	not null
--- 	, aircraft_group_oai_nbr		smallint	not null
--- 	, aircraft_oai_type				varchar(55)	not null
--- 	, manufacturer_name				varchar(55)
--- 	, aircraft_type_long_name		varchar(55)	not null
--- 	, aircraft_type_brief_name		varchar(55)	not null
--- 	, aircraft_type_from_date		date		not null
--- 	, aircraft_type_thru_date		date
--- );
+-- 1.1. staging table (heap DDL for psql COPY; uncomment and use 1.2.1 instead of 1.2.2 if pg_analytics is not supported)
+DROP TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
+CREATE TABLE air_oai_dims.aircraft_types_fdw
+( 
+	AC_TYPEID			smallint	
+	, AC_GROUP			smallint	
+	, SSD_NAME			varchar(55)	
+	, MANUFACTURER		varchar(55)
+	, LONG_NAME			varchar(55)	
+	, SHORT_NAME		varchar(55)	
+	, BEGIN_DATE		date		
+	, END_DATE			date
+);
 
 -- 1.2. load aircraft types into air_oai_dims.aircraft_types_fdw
--- 1.2.1. mstr psql version of the data load
--- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES.csv' CSV HEADER";
+-- 1.2.1. psql-based data load
+-- psql "postgres://..." -c "\copy air_oai_dims.aircraft_types_fdw FROM 'T_AIRCRAFT_TYPES.csv' CSV HEADER;"
 -- 1.2.2. pg_analytics load (S3 URI)
+DROP TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
 DROP FOREIGN TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
 CREATE FOREIGN TABLE air_oai_dims.aircraft_types_fdw ()
 SERVER pg_analytics_s3
 OPTIONS (files 's3://src-aviation/DIMS/CSV/T_AIRCRAFT_TYPES.csv');
 
--- 1.3. define final dimensional table air_oai_dims.aircraft_types
+-- 1.3. define final dimensional table air_oai_dims.aircraft_types and load the data
 drop table if exists air_oai_dims.aircraft_types;
 create table air_oai_dims.aircraft_types
 ( 
@@ -87,7 +82,6 @@ create table air_oai_dims.aircraft_types
 	, constraint aircraft_types_pk primary key (aircraft_type_oai_nbr)
 );
 
--- 1.4. copy data into air_oai_dims.aircraft_types from air_oai_dims.aircraft_types_fdw
 insert into air_oai_dims.aircraft_types
 ( 
 	aircraft_type_oai_nbr
@@ -101,14 +95,15 @@ insert into air_oai_dims.aircraft_types
 	, created_by
 	, created_tmst
 )
-select f.aircraft_type_oai_nbr
-	 , f.aircraft_group_oai_nbr
-	 , f.aircraft_oai_type
-	 , case when f.manufacturer_name is null then 'GENERIC' else f.manufacturer_name end as manufacturer_name
-	 , f.aircraft_type_long_name
-	 , f.aircraft_type_brief_name
-	 , f.aircraft_type_from_date
-	 , f.aircraft_type_thru_date
+
+select f.AC_TYPEID
+	 , f.AC_GROUP
+	 , f.SSD_NAME
+	 , case when f.MANUFACTURER is null then 'GENERIC' else f.MANUFACTURER end
+	 , f.LONG_NAME
+	 , f.SHORT_NAME
+	 , f.BEGIN_DATE
+	 , f.END_DATE
 	 , current_user
      , current_timestamp
 from air_oai_dims.aircraft_types_fdw f
@@ -116,38 +111,39 @@ from air_oai_dims.aircraft_types_fdw f
 --where t.aircraft_type_oai_nbr is null;
 
 
--- 2.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 2.2.1 instead of 2.2.2)
--- DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
--- CREATE TABLE air_oai_dims.wac_country_state_fdw
--- ( 
--- 	world_area_oai_id					integer
--- 	, world_area_oai_seq_id				integer
--- 	, world_area_name					varchar(125)
--- 	, world_region_name					varchar(125)
--- 	, country_short_name				varchar(75)
--- 	, country_type_descr				varchar(75)
--- 	, capital_city_name					varchar(75)
--- 	, sovereign_country_name			varchar(75)
--- 	, country_iso_code					char(2)
--- 	, subdivision_iso_code				varchar(10)
--- 	, subdivision_name					varchar(75)
--- 	, subdivision_fips_code				varchar(10)
--- 	, effective_from_date				date
--- 	, effective_thru_date				date
--- 	, comments_text						varchar(555)
--- 	, world_area_latest_ind				smallint
--- );
+-- 2.1. staging table
+DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
+CREATE TABLE air_oai_dims.wac_country_state_fdw
+( 
+	WAC						integer
+	, WAC_SEQ_ID2			integer
+	, WAC_NAME				varchar(125)
+	, WORLD_AREA_NAME		varchar(125)
+	, COUNTRY_SHORT_NAME	varchar(75)
+	, COUNTRY_TYPE			varchar(75)
+	, CAPITAL				varchar(75)
+	, SOVEREIGNTY			varchar(75)
+	, COUNTRY_CODE_ISO		char(2)
+	, STATE_CODE			varchar(10)
+	, STATE_NAME			varchar(75)
+	, STATE_FIPS			varchar(10)
+	, START_DATE			date
+	, THRU_DATE				date
+	, COMMENTS				varchar(555)
+	, IS_LATEST				smallint
+);
 
 -- 2.2. load world areas staging into air_oai_dims.wac_country_state_fdw
--- 2.2.1 mstr psql version of the data load
---mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.wac_country_state_fdw FROM 'T_WAC_COUNTRY_STATE.csv' CSV HEADER";
+-- 2.2.1 psql-based data load
+--psql "postgres://..." -c "\copy air_oai_dims.wac_country_state_fdw FROM 'T_WAC_COUNTRY_STATE.csv' CSV HEADER"
 -- 2.2.2. pg_analytics load (S3 URI)
+DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
 DROP FOREIGN TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
 CREATE FOREIGN TABLE air_oai_dims.wac_country_state_fdw ()
 SERVER pg_analytics_s3
 OPTIONS (files 's3://src-aviation/DIMS/CSV/T_WAC_COUNTRY_STATE.csv');
 
--- 2.3. define final dimensional table air_oai_dims.world_areas
+-- 2.3. define final dimensional table air_oai_dims.world_areas and load the data
 drop table if exists air_oai_dims.world_areas;
 create table air_oai_dims.world_areas
 ( 
@@ -164,7 +160,7 @@ create table air_oai_dims.world_areas
 	, subdivision_name					varchar(75)
 	, country_iso_code					char(2)
 	, country_short_name				varchar(75)
-	, country_type_descr				varchar(75)
+	, country_type_desc					varchar(75)
 	, sovereign_country_name			varchar(75)
 	, capital_city_name					varchar(75)
 	, world_area_comments_text			varchar(555)
@@ -177,8 +173,6 @@ create table air_oai_dims.world_areas
 	, constraint world_areas_nk unique (world_area_oai_id, effective_from_date)
 );
 
-
--- 2.4. copy data into air_oai_dims.world_areas from air_oai_dims.wac_country_state_fdw
 INSERT INTO air_oai_dims.world_areas
 ( 
 	world_area_oai_seq_id
@@ -202,57 +196,59 @@ INSERT INTO air_oai_dims.world_areas
 	, created_tmst
 )
 SELECT 
-       world_area_oai_seq_id
-     , md5(world_area_oai_id ||'~'||(effective_from_date::text)) as world_area_key
-     , world_area_oai_id
-	 , effective_from_date
-	 , effective_thru_date
-	 , world_area_latest_ind
-	 , world_area_name
-	 , world_region_name
-	 , subdivision_iso_code
-	 , subdivision_fips_code
-	 , subdivision_name
-	 , country_iso_code
-	 , country_short_name
-	 , country_type_descr
-	 , sovereign_country_name
-	 , capital_city_name
-     , comments_text
-	 , current_user
-	 , current_timestamp
-FROM air_oai_dims.wac_country_state_fdw;
+	f.WAC_SEQ_ID2
+	, md5(f.WAC ||'~'||(f.THRU_DATE::text)) as world_area_key		
+	, f.WAC		
+	, f.START_DATE			
+	, f.THRU_DATE		
+	, f.IS_LATEST				
+	, f.WAC_NAME 	
+	, f.WORLD_AREA_NAME	
+	, f.STATE_CODE	
+	, f.STATE_FIPS			
+	, f.STATE_NAME		
+	, f.COUNTRY_CODE_ISO			
+	, f.COUNTRY_SHORT_NAME	
+	, f.COUNTRY_TYPE						
+	, f.SOVEREIGNTY			
+	, f.CAPITAL	
+	, f.COMMENTS				
+	, current_user
+	, current_timestamp
+FROM air_oai_dims.wac_country_state_fdw f;
+--left outer join air_oai_dims.world_areas e on f.WAC_SEQ_ID2 = e.WAC_SEQ_ID2
+--where e.WAC_NAME is null 
 
-
--- 3.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 3.2.1 instead of 3.2.2)
--- DROP TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
--- CREATE TABLE air_oai_dims.carrier_decode_fdw
--- ( 
--- 	airline_usdot_id				smallint
--- 	, airline_oai_code				varchar(10)
--- 	, entity_oai_code				varchar(10)
--- 	, airline_name					varchar(125)
--- 	, airline_unique_oai_code		varchar(10)
--- 	, entity_unique_oai_code		varchar(10)
--- 	, airline_unique_name			varchar(125)
--- 	, world_area_oai_id			smallint
--- 	, airline_old_group_nbr			smallint
--- 	, airline_new_group_nbr			smallint		
--- 	, operating_region_code			varchar(25)			
--- 	, source_from_date				date
--- 	, source_thru_date				date
--- );
+-- 3.1. staging table 
+DROP TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
+CREATE TABLE air_oai_dims.carrier_decode_fdw
+( 
+	AIRLINE_ID						smallint
+	, CARRIER						varchar(10)
+	, CARRIER_ENTITY				varchar(10)
+	, CARRIER_NAME					varchar(125)
+	, UNIQUE_CARRIER				varchar(10)
+	, UNIQUE_CARRIER_ENTITY			varchar(10)
+	, UNIQUE_CARRIER_NAME			varchar(125)
+	, WAC							smallint
+	, CARRIER_GROUP					smallint
+	, CARRIER_GROUP_NEW				smallint		
+	, REGION						varchar(25)			
+	, START_DATE_SOURCE				date
+	, THRU_DATE_SOURCE				date
+);						
 
 -- 3.2. load carrier decode into air_oai_dims.carrier_decode_fdw
--- 3.2.1 mstr psql version of the data load
---mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.carrier_decode_fdw FROM 'T_CARRIER_DECODE.csv' CSV HEADER";
+-- 3.2.1 psql-based data load
+--psql "postgres://..." -c "\copy air_oai_dims.carrier_decode_fdw FROM 'T_CARRIER_DECODE.csv' CSV HEADER"
 -- 3.2.2. pg_analytics load (S3 URI)
+DROP TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
 DROP FOREIGN TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
 CREATE FOREIGN TABLE air_oai_dims.carrier_decode_fdw ()
 SERVER pg_analytics_s3
 OPTIONS (files 's3://src-aviation/DIMS/CSV/T_CARRIER_DECODE.csv');
 
--- 3.3. create air_oai_dims.airline_entities table 
+-- 3.3. create air_oai_dims.airline_entities table and load the data
 drop table if exists air_oai_dims.airline_entities;
 create table air_oai_dims.airline_entities
 ( 
@@ -281,11 +277,6 @@ create table air_oai_dims.airline_entities
 	, constraint airline_entities_nk unique (airline_oai_code, entity_oai_code, source_from_date)
 );
 
--- TODO - drop identity - check if needed and why, was starting at 4000 before? - identity dropped before data load - throws error on data insert (step 3.5.1)
--- alter table air_oai_dims.airline_entities alter column airline_entity_id drop identity;
-
--- 3.4. copy data into air_oai_dims.airline_entities from air_oai_dims.carrier_decode_fdw
--- 3.4.1 copy data into air_oai_dims.airline_entities from air_oai_dims.carrier_decode_fdw for non '3KQ' airline oai codes
 insert into air_oai_dims.airline_entities
 ( 
 	airline_entity_key
@@ -305,133 +296,75 @@ insert into air_oai_dims.airline_entities
 	, created_by
 	, created_tmst
 )
-select md5(f.airline_oai_code||'~'||f.entity_oai_code||'~'||f.source_from_date::char(10)) as airline_entity_key
-    , f.airline_usdot_id
-	, f.airline_oai_code
-	, f.entity_oai_code
-	, f.airline_name
-	, f.airline_unique_oai_code
-	, f.entity_unique_oai_code
-	, f.airline_unique_name
-	, f.world_area_oai_id
-	, f.airline_old_group_nbr
-	, f.airline_new_group_nbr
-	, f.operating_region_code
-	, f.source_from_date
-	, f.source_thru_date
+select 
+	md5(f.CARRIER||'~'||f.CARRIER_ENTITY||'~'||f.THRU_DATE_SOURCE::char(10)) as airline_entity_key 
+	, f.AIRLINE_ID					
+	, f.CARRIER						
+	, f.CARRIER_ENTITY				
+	, f.CARRIER_NAME					
+	, f.UNIQUE_CARRIER				
+	, f.UNIQUE_CARRIER_ENTITY			
+	, f.UNIQUE_CARRIER_NAME			
+	, f.WAC							
+	, f.CARRIER_GROUP					
+	, f.CARRIER_GROUP_NEW					
+	, f.REGION								
+	, f.START_DATE_SOURCE				
+	, f.THRU_DATE_SOURCE	
 	, current_user
 	, current_timestamp
 from air_oai_dims.carrier_decode_fdw f
 --left outer join air_oai_dims.airline_entities e on f.airline_oai_code = e.airline_oai_code and f.entity_oai_code = e.entity_oai_code and f.source_from_date = e.source_from_date
-where --e.airline_oai_code is null and 
-f.airline_oai_code != '3KQ' -- this code or set of codes was found to be non-unique
-order by f.airline_usdot_id, f.airline_oai_code, f.entity_oai_code, f.source_from_date;
+--where e.airline_oai_code is null 
 
--- 3.4.2 copy data into air_oai_dims.airline_entities from air_oai_dims.carrier_decode_fdw for '3KQ' airline oai codes
-insert into air_oai_dims.airline_entities
+-- 4.1. staging table 
+DROP TABLE IF EXISTS air_oai_dims.master_cord_fdw;
+CREATE TABLE air_oai_dims.master_cord_fdw 
 ( 
-	airline_entity_key
-	, airline_usdot_id
-	, airline_oai_code
-	, entity_oai_code
-	, airline_name
-	, airline_unique_oai_code
-	, entity_unique_oai_code
-	, airline_unique_name
-	, world_area_oai_id
-	, airline_old_group_nbr
-	, airline_new_group_nbr
-	, operating_region_code
-	, source_from_date
-	, source_thru_date
-	, created_by
-	, created_tmst
-)
-select md5(airline_oai_code||'~'||entity_oai_code||'~'||source_from_date::char(10)) as airline_entity_key
-    , airline_usdot_id
-	, airline_oai_code
-	, entity_oai_code
-	, airline_name
-	, airline_unique_oai_code
-	, entity_unique_oai_code
-	, airline_unique_name
-	, world_area_oai_id
-	, airline_old_group_nbr
-	, airline_new_group_nbr
-	, operating_region_code
-	, source_from_date
-	, source_thru_date
-	, current_user
-	, current_timestamp
-from 
-(
-	select max(f.airline_usdot_id) as airline_usdot_id
-		, f.airline_oai_code
-		, f.entity_oai_code
-		, max(f.airline_name) as airline_name
-		, max(f.airline_unique_oai_code) as airline_unique_oai_code
-		, max(f.entity_unique_oai_code) as entity_unique_oai_code
-		, max(f.airline_unique_name) as airline_unique_name
-		, max(f.world_area_oai_id) as world_area_oai_id
-		, max(f.airline_old_group_nbr) as airline_old_group_nbr
-		, max(f.airline_new_group_nbr) as airline_new_group_nbr
-		, max(f.operating_region_code) as operating_region_code
-		, f.source_from_date
-		, max(f.source_thru_date) as source_thru_date
-	from air_oai_dims.carrier_decode_fdw f
-	where f.airline_oai_code = '3KQ'
-	group by airline_oai_code, entity_oai_code, source_from_date
-) x;
-
-
--- 4.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 4.2.1 instead of 4.2.2)
--- DROP TABLE IF EXISTS air_oai_dims.master_cord_fdw;
--- CREATE TABLE air_oai_dims.master_cord_fdw 
--- ( 
--- 	airport_oai_seq_id						integer
--- 	, airport_oai_id						integer
--- 	, airport_oai_code						varchar(3)
--- 	, airport_display_name					varchar(125)
--- 	, city_full_display_name				varchar(125)
--- 	, airport_world_area_oai_seq_id			integer
--- 	, airport_world_area_oai_id				integer
--- 	, country_name							varchar(75)
--- 	, country_iso_code						varchar(10)
--- 	, subdivision_name						varchar(75)
--- 	, subdivision_iso_code					varchar(10)
--- 	, subdivision_fips_code					varchar(10)
--- 	, market_city_oai_seq_id				integer
--- 	, market_city_oai_id					integer
--- 	, market_city_full_display_name			varchar(75)
--- 	, market_city_world_area_oai_seq_id		integer
--- 	, market_city_world_area_oai_id			integer
--- 	, latitude_degrees						smallint
--- 	, latitude_hemisphere_code				char(1)
--- 	, latitude_minutes						smallint
--- 	, latitude_seconds						smallint
--- 	, latitude_decimal_nbr					numeric(9,7)
--- 	, longitude_degrees						smallint
--- 	, longitude_hemisphere_code				char(1)
--- 	, longitude_minutes						smallint
--- 	, longitude_seconds						smallint
--- 	, longitude_decimal_nbr					numeric(10,7)
--- 	, utc_local_time_variation				varchar(75)
--- 	, airport_effective_from_date			date
--- 	, airport_effective_thru_date			date
--- 	, airport_closed_ind					smallint
--- 	, airport_latest_ind					smallint
--- );
+	airport_oai_seq_id						integer
+	, airport_oai_id						integer
+	, airport_oai_code						varchar(3)
+	, airport_display_name					varchar(125)
+	, city_full_display_name				varchar(125)
+	, airport_world_area_oai_seq_id			integer
+	, airport_world_area_oai_id				integer
+	, country_name							varchar(75)
+	, country_iso_code						varchar(10)
+	, subdivision_name						varchar(75)
+	, subdivision_iso_code					varchar(10)
+	, subdivision_fips_code					varchar(10)
+	, market_city_oai_seq_id				integer
+	, market_city_oai_id					integer
+	, market_city_full_display_name			varchar(75)
+	, market_city_world_area_oai_seq_id		integer
+	, market_city_world_area_oai_id			integer
+	, latitude_degrees						smallint
+	, latitude_hemisphere_code				char(1)
+	, latitude_minutes						smallint
+	, latitude_seconds						smallint
+	, latitude_decimal_nbr					numeric(9,7)
+	, longitude_degrees						smallint
+	, longitude_hemisphere_code				char(1)
+	, longitude_minutes						smallint
+	, longitude_seconds						smallint
+	, longitude_decimal_nbr					numeric(10,7)
+	, utc_local_time_variation				varchar(75)
+	, airport_effective_from_date			date
+	, airport_effective_thru_date			date
+	, airport_closed_ind					smallint
+	, airport_latest_ind					smallint
+);
 
 -- 4.2. load master coordinate staging into air_oai_dims.master_cord_fdw
--- 4.2.1 mstr psql version of the data load
---mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.master_cord_fdw FROM 'T_MASTER_CORD.csv' CSV HEADER";
+-- 4.2.1 psql-based data load
+--psql "postgres://..." -c "\copy air_oai_dims.master_cord_fdw FROM 'T_MASTER_CORD.csv' CSV HEADER ENCODING 'UTF8'";
 -- 4.2.2. pg_analytics load (S3 URI)
 DROP FOREIGN TABLE IF EXISTS air_oai_dims.master_cord_fdw;
 CREATE FOREIGN TABLE air_oai_dims.master_cord_fdw ()
 SERVER pg_analytics_s3
 OPTIONS (files 's3://src-aviation/DIMS/CSV/T_MASTER_CORD.csv');
 
--- 4.3. create air_oai_dims.airport_history table 
+-- 4.3. create air_oai_dims.airport_history table and load the data
 drop table if exists air_oai_dims.airport_history;
 CREATE TABLE air_oai_dims.airport_history 
 ( 
@@ -473,7 +406,6 @@ CREATE TABLE air_oai_dims.airport_history
 	, constraint airport_history_ak unique (airport_history_key)
 	, constraint airport_history_nk unique (airport_oai_code, effective_from_date)
 );
--- TODO verify -> alter table air_oai_dims.airport_history alter column airport_history_id drop identity;
 
 -- 4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
 INSERT INTO air_oai_dims.airport_history
@@ -538,12 +470,10 @@ SELECT md5(upper(m.airport_oai_code)||'~'||m.airport_effective_from_date::char(1
 	, current_user
 	, current_timestamp
 FROM air_oai_dims.master_cord_fdw m
---left join air_oai_dims.airport_history h 
---  on m.airport_oai_code = h.airport_oai_code 
--- and m.airport_effective_from_date = h.effective_from_date
+--left join air_oai_dims.airport_history h on m.airport_oai_code = h.airport_oai_code and m.airport_effective_from_date = h.effective_from_date
 --where h.airport_oai_code is null;
 
--- 4.5 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas  
+-- 4.4 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas  
 update air_oai_dims.airport_history
 set  -- airport_world_area_id = abc.airport_world_area_id 
     airport_world_area_key = abc.airport_world_area_key
@@ -573,8 +503,7 @@ from
 where air_oai_dims.airport_history.airport_history_id = abc.airport_history_id
 and air_oai_dims.airport_history.airport_history_key = abc.airport_history_key;
 
-
--- 4.6 update the time zone boundaries in air_oai_dims.airport_history 
+-- 4.5 update the time zone boundaries in air_oai_dims.airport_history 
 update air_oai_dims.airport_history
 set	
 	time_zone_name = c.time_zone_name
@@ -591,79 +520,101 @@ where air_oai_dims.airport_history.airport_history_id = c.airport_history_id
 and air_oai_dims.airport_history.time_zone_name is null;
 
 
--- 5.1. create air_oai_dims.aircraft_type_groups
+-- 5.1. create staging table
+DROP TABLE IF EXISTS air_oai_dims.aircraft_type_groups_fdw;
+CREATE TABLE air_oai_dims.aircraft_type_groups_fdw
+( 
+	code smallint not null
+	, description varchar(255) not null
+);
+
+-- 5.2. load aircraft types into air_oai_dims.aircraft_type_groups_fdw
+-- 5.2.1. psql-based data load
+-- psql "postgres://..." -c "\copy air_oai_dims.aircraft_type_groups_fdw FROM 'L_AIRCRAFT_GROUP.csv' CSV HEADER;"
+-- 5.2.2. pg_analytics load (S3 URI)
+DROP TABLE IF EXISTS air_oai_dims.aircraft_type_groups_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.aircraft_type_groups_fdw;
+CREATE FOREIGN TABLE air_oai_dims.aircraft_type_groups_fdw ()
+SERVER pg_analytics_s3
+OPTIONS (files 's3://src-aviation/DIMS/CSV/L_AIRCRAFT_GROUP.csv');
+
+-- 5.3. define final dimensional table and load the data
 drop table if exists air_oai_dims.aircraft_type_groups;
 create table air_oai_dims.aircraft_type_groups
 (
   aircraft_group_oai_nbr smallint not null,
-  descr varchar(55) not null,
-  long_descr varchar(255) not null,
+  aircraft_group_oai_name varchar(55) not null,
+  aircraft_group_oai_desc varchar(255) not null,
   created_by varchar(32) not null,
   created_ts timestamp not null
 );
 
--- 5.2. load air_oai_dims.aircraft_type_groups from air_oai_dims.aircraft_types
 insert into air_oai_dims.aircraft_type_groups
 (
 	aircraft_group_oai_nbr
-	, descr
-	, long_descr
+	, aircraft_group_oai_name
+	, aircraft_group_oai_desc
 	, created_by
 	, created_ts
 )
-select distinct coalesce( aircraft_group_oai_nbr, -1) as aircraft_group_oai_nbr
-  ,case aircraft_group_oai_nbr
-    when 0 then 'Piston, 1 Engine'
-    when 1 then 'Piston, 2 Engines'
-    when 2 then 'Piston, 3-4 Engine'
-    when 3 then 'Helicopter/STOL'
-    when 4 then 'Turbo-Prop, 1-2 Engines'
-    when 5 then 'Turbo-Prop, 4 Engines'
-    when 6 then 'Jet, 2 Engines'
-    when 7 then 'Jet, 3 Engines'
-    when 8 then 'Jet, 4-6 Engines'
-    when 9 then 'Expenses'
-    else 'UNK'
-  end as descr
-  ,case aircraft_group_oai_nbr
-    when 0 then 'Piston, 1-Engine/Combined Single Engine (Piston/Turbine)'
-    when 1 then 'Piston, 2-Engine'
-    when 2 then 'Piston, 3-Engine/4-Engine'
-    when 3 then 'Helicopter/Short-Take-Off-Landing'
-    when 4 then 'TTurbo-Prop, 1-Engine/2-Engine'
-    when 5 then 'Turbo-Prop, 4-Engine'
-    when 6 then 'Jet, 2-Engines'
-    when 7 then 'Jet, 3 Engines'
-    when 8 then 'Jet, 4-Engine/6-Engine'
-    when 9 then 'Used for capturing expenses not attributed to specific aircraft types'
-    else 'UNK'
-  end as long_descr
-  ,current_user as created_by
-  ,current_timestamp as created_ts
-from air_oai_dims.aircraft_types;
+select
+    code as aircraft_group_oai_nbr
+    ,case code
+        when 0 then 'Piston, 1 Engine'
+        when 1 then 'Piston, 2 Engines'
+        when 2 then 'Piston, 3-4 Engine'
+        when 3 then 'Helicopter/STOL'
+        when 4 then 'Turbo-Prop, 1-2 Engines'
+        when 5 then 'Turbo-Prop, 4 Engines'
+        when 6 then 'Jet, 2 Engines'
+        when 7 then 'Jet, 3 Engines'
+        when 8 then 'Jet, 4-6 Engines'
+        when 9 then 'Expenses'
+    end as aircraft_group_oai_name
+    ,description as created_by
+    ,current_user                 as created_by
+    ,current_timestamp            as created_ts
+from air_oai_dims.aircraft_type_groups_fdw;
 
--- 6.1. create air_oai_dims.airline_new_group_nbr
+-- 6.1. create staging table
+DROP TABLE IF EXISTS air_oai_dims.airline_new_group_nbr_fdw;
+CREATE TABLE air_oai_dims.airline_new_group_nbr_fdw
+( 
+	code smallint not null
+	, description varchar(255) not null
+);
+
+-- 6.2. load aircraft types into air_oai_dims.airline_new_group_nbr_fdw
+-- 6.2.1. psql-based data load
+-- psql "postgres://..." -c "\copy air_oai_dims.airline_new_group_nbr_fdw FROM 'L_CARRIER_GROUP_NEW.csv' CSV HEADER;"
+-- 6.2.2. pg_analytics load (S3 URI)
+DROP TABLE IF EXISTS air_oai_dims.airline_new_group_nbr_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.airline_new_group_nbr_fdw;
+CREATE FOREIGN TABLE air_oai_dims.airline_new_group_nbr_fdw ()
+SERVER pg_analytics_s3
+OPTIONS (files 's3://src-aviation/DIMS/CSV/L_CARRIER_GROUP_NEW.csv');
+
+-- 6.3. define final dimensional table and load the data
 drop table if exists air_oai_dims.airline_entity_new_groups;
 create table air_oai_dims.airline_entity_new_groups
 (
   airline_new_group_nbr smallint not null,
-  descr varchar(55) not null,
-  long_descr varchar(255) not null,
+  airline_new_group_name varchar(55) not null,
+  airline_new_group_desc varchar(255) not null,
   created_by varchar(32) not null,
   created_ts timestamp not null
 );
 
--- 6.2. load air_oai_dims.airline_entity_new_groups from air_oai_dims.airline_entities
 insert into air_oai_dims.airline_entity_new_groups
 (
   airline_new_group_nbr
-  , descr
-  , long_descr
+  , airline_new_group_name
+  , airline_new_group_desc
   , created_by
   , created_ts
 )
-select distinct coalesce(airline_new_group_nbr, -1) as airline_new_group_nbr
-       ,CASE airline_new_group_nbr
+select code
+       ,CASE code
             WHEN 0 THEN 'Foreign'
             WHEN 1 THEN 'Large Regional'
             WHEN 2 THEN 'National'
@@ -673,99 +624,65 @@ select distinct coalesce(airline_new_group_nbr, -1) as airline_new_group_nbr
             WHEN 6 THEN 'Commuter, Large'
             WHEN 7 THEN 'All Cargo'
             WHEN 9 THEN 'Commuter, Essential'
-            ELSE 'UNK'
-        END AS descr
-        ,CASE airline_new_group_nbr
-            WHEN 0 THEN 'Foreign Carriers'
-            WHEN 1 THEN 'Large Regional Carriers (carriers with annual revenue of $20 million to $100 million))'
-            WHEN 2 THEN 'National Carriers (carriers with annual revenue over 100 milion to 1 billion)'
-            WHEN 3 THEN 'Major Carriers (carriers with annual revenue over $1 billion'
-            WHEN 4 THEN 'Medium Regional Carriers (carriers with annual revenue under $20 million)'
-            WHEN 5 THEN 'Small Certificated Carriers (carrier holding certificate issued under 49 U.S.C. section 41101 and operating aircraft designed to have a maximum seating capacity of 60 or less seat or a maximum payload of 18,000 pounds or less.)'
-            WHEN 6 THEN 'Commuter Carriers (air taxi operator which performs at least five round trips per week between two or more points and publishes flight schedules which specify the times, days of the weeks and plans between which such flights are performed.'
-            WHEN 7 THEN 'All Cargo Carriers operating under cerificates issued under 49 U.S.C. section 41103'
-            WHEN 9 THEN 'Commuter Carriers (Air Taxi providing Essential Air Service)'
-            ELSE 'UNK'
-        END AS long_descr
+        END AS airline_new_group_name
+        ,description as airline_new_group_desc
         ,current_user as created_by
         ,current_timestamp as created_ts
-from air_oai_dims.airline_entities;
+from air_oai_dims.airline_new_group_nbr_fdw;
 
--- 7.1. create air_oai_dims.airline_entity_legacy_groups
+
+-- 7.1. create staging table
+DROP TABLE IF EXISTS air_oai_dims.airline_entity_legacy_groups_fdw;
+CREATE TABLE air_oai_dims.airline_entity_legacy_groups_fdw
+( 
+	code smallint not null
+	, description varchar(255) not null
+);
+
+-- 7.2. load aircraft types into air_oai_dims.airline_entity_legacy_groups_fdw
+-- 7.2.1. psql-based data load
+-- psql "postgres://..." -c "\copy air_oai_dims.airline_entity_legacy_groups_fdw FROM 'L_CARRIER_GROUP.csv' CSV HEADER;"
+-- 7.2.2. pg_analytics load (S3 URI)
+DROP TABLE IF EXISTS air_oai_dims.airline_entity_legacy_groups_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.airline_entity_legacy_groups_fdw;
+CREATE FOREIGN TABLE air_oai_dims.airline_entity_legacy_groups_fdw ()
+SERVER pg_analytics_s3
+OPTIONS (files 's3://src-aviation/DIMS/CSV/L_CARRIER_GROUP.csv');
+
+-- 7.3. define final dimensional table and load the data
 drop table if exists air_oai_dims.airline_entity_legacy_groups;
 create table air_oai_dims.airline_entity_legacy_groups
 (
   airline_old_group_nbr smallint not null,
-  descr varchar(55) not null,
-  long_descr varchar(255) not null,
+  airline_old_group_name varchar(55) not null,
+  airline_old_group_desc varchar(255) not null,
   created_by varchar(32) not null,
   created_ts timestamp not null
 );
 
--- 7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_entities
+-- 7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_legacy_groups_fdw
 insert into air_oai_dims.airline_entity_legacy_groups
 (
   airline_old_group_nbr
-  , descr
-  , long_descr
+  , airline_old_group_name
+  , airline_old_group_desc
   , created_by
   , created_ts
 )
-select distinct coalesce(airline_old_group_nbr, -1) as airline_old_group_nbr
-      ,CASE airline_old_group_nbr
+select code
+       ,CASE code
           WHEN 0 THEN 'International'
           WHEN 1 THEN 'Regional'
           WHEN 2 THEN 'National'
           WHEN 3 THEN 'Major'
           WHEN 7 THEN 'All Cargo'
-          ELSE 'UNK'
-      END AS descr
-      ,CASE airline_old_group_nbr
-          WHEN 0 THEN 'International Carriers'
-          WHEN 1 THEN 'Regional Carriers (including Large, Medium, Commuter, Small Certified)'
-          WHEN 2 THEN 'National Carriers'
-          WHEN 3 THEN 'Major Carriers'
-          WHEN 7 THEN 'Domestic Only - All Cargo Carriers'
-          ELSE 'UN'
-      END AS long_descr
-      ,current_user as created_by
-      ,current_timestamp as created_ts
-from air_oai_dims.airline_entities;
+        END AS airline_old_group_name
+        ,description as airline_old_group_desc
+        ,current_user as created_by
+        ,current_timestamp as created_ts
+from air_oai_dims.airline_entity_legacy_groups_fdw;
 
--- 8. create air_oai_dims.airline_geographic_types 
-drop table if exists air_oai_dims.airline_geographic_types;
-create table air_oai_dims.airline_geographic_types
-as
-select 0::smallint as geograhic_type_oai_id, 'International'::varchar(35) as descr, 'International travel between indepedent soverign states.'::varchar(255) as long_descr union
-select 1::smallint as geograhic_type_oai_id, 'Domestic, Global'::varchar(35) as descr, 'Domestic Non-contiguous (Includes Hawaii, Alaska and Territories)'::varchar(255) as long_descr union
-select 2::smallint as geograhic_type_oai_id, 'Domestic, Lower48'::varchar(35) as descr, 'Domestic Contiguous (Lower 48 U.S. States Only)'::varchar(255) as long_descr
-order by 1;
-
--- 9. create air_oai_dims.airfare_classes 
-drop table if exists air_oai_dims.airfare_classes;
-create table air_oai_dims.airfare_classes
-as
-select '-'::char(1) as airfare_class_code, 'Ground'::varchar(35) as descr, 'Ground Segment'::varchar(255) as long_descr union
-select 'C'::char(1) as airfare_class_code, 'Biz Unl'::varchar(35) as descr, 'Unrestricted Business Class'::varchar(255) as long_descr union
-select 'D'::char(1) as airfare_class_code, 'Biz Lim'::varchar(35) as descr, 'Restricted Business Class'::varchar(255) as long_descr union
-select 'F'::char(1) as airfare_class_code, 'First Unl'::varchar(35) as descr, 'Unrestricted First Class'::varchar(255) as long_descr union
-select 'G'::char(1) as airfare_class_code, 'First Lim'::varchar(35) as descr, 'Restricted First Class'::varchar(255) as long_descr union
-select 'U'::char(1) as airfare_class_code, 'Unk'::varchar(35) as descr, 'Unknown'::varchar(255) as long_descr union
-select 'X'::char(1) as airfare_class_code, 'Econ Lim'::varchar(35) as descr, 'Restricted Coach Class'::varchar(255) as long_descr union
-select 'Y'::char(1) as airfare_class_code, 'Econ Unl'::varchar(35) as descr, 'Unrestricted Coach Class'::varchar(255) as long_descr
-order by 1;
-
--- 10. create air_oai_dims.airline_traffic_data_sources
-drop table if exists air_oai_dims.airline_traffic_data_sources;
-create table air_oai_dims.airline_traffic_data_sources
-as
-select 'DF'::varchar(5) as service_class_code, 'DOM, INTL carrier'::varchar(55) as descr, 'Domestic Data, Foreign Carriers'::varchar(255) as long_descr union
-select 'DU'::varchar(5) as service_class_code, 'DOM, US carrier'::varchar(55) as descr, 'Domestic Data, US Carriers Only'::varchar(255) as long_descr union
-select 'IF'::varchar(5) as service_class_code, 'INTL, INTL carrier'::varchar(55) as descr, 'International Data, Foreign Carriers'::varchar(255) as long_descr union
-select 'IU'::varchar(5) as service_class_code, 'INTL, US carrier'::varchar(55) as descr, 'International Data, US Carriers Only'::varchar(255) as long_descr
-order by 1;
-
--- 11. define column comments
+-- 8. define column comments
 -- air_oai_dims.aircraft_types
 comment on column air_oai_dims.aircraft_types.aircraft_type_oai_nbr is 'AC_TYPEID = Aircraft Type Identification Number. This Number Is Related To The Aircraft Group Number And Falls Within The Range Of A Group Number.';
 comment on column air_oai_dims.aircraft_types.aircraft_group_oai_nbr is 'AC_GROUP = Aircraft Type Group - This Number Gives The Group Or Classification Of Aircraft Engine And Type Of Aircraft.';
@@ -835,7 +752,7 @@ comment on column air_oai_dims.airport_history.effective_thru_date is 'AIRPORT_T
 comment on column air_oai_dims.airport_history.airport_closed_ind is 'AIRPORT_IS_CLOSED = Indicates if the airport is closed (1 = Yes).  If yes, the airport is closed is on the AirportEndDate.';
 comment on column air_oai_dims.airport_history.airport_latest_ind is 'AIRPORT_IS_LATEST = Indicates if this row contains the latest attributes for the Airport (1 = Yes)';
 
--- 12. create presentation layer views
+-- 9. create presentation layer views
 -- drop view if exists airlines_pg.aircraft_types_v:
 create or replace view airlines_pg.aircraft_types_v as
 SELECT aircraft_type_oai_nbr
@@ -893,15 +810,15 @@ FROM air_oai_dims.world_areas;
 -- drop view if exists airlines_pg.airline_entity_legacy_groups_v;
 create or replace view airlines_pg.airline_entity_legacy_groups_v as
 select airline_old_group_nbr
-	, descr
-	, long_descr 
+	, airline_old_group_name
+	, airline_old_group_desc 
 from air_oai_dims.airline_entity_legacy_groups;
 	 
 -- drop view if exists airlines_pg.airline_entity_new_groups_v;
 create or replace view airlines_pg.airline_entity_new_groups_v as
 select airline_new_group_nbr
-	, descr
-	, long_descr 
+	, airline_new_group_name
+	, airline_new_group_desc 
 from air_oai_dims.airline_entity_new_groups;
 
 -- drop view if exists airlines_pg.airline_entities_v:
@@ -943,27 +860,3 @@ SELECT --airline_entity_id, airline_entity_key
 	--, source_thru_date
 FROM air_oai_dims.airline_entities
 where source_thru_date is null;
-
--- drop view if exists airlines_pg.airline_geographic_types_v:
-create or replace view airlines_pg.airline_geographic_types_v as
-SELECT
-	geograhic_type_oai_id
-	, descr
-	, long_descr
-from air_oai_dims.airline_geographic_types;
-
--- drop view if exists airlines_pg.airfare_classes_v:
-create or replace view airlines_pg.airfare_classes_v as
-SELECT
-	airfare_class_code
-	, descr
-	, long_descr
-from air_oai_dims.airfare_classes;
-
--- drop view if exists airlines_pg.airline_traffic_data_sources_v:
-create or replace view airlines_pg.airline_traffic_data_sources_v as
-SELECT
-	service_class_code
-	, descr
-	, long_descr
-from air_oai_dims.airline_traffic_data_sources;

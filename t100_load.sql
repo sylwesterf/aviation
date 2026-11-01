@@ -26,6 +26,28 @@
 -- 5. create presentation layer views
 ----------------------------------------------------
 
+
+
+-- TODO. create air_oai_dims.airline_traffic_data_sources
+drop table if exists air_oai_dims.airline_traffic_data_sources;
+create table air_oai_dims.airline_traffic_data_sources
+as
+select 'DF'::varchar(5) as service_class_code, 'DOM, INTL carrier'::varchar(55) as descr, 'Domestic Data, Foreign Carriers'::varchar(255) as long_descr union
+select 'DU'::varchar(5) as service_class_code, 'DOM, US carrier'::varchar(55) as descr, 'Domestic Data, US Carriers Only'::varchar(255) as long_descr union
+select 'IF'::varchar(5) as service_class_code, 'INTL, INTL carrier'::varchar(55) as descr, 'International Data, Foreign Carriers'::varchar(255) as long_descr union
+select 'IU'::varchar(5) as service_class_code, 'INTL, US carrier'::varchar(55) as descr, 'International Data, US Carriers Only'::varchar(255) as long_descr
+order by 1;
+
+-- drop view if exists airlines_pg.airline_traffic_data_sources_v:
+create or replace view airlines_pg.airline_traffic_data_sources_v as
+SELECT
+	service_class_code
+	, descr
+	, long_descr
+from air_oai_dims.airline_traffic_data_sources;
+
+
+
 -- 1. process Airline Traffic Market data
 -- 1.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 1.2.1 instead of 1.2.2)
 -- DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_market_fdw;

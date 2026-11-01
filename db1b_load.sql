@@ -29,6 +29,45 @@
 -- 5. create presentation layer views
 ----------------------------------------------------
 
+-- TODO create air_oai_dims.airline_geographic_types 
+drop table if exists air_oai_dims.airline_geographic_types;
+create table air_oai_dims.airline_geographic_types
+as
+select 0::smallint as geograhic_type_oai_id, 'International'::varchar(35) as descr, 'International travel between indepedent soverign states.'::varchar(255) as long_descr union
+select 1::smallint as geograhic_type_oai_id, 'Domestic, Global'::varchar(35) as descr, 'Domestic Non-contiguous (Includes Hawaii, Alaska and Territories)'::varchar(255) as long_descr union
+select 2::smallint as geograhic_type_oai_id, 'Domestic, Lower48'::varchar(35) as descr, 'Domestic Contiguous (Lower 48 U.S. States Only)'::varchar(255) as long_descr
+order by 1;
+
+-- TODO create air_oai_dims.airfare_classes 
+drop table if exists air_oai_dims.airfare_classes;
+create table air_oai_dims.airfare_classes
+as
+select '-'::char(1) as airfare_class_code, 'Ground'::varchar(35) as descr, 'Ground Segment'::varchar(255) as long_descr union
+select 'C'::char(1) as airfare_class_code, 'Biz Unl'::varchar(35) as descr, 'Unrestricted Business Class'::varchar(255) as long_descr union
+select 'D'::char(1) as airfare_class_code, 'Biz Lim'::varchar(35) as descr, 'Restricted Business Class'::varchar(255) as long_descr union
+select 'F'::char(1) as airfare_class_code, 'First Unl'::varchar(35) as descr, 'Unrestricted First Class'::varchar(255) as long_descr union
+select 'G'::char(1) as airfare_class_code, 'First Lim'::varchar(35) as descr, 'Restricted First Class'::varchar(255) as long_descr union
+select 'U'::char(1) as airfare_class_code, 'Unk'::varchar(35) as descr, 'Unknown'::varchar(255) as long_descr union
+select 'X'::char(1) as airfare_class_code, 'Econ Lim'::varchar(35) as descr, 'Restricted Coach Class'::varchar(255) as long_descr union
+select 'Y'::char(1) as airfare_class_code, 'Econ Unl'::varchar(35) as descr, 'Unrestricted Coach Class'::varchar(255) as long_descr
+order by 1;
+
+-- drop view if exists airlines_pg.airline_geographic_types_v:
+create or replace view airlines_pg.airline_geographic_types_v as
+SELECT
+	geograhic_type_oai_id
+	, descr
+	, long_descr
+from air_oai_dims.airline_geographic_types;
+
+-- drop view if exists airlines_pg.airfare_classes_v:
+create or replace view airlines_pg.airfare_classes_v as
+SELECT
+	airfare_class_code
+	, descr
+	, long_descr
+from air_oai_dims.airfare_classes;
+
 -- 1. process DB1B Ticket data
 -- 1.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 1.2.1 instead of 1.2.2)
 -- DROP TABLE IF EXISTS air_oai_facts.airfare_survey_ticket_fdw;
