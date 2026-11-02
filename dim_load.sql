@@ -43,14 +43,14 @@
 DROP TABLE IF EXISTS air_oai_dims.aircraft_types_fdw;
 CREATE TABLE air_oai_dims.aircraft_types_fdw
 ( 
-	AC_TYPEID			smallint	
-	, AC_GROUP			smallint	
-	, SSD_NAME			varchar(55)	
-	, MANUFACTURER		varchar(55)
-	, LONG_NAME			varchar(55)	
-	, SHORT_NAME		varchar(55)	
-	, BEGIN_DATE		date		
-	, END_DATE			date
+	AC_TYPEID			smallint        -- aircraft_type_oai_nbr
+	, AC_GROUP			smallint        -- aircraft_group_oai_nbr
+	, SSD_NAME			varchar(55)     -- aircraft_oai_type
+	, MANUFACTURER		varchar(55)     -- manufacturer_name
+	, LONG_NAME			varchar(55)     -- aircraft_type_long_name
+	, SHORT_NAME		varchar(55)     -- aircraft_type_brief_name
+	, BEGIN_DATE		date            -- aircraft_type_from_date
+	, END_DATE			date            -- aircraft_type_thru_date
 );
 
 -- 1.2. load aircraft types into air_oai_dims.aircraft_types_fdw
@@ -115,22 +115,22 @@ from air_oai_dims.aircraft_types_fdw f
 DROP TABLE IF EXISTS air_oai_dims.wac_country_state_fdw;
 CREATE TABLE air_oai_dims.wac_country_state_fdw
 ( 
-	WAC						integer
-	, WAC_SEQ_ID2			integer
-	, WAC_NAME				varchar(125)
-	, WORLD_AREA_NAME		varchar(125)
-	, COUNTRY_SHORT_NAME	varchar(75)
-	, COUNTRY_TYPE			varchar(75)
-	, CAPITAL				varchar(75)
-	, SOVEREIGNTY			varchar(75)
-	, COUNTRY_CODE_ISO		char(2)
-	, STATE_CODE			varchar(10)
-	, STATE_NAME			varchar(75)
-	, STATE_FIPS			varchar(10)
-	, START_DATE			date
-	, THRU_DATE				date
-	, COMMENTS				varchar(555)
-	, IS_LATEST				smallint
+	WAC						integer         -- world_area_oai_id
+	, WAC_SEQ_ID2			integer         -- world_area_oai_seq_id
+	, WAC_NAME				varchar(125)    -- world_area_name
+	, WORLD_AREA_NAME		varchar(125)    -- world_region_name
+	, COUNTRY_SHORT_NAME	varchar(75)     -- country_short_name
+	, COUNTRY_TYPE			varchar(75)     -- country_type_descr
+	, CAPITAL				varchar(75)     -- capital_city_name
+	, SOVEREIGNTY			varchar(75)     -- sovereign_country_name
+	, COUNTRY_CODE_ISO		char(2)         -- country_iso_code
+	, STATE_CODE			varchar(10)     -- subdivision_iso_code
+	, STATE_NAME			varchar(75)     -- subdivision_name
+	, STATE_FIPS			varchar(10)     -- subdivision_fips_code
+	, START_DATE			date            -- effective_from_date
+	, THRU_DATE				date            -- effective_thru_date
+	, COMMENTS				varchar(555)    -- comments_text
+	, IS_LATEST				smallint        -- world_area_latest_ind
 );
 
 -- 2.2. load world areas staging into air_oai_dims.wac_country_state_fdw
@@ -220,23 +220,24 @@ FROM air_oai_dims.wac_country_state_fdw f;
 --where e.WAC_NAME is null 
 
 -- 3.1. staging table 
+SQL
 DROP TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
 CREATE TABLE air_oai_dims.carrier_decode_fdw
 ( 
-	AIRLINE_ID						smallint
-	, CARRIER						varchar(10)
-	, CARRIER_ENTITY				varchar(10)
-	, CARRIER_NAME					varchar(125)
-	, UNIQUE_CARRIER				varchar(10)
-	, UNIQUE_CARRIER_ENTITY			varchar(10)
-	, UNIQUE_CARRIER_NAME			varchar(125)
-	, WAC							smallint
-	, CARRIER_GROUP					smallint
-	, CARRIER_GROUP_NEW				smallint		
-	, REGION						varchar(25)			
-	, START_DATE_SOURCE				date
-	, THRU_DATE_SOURCE				date
-);						
+	AIRLINE_ID						smallint        -- airline_usdot_id
+	, CARRIER						varchar(10)     -- airline_oai_code
+	, CARRIER_ENTITY				varchar(10)     -- entity_oai_code
+	, CARRIER_NAME					varchar(125)    -- airline_name
+	, UNIQUE_CARRIER				varchar(10)     -- airline_unique_oai_code
+	, UNIQUE_CARRIER_ENTITY			varchar(10)     -- entity_unique_oai_code
+	, UNIQUE_CARRIER_NAME			varchar(125)    -- airline_unique_name
+	, WAC							smallint        -- world_area_oai_id
+	, CARRIER_GROUP					smallint        -- airline_old_group_nbr
+	, CARRIER_GROUP_NEW				smallint        -- airline_new_group_nbr
+	, REGION						varchar(25)     -- operating_region_code
+	, START_DATE_SOURCE				date            -- source_from_date
+	, THRU_DATE_SOURCE				date            -- source_thru_date
+);			
 
 -- 3.2. load carrier decode into air_oai_dims.carrier_decode_fdw
 -- 3.2.1 psql-based data load
@@ -321,38 +322,38 @@ from air_oai_dims.carrier_decode_fdw f
 DROP TABLE IF EXISTS air_oai_dims.master_cord_fdw;
 CREATE TABLE air_oai_dims.master_cord_fdw 
 ( 
-	airport_oai_seq_id						integer
-	, airport_oai_id						integer
-	, airport_oai_code						varchar(3)
-	, airport_display_name					varchar(125)
-	, city_full_display_name				varchar(125)
-	, airport_world_area_oai_seq_id			integer
-	, airport_world_area_oai_id				integer
-	, country_name							varchar(75)
-	, country_iso_code						varchar(10)
-	, subdivision_name						varchar(75)
-	, subdivision_iso_code					varchar(10)
-	, subdivision_fips_code					varchar(10)
-	, market_city_oai_seq_id				integer
-	, market_city_oai_id					integer
-	, market_city_full_display_name			varchar(75)
-	, market_city_world_area_oai_seq_id		integer
-	, market_city_world_area_oai_id			integer
-	, latitude_degrees						smallint
-	, latitude_hemisphere_code				char(1)
-	, latitude_minutes						smallint
-	, latitude_seconds						smallint
-	, latitude_decimal_nbr					numeric(9,7)
-	, longitude_degrees						smallint
-	, longitude_hemisphere_code				char(1)
-	, longitude_minutes						smallint
-	, longitude_seconds						smallint
-	, longitude_decimal_nbr					numeric(10,7)
-	, utc_local_time_variation				varchar(75)
-	, airport_effective_from_date			date
-	, airport_effective_thru_date			date
-	, airport_closed_ind					smallint
-	, airport_latest_ind					smallint
+	AIRPORT_SEQ_ID                          integer         -- airport_oai_seq_id
+	, AIRPORT_ID                            integer         -- airport_oai_id
+	, AIRPORT                               varchar(3)      -- airport_oai_code
+	, DISPLAY_AIRPORT_NAME                  varchar(125)    -- airport_display_name
+	, DISPLAY_AIRPORT_CITY_NAME_FULL        varchar(125)    -- city_full_display_name
+	, AIRPORT_WAC_SEQ_ID2                   integer         -- airport_world_area_oai_seq_id
+	, AIRPORT_WAC                           integer         -- airport_world_area_oai_id
+	, AIRPORT_COUNTRY_NAME                  varchar(75)     -- country_name
+	, AIRPORT_COUNTRY_CODE_ISO              varchar(10)     -- country_iso_code
+	, AIRPORT_STATE_NAME                    varchar(75)     -- subdivision_name
+	, AIRPORT_STATE_CODE                    varchar(10)     -- subdivision_iso_code
+	, AIRPORT_STATE_FIPS                    varchar(10)     -- subdivision_fips_code
+	, CITY_MARKET_SEQ_ID                    integer         -- market_city_oai_seq_id
+	, CITY_MARKET_ID                        integer         -- market_city_oai_id
+	, DISPLAY_CITY_MARKET_NAME_FULL         varchar(75)     -- market_city_full_display_name
+	, CITY_MARKET_WAC_SEQ_ID2               integer         -- market_city_world_area_oai_seq_id
+	, CITY_MARKET_WAC                       integer         -- market_city_world_area_oai_id
+	, LAT_DEGREES                           smallint        -- latitude_degrees
+	, LAT_HEMISPHERE                        char(1)         -- latitude_hemisphere_code
+	, LAT_MINUTES                           smallint        -- latitude_minutes
+	, LAT_SECONDS                           smallint        -- latitude_seconds
+	, LATITUDE                              numeric(9,7)    -- latitude_decimal_nbr
+	, LON_DEGREES                           smallint        -- longitude_degrees
+	, LON_HEMISPHERE                        char(1)         -- longitude_hemisphere_code
+	, LON_MINUTES                           smallint        -- longitude_minutes
+	, LON_SECONDS                           smallint        -- longitude_seconds
+	, LONGITUDE                             numeric(10,7)   -- longitude_decimal_nbr
+	, UTC_LOCAL_TIME_VARIATION              varchar(75)     -- utc_local_time_variation
+	, AIRPORT_START_DATE                    date            -- airport_effective_from_date
+	, AIRPORT_THRU_DATE                     date            -- airport_effective_thru_date
+	, AIRPORT_IS_CLOSED                     smallint        -- airport_closed_ind
+	, AIRPORT_IS_LATEST                     smallint        -- airport_latest_ind
 );
 
 -- 4.2. load master coordinate staging into air_oai_dims.master_cord_fdw
@@ -410,67 +411,67 @@ CREATE TABLE air_oai_dims.airport_history
 -- 4.4. copy data into air_oai_dims.airport_history from air_oai_dims.master_cord_fdw
 INSERT INTO air_oai_dims.airport_history
 ( 
-	airport_history_key
-	, airport_oai_code
-	, effective_from_date
-	, effective_thru_date
-	, airport_closed_ind
-	, airport_latest_ind
-	, airport_oai_seq_id
-	, airport_oai_id
-	, airport_display_name
-	, city_full_display_name
-	, airport_world_area_oai_seq_id
-	, airport_world_area_oai_id
-	, utc_local_time_variation -- time_zone_name
-	, market_city_oai_seq_id
-	, market_city_oai_id
-	, market_city_full_display_name
-	, market_city_world_area_oai_seq_id
-	, market_city_world_area_oai_id
-	, subdivision_iso_code
-	, subdivision_fips_code
-	, subdivision_name
-	, country_iso_code
-	, country_name
-	, latitude_decimal_nbr
-	, longitude_decimal_nbr
-	, point_geom
-	, created_by
-	, created_tmst
+    airport_history_key
+    , airport_oai_code
+    , effective_from_date
+    , effective_thru_date
+    , airport_closed_ind
+    , airport_latest_ind
+    , airport_oai_seq_id
+    , airport_oai_id
+    , airport_display_name
+    , city_full_display_name
+    , airport_world_area_oai_seq_id
+    , airport_world_area_oai_id
+    , utc_local_time_variation -- time_zone_name
+    , market_city_oai_seq_id
+    , market_city_oai_id
+    , market_city_full_display_name
+    , market_city_world_area_oai_seq_id
+    , market_city_world_area_oai_id
+    , subdivision_iso_code
+    , subdivision_fips_code
+    , subdivision_name
+    , country_iso_code
+    , country_name
+    , latitude_decimal_nbr
+    , longitude_decimal_nbr
+    , point_geom
+    , created_by
+    , created_tmst
 )
-SELECT md5(upper(m.airport_oai_code)||'~'||m.airport_effective_from_date::char(10)) as airport_history_key
-    , m.airport_oai_code
-    , m.airport_effective_from_date
-	, m.airport_effective_thru_date
-	, m.airport_closed_ind
-	, m.airport_latest_ind
-    , m.airport_oai_seq_id
-	, m.airport_oai_id
-	, m.airport_display_name
-	, m.city_full_display_name
-	, m.airport_world_area_oai_seq_id
-	, m.airport_world_area_oai_id
-	, case when length(m.utc_local_time_variation) = 0 then null else m.utc_local_time_variation end as utc_local_time_variation
-	, m.market_city_oai_seq_id
-	, m.market_city_oai_id
-	, m.market_city_full_display_name
-	, m.market_city_world_area_oai_seq_id
-	, m.market_city_world_area_oai_id
-	, m.subdivision_iso_code
-	, m.subdivision_fips_code
-	, m.subdivision_name
-	, m.country_iso_code
-	, m.country_name
-	, m.latitude_decimal_nbr
-	, m.longitude_decimal_nbr
-	, case when m.latitude_decimal_nbr is not null and m.longitude_decimal_nbr is not null 
-	      then ST_SetSRID(ST_MakePoint(m.longitude_decimal_nbr, m.latitude_decimal_nbr),4326)
-	      else null end as point_geom
-	, current_user
-	, current_timestamp
+SELECT md5(upper(m.AIRPORT)||'~'||m.AIRPORT_START_DATE::char(10)) as airport_history_key
+    , m.AIRPORT                            
+    , m.AIRPORT_START_DATE                 
+    , m.AIRPORT_THRU_DATE                  
+    , m.AIRPORT_IS_CLOSED                  
+    , m.AIRPORT_IS_LATEST                  
+    , m.AIRPORT_SEQ_ID                     
+    , m.AIRPORT_ID                         
+    , m.DISPLAY_AIRPORT_NAME               
+    , m.DISPLAY_AIRPORT_CITY_NAME_FULL     
+    , m.AIRPORT_WAC_SEQ_ID2                
+    , m.AIRPORT_WAC                        
+    , case when length(m.UTC_LOCAL_TIME_VARIATION) = 0 then null else m.UTC_LOCAL_TIME_VARIATION end as utc_local_time_variation
+    , m.CITY_MARKET_SEQ_ID                  
+    , m.CITY_MARKET_ID                      
+    , m.DISPLAY_CITY_MARKET_NAME_FULL       
+    , m.CITY_MARKET_WAC_SEQ_ID2             
+    , m.CITY_MARKET_WAC                     
+    , m.AIRPORT_STATE_CODE                  
+    , m.AIRPORT_STATE_FIPS                  
+    , m.AIRPORT_STATE_NAME                  
+    , m.AIRPORT_COUNTRY_CODE_ISO            
+    , m.AIRPORT_COUNTRY_NAME                
+    , m.LATITUDE                            
+    , m.LONGITUDE                           
+    , case when m.LATITUDE is not null and m.LONGITUDE is not null 
+          then ST_SetSRID(ST_MakePoint(m.LONGITUDE, m.LATITUDE), 4326)
+          else null end as point_geom
+    , current_user
+    , current_timestamp
 FROM air_oai_dims.master_cord_fdw m
---left join air_oai_dims.airport_history h on m.airport_oai_code = h.airport_oai_code and m.airport_effective_from_date = h.effective_from_date
+--left join air_oai_dims.airport_history h on m.AIRPORT = h.airport_oai_code and m.AIRPORT_START_DATE = h.effective_from_date
 --where h.airport_oai_code is null;
 
 -- 4.4 update world area keys in air_oai_dims.airport_history based on air_oai_dims.world_areas  
@@ -571,7 +572,7 @@ select
         when 8 then 'Jet, 4-6 Engines'
         when 9 then 'Expenses'
     end as aircraft_group_oai_name
-    ,description as created_by
+    ,description as aircraft_group_oai_desc
     ,current_user                 as created_by
     ,current_timestamp            as created_ts
 from air_oai_dims.aircraft_type_groups_fdw;
@@ -613,7 +614,7 @@ insert into air_oai_dims.airline_entity_new_groups
   , created_by
   , created_ts
 )
-select code
+select code as airline_new_group_nbr
        ,CASE code
             WHEN 0 THEN 'Foreign'
             WHEN 1 THEN 'Large Regional'
@@ -660,7 +661,6 @@ create table air_oai_dims.airline_entity_legacy_groups
   created_ts timestamp not null
 );
 
--- 7.2. load air_oai_dims.airline_entity_legacy_groups from air_oai_dims.airline_legacy_groups_fdw
 insert into air_oai_dims.airline_entity_legacy_groups
 (
   airline_old_group_nbr
@@ -669,7 +669,7 @@ insert into air_oai_dims.airline_entity_legacy_groups
   , created_by
   , created_ts
 )
-select code
+select code as airline_old_group_nbr
        ,CASE code
           WHEN 0 THEN 'International'
           WHEN 1 THEN 'Regional'

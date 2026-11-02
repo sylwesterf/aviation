@@ -5,87 +5,89 @@
 ----------------------------------------------------
 -- STEPS:
 -- 0. download and unzip pre-zipped data file: Annual Inventory of Airframe and Aircraft Engines
--- 1. create air_oai_dims.airframe_and_engine_inventory_annual from S3 CSV via pg_analytics
--- 2. define keys and indexes
--- 3. add comments 
--- 4. create presentation layer views
+-- 1. create staging table 
+-- 2. load/virtualize the data
+-- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from f41_schedule_b43_fdw
+-- 4. define keys and indexes
+-- 5. add comments 
+-- 6. create presentation layer views
 ----------------------------------------------------
 
--- 1. load air_oai_dims.airframe_and_engine_inventory_annual from Form 41 Schedule B-43
---
--- 1.1. staging table (heap DDL for mstr_psql COPY; uncomment and use 1.2.1 instead of 1.2.2)
--- DROP TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
--- CREATE TABLE air_oai_dims.f41_schedule_b43_fdw
--- ( 
--- 	year_nbr 							smallint
--- 	, carrier_oai_code 					varchar(3)
--- 	, carrier_name 						varchar(125)
--- 	, manufacture_year_nbr 				smallint
--- 	, carrier_unique_name 				varchar(125)
--- 	, serial_nbr 						varchar(25)
--- 	, tail_nbr 							varchar(25)
--- 	, aircraft_status_code 				varchar(25)
--- 	, operating_status_code 			varchar(25)
--- 	, seats_qty 						integer
--- 	, manufacturer_name 				varchar(75)
--- 	, aircraft_oai_type					varchar(15)
--- 	, model_ref 						varchar(25)
--- 	, capacity_lbr 						integer
--- 	, acquisition_date 					date
--- 	, airline_id 						smallint
--- 	, carrier_unique_oai_code 			varchar(7)
--- 	--, filler_txt 						varchar(10)
--- );
--- mstr_psql -d aviation -h 127.0.0.1 -U mstr -c "COPY air_oai_dims.f41_schedule_b43_fdw FROM 'T_F41SCHEDULE_B43.csv.gz' CSV HEADER";
---
--- 1.2.2. pg_analytics load (S3 URI) — staging object is f41_schedule_b43_fdw (same name as COPY path)
+-- 1. create staging table and load/virtualize the data
+DROP TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
+CREATE TABLE air_oai_dims.f41_schedule_b43_fdw
+( 
+	YEAR                                smallint        -- year_nbr
+	, CARRIER                           varchar(3)      -- carrier_oai_code
+	, CARRIER_NAME                      varchar(125)    -- carrier_name
+	, MANUFACTURE_YEAR                  smallint        -- manufacture_year_nbr
+	, UNIQUE_CARRIER_NAME               varchar(125)    -- carrier_unique_name
+	, SERIAL_NUMBER                     varchar(25)     -- serial_nbr
+	, TAIL_NUMBER                       varchar(25)     -- tail_nbr
+	, AIRCRAFT_STATUS                   varchar(25)     -- aircraft_status_code
+	, OPERATING_STATUS                  varchar(25)     -- operating_status_code
+	, NUMBER_OF_SEATS                   integer         -- seats_qty
+	, MANUFACTURER                      varchar(75)     -- manufacturer_name
+	, AIRCRAFT_TYPE                     varchar(15)     -- aircraft_oai_type
+	, MODEL                             varchar(25)     -- model_ref
+	, CAPACITY_IN_POUNDS                integer         -- capacity_lbr
+	, ACQUISITION_DATE                  date            -- acquisition_date
+	, AIRLINE_ID                        smallint        -- airline_id
+	, UNIQUE_CARRIER                    varchar(7)      -- carrier_unique_oai_code
+);
+
+-- 2. load/virtualize the data
+-- 2.1. psql-based data load
+-- psql "postgres://..." -c "\copy air_oai_dims.f41_schedule_b43_fdw FROM 'T_F41SCHEDULE_B43.csv' CSV HEADER";
+-- 2.2. pg_analytics load (S3 URI)
+DROP TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
 DROP FOREIGN TABLE IF EXISTS air_oai_dims.f41_schedule_b43_fdw;
 CREATE FOREIGN TABLE air_oai_dims.f41_schedule_b43_fdw ()
 SERVER pg_analytics_s3
-OPTIONS (files 's3://src-aviation/FIN/CSV/T_F41SCHEDULE_B43.csv.gz');
+OPTIONS (files 's3://src-aviation/FIN/CSV/T_F41SCHEDULE_B43.csv');
 
--- 1.3. create and load air_oai_dims.airframe_and_engine_inventory_annual from f41_schedule_b43_fdw
+-- 3. create and load air_oai_dims.airframe_and_engine_inventory_annual from f41_schedule_b43_fdw
 drop table if exists air_oai_dims.airframe_and_engine_inventory_annual;
 create table air_oai_dims.airframe_and_engine_inventory_annual 
 as
 select 
-	md5(year_nbr::text ||'~'|| replace(f.carrier_oai_code,' ','') ||'~'|| tail_nbr ||'~'|| serial_nbr)::char(32) as inventory_key -- add seats_qty, capacity_lbr
+    md5(f.YEAR::text ||'~'|| replace(f.CARRIER,' ','') ||'~'|| f.TAIL_NUMBER ||'~'|| f.SERIAL_NUMBER)::char(32) as inventory_key -- add seats_qty, capacity_lbr
      , ae.airline_entity_id
      , max(ae.airline_entity_key)::char(32) as airline_entity_key
-     , max(replace(f.carrier_oai_code,' ',''))::varchar(3) as airline_oai_code
-     , f.year_nbr 
-	 , f.tail_nbr::varchar(10)
-	 , f.serial_nbr::varchar(10) 
-	 , max(upper(f.manufacturer_name))::varchar(75)  as manufacturer_name
-	 , max(f.model_ref)::varchar(15) as model_ref
-	 , max(replace(f.aircraft_oai_type,' ',''))::varchar(10) as aircraft_oai_type
-	 , null::char(4) as aircraft_icao_type
-	 , null::varchar(3) as aircraft_iata_type
-	 --, max(at.aircraft_type_brief_name) as aircraft_type_brief_name
-	 , min(f.manufacture_year_nbr)::smallint as manufacture_year_nbr
-	 , min(f.acquisition_date)::date as acquisition_date
-	 , max(f.aircraft_status_code)::char(1) as aircraft_status_code
-	 , max(f.operating_status_code)::char(1) as operating_status_ind
-	 , max(f.seats_qty) as seats_qty
-	 , max(f.capacity_lbr) as capacity_lbr
+     , max(replace(f.CARRIER,' ',''))::varchar(3) as airline_oai_code
+     , f.YEAR as year_nbr
+     , f.TAIL_NUMBER::varchar(10) as tail_nbr
+     , f.SERIAL_NUMBER::varchar(10) as serial_nbr
+     , max(upper(f.MANUFACTURER))::varchar(75) as manufacturer_name
+     , max(f.MODEL)::varchar(15) as model_ref
+     , max(replace(f.AIRCRAFT_TYPE,' ',''))::varchar(10) as aircraft_oai_type
+     , null::char(4) as aircraft_icao_type
+     , null::varchar(3) as aircraft_iata_type
+     --, max(at.aircraft_type_brief_name) as aircraft_type_brief_name
+     , min(f.MANUFACTURE_YEAR)::smallint as manufacture_year_nbr
+     , min(f.ACQUISITION_DATE)::date as acquisition_date
+     , max(f.AIRCRAFT_STATUS)::char(1) as aircraft_status_code
+     , max(f.OPERATING_STATUS)::char(1) as operating_status_ind
+     , max(f.NUMBER_OF_SEATS) as seats_qty
+     , max(f.CAPACITY_IN_POUNDS) as capacity_lbr
      , current_user::varchar(32) as created_by
      , current_timestamp::timestamp(0) as created_ts
      , null::varchar(25) as updated_by
      , null::timestamp(0) as updated_ts
 from air_oai_dims.f41_schedule_b43_fdw f
 left join (select * from air_oai_dims.airline_entities where operating_region_code = 'Domestic') ae 
-  on replace(f.carrier_oai_code,' ','') = replace(ae.airline_oai_code,' ','')
---left join air_oai_dims.aircraft_types at on f.aircraft_oai_type = at.aircraft_type_oai_nbr::text
-where (f.year_nbr::text ||'-01-01')::date between source_from_date and coalesce(source_thru_date, current_date)
+  on replace(f.CARRIER,' ','') = replace(ae.airline_oai_code,' ','')
+--left join air_oai_dims.aircraft_types at on f.AIRCRAFT_TYPE = at.aircraft_type_oai_nbr::text
+where (f.YEAR::text ||'-01-01')::date between source_from_date and coalesce(source_thru_date, current_date)
 --and at.aircraft_type_oai_nbr is not null
-group by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr, replace(f.carrier_oai_code,' ','')
-order by ae.airline_entity_id, f.year_nbr, f.tail_nbr, f.serial_nbr;
+group by ae.airline_entity_id, f.YEAR, f.TAIL_NUMBER, f.SERIAL_NUMBER, replace(f.CARRIER,' ','')
+order by ae.airline_entity_id, f.YEAR, f.TAIL_NUMBER, f.SERIAL_NUMBER;
 
--- 2. define keys and indexes
+-- 4. define keys and indexes
 alter table air_oai_dims.airframe_and_engine_inventory_annual add constraint airframe_and_engine_inventory_annual_pk primary key (inventory_key);
 create unique index airframe_and_engine_inventory_annual_nk on air_oai_dims.airframe_and_engine_inventory_annual (airline_entity_id, year_nbr, tail_nbr, serial_nbr);
 
--- 3. add comments 
+-- 5. add comments 
 comment on table air_oai_dims.airframe_and_engine_inventory_annual is 'Annual Inventory of Airframe and Aircraft Engines.';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.inventory_key is 'composite hashed key of year_nbr~airline_oai_code~tail_nbr~serial_nbr.';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.airline_entity_id is 'Foreign key column to air_oai_dims.airline_entities.';
@@ -110,7 +112,7 @@ comment on column air_oai_dims.airframe_and_engine_inventory_annual.created_ts i
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_by is 'audit column, who modified this row?';
 comment on column air_oai_dims.airframe_and_engine_inventory_annual.updated_ts is 'audit column, when was this row modified?';
 
--- 4. create presentation layer views
+-- 6. create presentation layer views
 -- drop view if exists airlines_pg.airframe_and_engine_inventory_annual_v;
 create or replace view airlines_pg.airframe_and_engine_inventory_annual_v as
 select inventory_key
