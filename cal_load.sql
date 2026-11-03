@@ -2,8 +2,10 @@
 
 ----------------------------------------------------
 -- STEPS:
--- 1. Create cal_gen views that generate information about all date/time parts
--- 2. Create calendar tables based on base views and start/end year
+-- 1. create cal_gen views that generate information about all date/time parts
+-- 2. create calendar tables based on base views and start/end year
+-- 3. generate date transformation (rolling) tables
+-- 4. create presentation layer views
 ----------------------------------------------------
 
 -- 1. Create cal_gen views that generate information about all date/time parts
@@ -396,7 +398,7 @@ foreign key (calendar_date) references calendar_pg.calendar_date (calendar_date)
 alter table calendar_pg.calendar_date_hour  add constraint calendar_date_hour_calendar_date_fk 
 foreign key (calendar_date) references calendar_pg.calendar_date (calendar_date);
 
--- generate transformation tables
+-- 3. Generate date transformation (rolling) tables
 -- MTD
 create table if not exists calendar_pg.cumulative_month_to_dates as
 select d.calendar_date, x.calendar_date as cumulative_month_to_date
@@ -473,7 +475,7 @@ alter table calendar_pg.cumulative_week_to_dates
   add constraint cumulative_week_to_dates_qtd_date_fk foreign key (cumulative_week_to_date)
   references calendar_pg.calendar_date (calendar_date);
 
--- generate calendar_pg views
+-- 4. create presentation layer views
 create or replace view calendar_pg.day_of_week_v as select *, 1::integer as day_of_week_qty from calendar_pg.day_of_week;
 create or replace view calendar_pg.month_of_year_v as select *, 1::integer as month_of_year_qty from calendar_pg.gregorian_month_of_year;
 create or replace view calendar_pg.quarter_of_year_v as select *, 1::integer as quarter_of_year_qty from calendar_pg.gregorian_quarter_of_year;

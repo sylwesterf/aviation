@@ -103,7 +103,7 @@ select f.AC_TYPEID
 	 , f.LONG_NAME
 	 , f.SHORT_NAME
 	 , f.BEGIN_DATE
-	 , f.END_DATE
+	 , case when date_part('year', f.END_DATE) > 3000 then null else f.END_DATE end
 	 , current_user
      , current_timestamp
 from air_oai_dims.aircraft_types_fdw f
@@ -120,7 +120,7 @@ CREATE TABLE air_oai_dims.wac_country_state_fdw
 	, WAC_NAME				varchar(125)    -- world_area_name
 	, WORLD_AREA_NAME		varchar(125)    -- world_region_name
 	, COUNTRY_SHORT_NAME	varchar(75)     -- country_short_name
-	, COUNTRY_TYPE			varchar(75)     -- country_type_descr
+	, COUNTRY_TYPE			varchar(75)     -- country_type_desc
 	, CAPITAL				varchar(75)     -- capital_city_name
 	, SOVEREIGNTY			varchar(75)     -- sovereign_country_name
 	, COUNTRY_CODE_ISO		char(2)         -- country_iso_code
@@ -188,7 +188,7 @@ INSERT INTO air_oai_dims.world_areas
 	, subdivision_name
 	, country_iso_code
 	, country_short_name
-	, country_type_descr
+	, country_type_desc
 	, sovereign_country_name
 	, capital_city_name
 	, world_area_comments_text
@@ -197,7 +197,7 @@ INSERT INTO air_oai_dims.world_areas
 )
 SELECT 
 	f.WAC_SEQ_ID2
-	, md5(f.WAC ||'~'||(f.THRU_DATE::text)) as world_area_key		
+	, md5(f.WAC ||'~'||(f.START_DATE::text)) as world_area_key		
 	, f.WAC		
 	, f.START_DATE			
 	, f.THRU_DATE		
@@ -220,7 +220,6 @@ FROM air_oai_dims.wac_country_state_fdw f;
 --where e.WAC_NAME is null 
 
 -- 3.1. staging table 
-SQL
 DROP TABLE IF EXISTS air_oai_dims.carrier_decode_fdw;
 CREATE TABLE air_oai_dims.carrier_decode_fdw
 ( 
@@ -263,7 +262,6 @@ create table air_oai_dims.airline_entities
 	, entity_unique_oai_code		varchar(10)	not null -- unique_carrier_entity_code
 	, airline_unique_name			varchar(125) not null -- unique_carrier_name
 	, world_area_oai_id				smallint	not null -- airline_world_area_oai_code
-	, world_area_oai_seq_id			integer		null	 -- this must be the actual FK, since the ID is not unique
 	, airline_old_group_nbr			smallint	not null -- carrier_old_group_nbr
 	, airline_new_group_nbr			smallint	not null -- carrier_new_group_nbr
 	, operating_region_code			varchar(25)	not null -- operating_region_code
@@ -298,7 +296,7 @@ insert into air_oai_dims.airline_entities
 	, created_tmst
 )
 select 
-	md5(f.CARRIER||'~'||f.CARRIER_ENTITY||'~'||f.THRU_DATE_SOURCE::char(10)) as airline_entity_key 
+	md5(f.CARRIER||'~'||f.CARRIER_ENTITY||'~'||f.START_DATE_SOURCE::char(10)) as airline_entity_key 
 	, f.AIRLINE_ID					
 	, f.CARRIER						
 	, f.CARRIER_ENTITY				
@@ -578,20 +576,20 @@ select
 from air_oai_dims.aircraft_type_groups_fdw;
 
 -- 6.1. create staging table
-DROP TABLE IF EXISTS air_oai_dims.airline_new_group_nbr_fdw;
-CREATE TABLE air_oai_dims.airline_new_group_nbr_fdw
+DROP TABLE IF EXISTS air_oai_dims.airline_entity_new_groups_fdw;
+CREATE TABLE air_oai_dims.airline_entity_new_groups_fdw
 ( 
 	code smallint not null
 	, description varchar(255) not null
 );
 
--- 6.2. load aircraft types into air_oai_dims.airline_new_group_nbr_fdw
+-- 6.2. load aircraft types into air_oai_dims.airline_entity_new_groups_fdw
 -- 6.2.1. psql-based data load
--- psql "postgres://..." -c "\copy air_oai_dims.airline_new_group_nbr_fdw FROM 'L_CARRIER_GROUP_NEW.csv' CSV HEADER;"
+-- psql "postgres://..." -c "\copy air_oai_dims.airline_entity_new_groups_fdw FROM 'L_CARRIER_GROUP_NEW.csv' CSV HEADER;"
 -- 6.2.2. pg_analytics load (S3 URI)
-DROP TABLE IF EXISTS air_oai_dims.airline_new_group_nbr_fdw;
-DROP FOREIGN TABLE IF EXISTS air_oai_dims.airline_new_group_nbr_fdw;
-CREATE FOREIGN TABLE air_oai_dims.airline_new_group_nbr_fdw ()
+DROP TABLE IF EXISTS air_oai_dims.airline_entity_new_groups_fdw;
+DROP FOREIGN TABLE IF EXISTS air_oai_dims.airline_entity_new_groups_fdw;
+CREATE FOREIGN TABLE air_oai_dims.airline_entity_new_groups_fdw ()
 SERVER pg_analytics_s3
 OPTIONS (files 's3://src-aviation/DIMS/CSV/L_CARRIER_GROUP_NEW.csv');
 
@@ -629,7 +627,7 @@ select code as airline_new_group_nbr
         ,description as airline_new_group_desc
         ,current_user as created_by
         ,current_timestamp as created_ts
-from air_oai_dims.airline_new_group_nbr_fdw;
+from air_oai_dims.airline_entity_new_groups_fdw;
 
 
 -- 7.1. create staging table
@@ -700,7 +698,7 @@ comment on column air_oai_dims.world_areas.world_area_oai_seq_id is 'WAC_SEQ_ID2
 comment on column air_oai_dims.world_areas.world_area_name is 'WAC_NAME = World Area Code Name.';
 comment on column air_oai_dims.world_areas.world_region_name is 'WORLD_AREA_NAME = Geographic Region of World Area Code.';
 comment on column air_oai_dims.world_areas.country_short_name is 'COUNTRY_SHORT_NAME = Country Name.';
-comment on column air_oai_dims.world_areas.country_type_descr is 'COUNTRY_TYPE = Country Type.';
+comment on column air_oai_dims.world_areas.country_type_desc is 'COUNTRY_TYPE = Country Type.';
 comment on column air_oai_dims.world_areas.capital_city_name is 'CAPITAL = Capital.';
 comment on column air_oai_dims.world_areas.sovereign_country_name is 'SOVEREIGNTY = Sovereignty.';
 comment on column air_oai_dims.world_areas.country_iso_code is 'COUNTRY_CODE_ISO = Two-Character ISO Country Code.';
@@ -803,7 +801,7 @@ SELECT world_area_oai_seq_id, world_area_key
 	, world_area_oai_id, effective_from_date, effective_thru_date, world_area_latest_ind
 	, world_area_name, world_region_name
 	, subdivision_iso_code, subdivision_fips_code, subdivision_name
-	, country_iso_code, country_short_name, country_type_descr
+	, country_iso_code, country_short_name, country_type_desc
 	, sovereign_country_name, capital_city_name, world_area_comments_text
 FROM air_oai_dims.world_areas;
 
@@ -833,7 +831,6 @@ SELECT airline_entity_id
 	, entity_unique_oai_code
 	, airline_unique_name
 	, world_area_oai_id
-	, world_area_oai_seq_id
 	, airline_old_group_nbr
 	, airline_new_group_nbr
 	, operating_region_code
@@ -852,7 +849,6 @@ SELECT --airline_entity_id, airline_entity_key
 	--, entity_unique_oai_code
 	--, airline_unique_name
 	, world_area_oai_id
-	, world_area_oai_seq_id
 	, airline_old_group_nbr
 	, airline_new_group_nbr
 	, operating_region_code
