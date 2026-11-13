@@ -22,7 +22,7 @@ select
     , lag(y.year_nbr, 1) over (order by y.year_nbr) as last_year_nbr
 from (
     select range::smallint as year_nbr 
-    from range(1000, 3001)
+    from range(1900, 2200)
 ) y;
 
 -- cal_gen.make_hour_of_day_v;
@@ -250,7 +250,7 @@ cross join cal_gen.make_hour_of_day_v h;
 
 -- 2. create calendar tables based on base views and start/end year
 -- set calendar start and end years as variables
-set variable start_year = 1900;
+set variable start_year = 1950;
 set variable end_year = 2090;
 
 create table if not exists calendar_ddb.day_of_week as select * from cal_gen.make_day_of_week_v;

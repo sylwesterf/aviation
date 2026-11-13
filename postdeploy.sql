@@ -1,59 +1,374 @@
--- DATA VALIDATION, CLEAN-UP AND VACUUM GOES HERE
+----------------------------------------------------
+-- STEPS:
+-- 1. table maintenance
+-- 2. data validation
+--  2.1. empty table check
+--  2.2. table grain checks
+--  2.3. null checks
+--  2.4. reference data checks
+--  2.5. duplicate record checks
+--  2.6. FK reference checks
+-- 3. clean-up
+----------------------------------------------------
 
----------------------------------------------------------
------------------------ cal -----------------------------
----------------------------------------------------------
--- 3. Drop cal_gen views (used for generating calendar tables)
-drop view if exists cal_gen.make_calendar_date_hour_v;
-drop view if exists cal_gen.make_calendar_date_hour_min_v;
-drop view if exists cal_gen.make_year_week_v; 
-drop view if exists cal_gen.make_calendar_date_v; 
-drop view if exists cal_gen.make_gregorian_year_month_v; 
-drop view if exists cal_gen.make_gregorian_year_quarter_v; 
-drop view if exists cal_gen.make_gregorian_quarter_of_year_v; 
-drop view if exists cal_gen.make_day_of_week_v; 
-drop view if exists cal_gen.make_gregorian_month_of_year_v; 
-drop view if exists cal_gen.make_day_of_month_v; 
-drop view if exists cal_gen.make_minute_of_hour_v; 
-drop view if exists cal_gen.make_hour_of_day_v; 
-drop view if exists cal_gen.make_gregorian_year_v;
+-- 1. table maintenance
+
+-- CAL
+ANALYZE calendar_ddb.day_of_week;
+ANALYZE calendar_ddb.gregorian_month_of_year;
+ANALYZE calendar_ddb.gregorian_quarter_of_year;
+ANALYZE calendar_ddb.gregorian_year;
+ANALYZE calendar_ddb.gregorian_year_quarter;
+ANALYZE calendar_ddb.gregorian_year_month;
+ANALYZE calendar_ddb.year_week;
+ANALYZE calendar_ddb.calendar_date;
+ANALYZE calendar_ddb.calendar_date_hour_min; 
+ANALYZE calendar_ddb.calendar_date_hour;
+ANALYZE calendar_ddb.cumulative_month_to_dates; 
+ANALYZE calendar_ddb.cumulative_quarter_to_dates; 
+ANALYZE calendar_ddb.cumulative_year_to_dates;
+ANALYZE calendar_ddb.cumulative_week_to_dates;
+
+-- DIM
+ANALYZE air_oai_dims.aircraft_types;
+ANALYZE air_oai_dims.world_areas;
+ANALYZE air_oai_dims.airline_entities;
+ANALYZE air_oai_dims.airport_history;
+ANALYZE air_oai_dims.aircraft_type_groups;
+ANALYZE air_oai_dims.airline_entity_new_groups;
+ANALYZE air_oai_dims.airline_entity_legacy_groups;
+ANALYZE air_oai_dims.airline_geographic_types;
+ANALYZE air_oai_dims.airfare_classes;
+ANALYZE air_oai_dims.airline_traffic_data_sources;
+ANALYZE air_oai_dims.aircraft_configurations; -- t100 based
+ANALYZE air_oai_dims.airline_service_classes; -- t100 based
+ANALYZE air_oai_dims.airframe_and_engine_inventory_annual; -- fin based
+
+-- FACTS
+ANALYZE air_oai_facts.airline_traffic_market;
+ANALYZE air_oai_facts.airline_traffic_segment;
+ANALYZE air_oai_facts.airfare_survey_coupon;
+ANALYZE air_oai_facts.airfare_survey_itinerary;
+ANALYZE air_oai_facts.airfare_survey_market;
+ANALYZE air_oai_facts.airline_flights_completed;
+ANALYZE air_oai_facts.airline_flights_diverted;
+ANALYZE air_oai_facts.airline_flights_diverted_legs;
+ANALYZE air_oai_facts.airline_flights_scheduled;
+
+-- 2. data validation
+-- 2.1. empty table check
+SELECT CASE WHEN count(*) = 0 THEN 'PASSED' 
+        ELSE 'FAILED: Empty tables found: ' || string_agg(schema_name || '.' || table_name, ', ') END check_result
+FROM duckdb_tables()
+WHERE database_name = 'aviation'
+  AND schema_name IN ('air_oai_dims', 'air_oai_facts', 'calendar_ddb')
+  AND estimated_size = 0;
+
+-- 2.2. table grain checks
+-- CAL
+select 'CAL' area_tested, 'day_of_week' table_tested, case when count(distinct day_of_week_iso_nbr) = count(*) then 'PASSED' else 'FAILED' end test_result
+from calendar_ddb.day_of_week
+union all 
+select 'CAL', 'gregorian_month_of_year' , case when count(distinct month_of_year_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_month_of_year
+union all 
+select 'CAL', 'gregorian_quarter_of_year' , case when count(distinct quarter_of_year_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_quarter_of_year
+union all 
+select 'CAL', 'gregorian_year' , case when count(distinct year_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_year
+union all 
+select 'CAL', 'gregorian_year_quarter' , case when count(distinct year_quarter_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_year_quarter
+union all 
+select 'CAL', 'gregorian_year_month' , case when count(distinct year_month_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_year_month
+union all 
+select 'CAL', 'year_week' , case when count(distinct year_week_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.year_week
+union all 
+select 'CAL', 'calendar_date' , case when count(distinct calendar_date) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.calendar_date
+union all 
+select 'CAL', 'hour_of_day' , case when count(distinct hour_of_day_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.hour_of_day
+union all 
+select 'CAL', 'minute_of_hour' , case when count(distinct minute_of_hour_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.minute_of_hour
+union all 
+select 'CAL', 'calendar_date_hour' , case when count(distinct calendar_timestamp) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.calendar_date_hour
+union all 
+select 'CAL', 'calendar_date_hour_min' , case when count(distinct calendar_timestamp) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.calendar_date_hour_min
+union all 
+select 'CAL', 'cumulative_month_to_dates' , case when count(*) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_month_to_dates
+union all 
+select 'CAL', 'cumulative_quarter_to_dates' , case when count(*) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_quarter_to_dates
+union all 
+select 'CAL', 'cumulative_year_to_dates' , case when count(*) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_year_to_dates
+union all 
+select 'CAL', 'cumulative_week_to_dates' , case when count(*) = count(*) then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_week_to_dates
+union all 
+
+-- DIM
+select 'DIM' area_tested, 'aircraft_types' table_tested, case when count(distinct aircraft_type_oai_nbr) = count(*) then 'PASSED' else 'FAILED' end test_result
+from air_oai_dims.aircraft_types
+union all 
+select 'DIM', 'world_areas' , case when count(distinct world_area_oai_seq_id) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.world_areas
+union all
+select 'DIM', 'airline_entities' , case when count(distinct airline_entity_id) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_entities
+union all 
+select 'DIM', 'airport_history' , case when count(distinct airport_history_id) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airport_history
+union all
+select 'DIM', 'aircraft_type_groups' , case when count(distinct aircraft_group_oai_nbr) = count(*) then 'PASSED' else 'FAILED' end  
+from air_oai_dims.aircraft_type_groups
+union all 
+select 'DIM', 'airline_entity_new_groups' , case when count(distinct airline_new_group_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_entity_new_groups
+union all
+select 'DIM', 'airline_entity_legacy_groups' , case when count(distinct airline_old_group_nbr) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_entity_legacy_groups 
+union all
+select 'DIM', 'airline_geographic_types' , case when count(distinct geograhic_type_oai_id) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_geographic_types
+union all
+select 'DIM', 'airfare_classes' , case when count(distinct airfare_class_code) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airfare_classes
+union all
+select 'DIM', 'airline_traffic_data_sources' , case when count(distinct service_class_code) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_traffic_data_sources
+union all
+select 'DIM', 'aircraft_configurations' , case when count(distinct aircraft_configuration_ref) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.aircraft_configurations
+union all
+select 'DIM', 'airline_service_classes' , case when count(distinct service_class_code) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_service_classes
+union all
+select 'DIM', 'airframe_and_engine_inventory_annual' , case when count(distinct inventory_key) = count(*) then 'PASSED' else 'FAILED' end
+from air_oai_dims.airframe_and_engine_inventory_annual
+union all
+
+-- FACTS
+select 'FACTS' area_tested, 'airline_flights_completed' table_tested, case when count(*) = count(distinct flight_key) then 'PASSED' else 'FAILED' end test_result
+from air_oai_facts.airline_flights_completed
+union all 
+select 'FACTS', 'airline_flights_diverted' , case when count(*) = count(distinct flight_key) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airline_flights_diverted
+union all 
+select 'FACTS', 'airline_flights_diverted_legs' , case when count(*) = count(distinct (flight_key, diversion_nbr)) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airline_flights_diverted_legs
+union all 
+select 'FACTS', 'airline_flights_scheduled' , case when count(*) = count(distinct flight_key) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airline_flights_scheduled
+union all 
+select 'FACTS', 'airfare_survey_coupon' , case when count(*) = count(distinct (itinerary_oai_id, flight_pass_seq)) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airfare_survey_coupon
+union all 
+select 'FACTS', 'airfare_survey_itinerary' , case when count(*) = count(distinct itinerary_oai_id) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airfare_survey_itinerary
+union all 
+select 'FACTS', 'airfare_survey_market' , case when count(*) = count(distinct (itinerary_oai_id, market_oai_id)) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airfare_survey_market
+union all 
+select 'FACTS', 'airline_traffic_market' , case when count(*) = count(distinct (year_month_nbr, service_class_code, airline_entity_key, depart_airport_history_key, arrive_airport_history_key)) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airline_traffic_market
+union all 
+select 'FACTS', 'airline_traffic_segment' , case when count(*) = count(distinct (year_month_nbr, service_class_code, airline_entity_key, depart_airport_history_key, arrive_airport_history_key, aircraft_type_oai_nbr, aircraft_configuration_ref)) then 'PASSED' else 'FAILED' end
+from air_oai_facts.airline_traffic_segment;
+
+-- 2.3. NULL checks
+SELECT 'CAL' area_tested, 'day_of_week' table_tested, cast(sum(value IS NULL) / count(*) as decimal(5,2)) as null_to_total_ratio, sum(value IS NULL) AS total_nulls FROM calendar_ddb.day_of_week UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'gregorian_month_of_year' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.gregorian_month_of_year UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'gregorian_quarter_of_year' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.gregorian_quarter_of_year UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'gregorian_year' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.gregorian_year UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'gregorian_year_quarter' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.gregorian_year_quarter UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'gregorian_year_month' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.gregorian_year_month UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'year_week' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.year_week UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'calendar_date' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.calendar_date UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'hour_of_day' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.hour_of_day UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'minute_of_hour' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.minute_of_hour UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'calendar_date_hour' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.calendar_date_hour UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'cumulative_month_to_dates' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.cumulative_month_to_dates UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'cumulative_quarter_to_dates' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.cumulative_quarter_to_dates UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'cumulative_year_to_dates' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.cumulative_year_to_dates UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+SELECT 'CAL', 'cumulative_week_to_dates' , cast(sum(value IS NULL) / count(*) as decimal(5,2)), sum(value IS NULL) FROM calendar_ddb.cumulative_week_to_dates UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) 
+UNION ALL
+
+-- DIMS
+select 'DIM' area_tested, 'aircraft_types' table_tested, cast(sum(value IS NULL) / count(*) as decimal(5,2)) as null_to_total_ratio, sum(value IS NULL) AS total_nulls FROM air_oai_dims.aircraft_types UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+union all
+SELECT 'DIM', 'world_areas', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.world_areas UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airline_entities', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airline_entities UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airport_history', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airport_history UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'aircraft_type_groups', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.aircraft_type_groups UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airline_entity_new_groups', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airline_entity_new_groups UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airline_entity_legacy_groups', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airline_entity_legacy_groups UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airline_geographic_types', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airline_geographic_types UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airfare_classes', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airfare_classes UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airline_traffic_data_sources', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airline_traffic_data_sources UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'aircraft_configurations', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.aircraft_configurations UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airline_service_classes', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airline_service_classes UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'DIM', 'airframe_and_engine_inventory_annual', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_dims.airframe_and_engine_inventory_annual UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+
+-- FACTS
+SELECT 'FACTS' area_tested, 'airline_flights_completed' table_tested, CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)) AS null_to_total_ratio, SUM(value IS NULL) AS total_nulls FROM air_oai_facts.airline_flights_completed UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airline_flights_diverted', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airline_flights_diverted UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airline_flights_diverted_legs', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airline_flights_diverted_legs UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airline_flights_scheduled', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airline_flights_scheduled UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airfare_survey_coupon', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airfare_survey_coupon UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airfare_survey_itinerary', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airfare_survey_itinerary UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airfare_survey_market', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airfare_survey_market UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airline_traffic_market', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airline_traffic_market UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL
+UNION ALL
+SELECT 'FACTS', 'airline_traffic_segment', CAST(SUM(value IS NULL) / COUNT(*) AS DECIMAL(5,2)), SUM(value IS NULL) FROM air_oai_facts.airline_traffic_segment UNPIVOT INCLUDE NULLS (value FOR name IN (COLUMNS(*)::VARCHAR)) GROUP BY ALL;
+
+-- 2.4. reference data checks
+-- CAL
+select 'CAL' area_tested, 'day_of_week' table_tested, case when count(distinct day_of_week_iso_nbr) = 7 then 'PASSED' else 'FAILED' end test_result
+from calendar_ddb.day_of_week
+union all 
+select 'CAL', 'gregorian_month_of_year' , case when count(distinct month_of_year_nbr) = 12 then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_month_of_year
+union all 
+select 'CAL', 'gregorian_quarter_of_year' , case when count(distinct quarter_of_year_nbr) = 4 then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_quarter_of_year
+union all 
+select 'CAL', 'gregorian_year' , case when count(distinct year_nbr) = 141 then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_year
+union all 
+select 'CAL', 'gregorian_year_quarter' , case when count(distinct year_quarter_nbr) = 564 then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_year_quarter
+union all 
+select 'CAL', 'gregorian_year_month' , case when count(distinct year_month_nbr) = 1692 then 'PASSED' else 'FAILED' end
+from calendar_ddb.gregorian_year_month
+union all 
+select 'CAL', 'year_week' , case when count(distinct year_week_nbr) = 7357 then 'PASSED' else 'FAILED' end
+from calendar_ddb.year_week
+union all 
+select 'CAL', 'calendar_date' , case when count(distinct calendar_date) = 51499 then 'PASSED' else 'FAILED' end
+from calendar_ddb.calendar_date
+union all 
+select 'CAL', 'hour_of_day' , case when count(distinct hour_of_day_nbr) = 24 then 'PASSED' else 'FAILED' end
+from calendar_ddb.hour_of_day
+union all 
+select 'CAL', 'minute_of_hour' , case when count(distinct minute_of_hour_nbr) = 60 then 'PASSED' else 'FAILED' end
+from calendar_ddb.minute_of_hour
+union all 
+select 'CAL', 'calendar_date_hour' , case when count(distinct calendar_timestamp) = 1235976 then 'PASSED' else 'FAILED' end
+from calendar_ddb.calendar_date_hour
+union all 
+select 'CAL', 'calendar_date_hour_min' , case when count(distinct calendar_timestamp) = 74158560 then 'PASSED' else 'FAILED' end
+from calendar_ddb.calendar_date_hour_min
+union all 
+select 'CAL', 'cumulative_month_to_dates' , case when count(*) = 814041 then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_month_to_dates
+union all 
+select 'CAL', 'cumulative_quarter_to_dates' , case when count(*) = 2348301 then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_quarter_to_dates
+union all 
+select 'CAL', 'cumulative_year_to_dates' , case when count(*) = 9450066 then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_year_to_dates
+union all 
+select 'CAL', 'cumulative_week_to_dates' , case when count(*) = 205996 then 'PASSED' else 'FAILED' end
+from calendar_ddb.cumulative_week_to_dates
+union all 
+
+-- DIM
+select 'DIM' area_tested, 'aircraft_types' table_tested, case when count(distinct aircraft_type_oai_nbr) = 446 then 'PASSED' else 'FAILED' end test_result
+from air_oai_dims.aircraft_types
+union all 
+select 'DIM', 'world_areas' , case when count(distinct world_area_oai_seq_id) = 344 then 'PASSED' else 'FAILED' end
+from air_oai_dims.world_areas
+union all
+select 'DIM', 'airline_entities' , case when count(distinct airline_entity_id) = 2870 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_entities
+union all 
+select 'DIM', 'airport_history' , case when count(distinct airport_history_id) = 20188 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airport_history
+union all
+select 'DIM', 'aircraft_type_groups' , case when count(distinct aircraft_group_oai_nbr) = 9 then 'PASSED' else 'FAILED' end  
+from air_oai_dims.aircraft_type_groups
+union all 
+select 'DIM', 'airline_entity_new_groups' , case when count(distinct airline_new_group_nbr) = 9 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_entity_new_groups
+union all
+select 'DIM', 'airline_entity_legacy_groups' , case when count(distinct airline_old_group_nbr) = 5 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_entity_legacy_groups 
+union all
+select 'DIM', 'airline_geographic_types' , case when count(distinct geograhic_type_oai_id) = 3 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_geographic_types
+union all
+select 'DIM', 'airfare_classes' , case when count(distinct airfare_class_code) = 8 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airfare_classes
+union all
+select 'DIM', 'airline_traffic_data_sources' , case when count(distinct service_class_code) = 4 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_traffic_data_sources
+union all
+select 'DIM', 'aircraft_configurations' , case when count(distinct aircraft_configuration_ref) = 4 then 'PASSED' else 'FAILED' end
+from air_oai_dims.aircraft_configurations
+union all
+select 'DIM', 'airline_service_classes' , case when count(distinct service_class_code) = 4 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airline_service_classes
+union all
+select 'DIM', 'airframe_and_engine_inventory_annual' , case when count(distinct inventory_key) = 123318 then 'PASSED' else 'FAILED' end
+from air_oai_dims.airframe_and_engine_inventory_annual
+
+-- 2.5. duplicate record checks
+-- CAL
+select 'CAL' area_tested, 'day_of_week' table_tested, case when count(distinct day_of_week_key) = count(*) then 'PASSED' else 'FAILED' end test_result
+from calendar_ddb.day_of_week
 
 
----------------------------------------------------------
------------------------ t100 -----------------------------
----------------------------------------------------------
--- 5. vacuum the tables
-vacuum analyze air_oai_facts.airline_traffic_market;
-vacuum analyze air_oai_facts.airline_traffic_segment;
-vacuum analyze air_oai_dims.aircraft_configurations;
-vacuum analyze air_oai_dims.airline_service_classes;
+-- 3. clean-up
 
--- 6. data validation
--- TODO
-select count(*) from air_oai_facts.airline_traffic_market; -- 25544
-select count(*) from air_oai_facts.f41_traffic_t100_market_fdw; -- 25948
+-- drop cal_gen schema (views used for generating calendar tables)
+DROP SCHEMA cal_gen CASCADE;
 
-select count(*) from air_oai_facts.airline_traffic_segment; -- 44289
-select count(*) from air_oai_facts.f41_traffic_t100_segment_fdw; -- 44941
+-- drop OTP temp table
+DROP TABLE IF EXISTS air_oai_facts.airline_flight_performance;
 
--- 7. clean-up
-drop materialized view if exists air_oai_facts.f41_traffic_t100_segment_load_mv;
-drop materialized view if exists air_oai_facts.airline_traffic_segment_integrate_mv;
-drop materialized view if exists air_oai_facts.airline_traffic_market_integrate_mv;
-DROP FOREIGN TABLE IF EXISTS air_oai_facts.f41_traffic_t100_market_fdw;
-DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_market_fdw;
-DROP FOREIGN TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_fdw;
-DROP TABLE IF EXISTS air_oai_facts.f41_traffic_t100_segment_fdw;
 
----------------------------------------------------------
------------------------ otp -----------------------------
----------------------------------------------------------
--- 6. vacuum
-vacuum analyze air_oai_facts.airline_flights_scheduled;
-vacuum analyze air_oai_facts.airline_flights_completed;
-vacuum analyze air_oai_facts.airline_flights_cancelled;
-vacuum analyze air_oai_facts.airline_flights_diverted;
-vacuum analyze air_oai_facts.airline_flights_diverted_legs;
 
 -- 7. validation
 -- TODO
@@ -67,16 +382,6 @@ select count(*) from air_oai_dims.airport_history where airport_latest_ind = 1; 
 select count(*) from air_oai_facts.airline_flights_scheduled; -- 7142354
 
 
--- 8. Clean-up
-drop materialized view if exists air_oai_facts.airline_flight_performance_integrated_mv cascade;
-drop materialized view if exists air_oai_facts.airline_flight_performance_mv cascade;
----------------------------------------------------------
------------------------ db1b -----------------------------
----------------------------------------------------------
--- 5. Vacuum on the tables
-VACUUM VERBOSE air_oai_facts.airfare_survey_itinerary;
-VACUUM VERBOSE air_oai_facts.airfare_survey_coupon;
-VACUUM VERBOSE air_oai_facts.airfare_survey_market;
 
 -- 6. Validation
 --TODO
@@ -85,13 +390,6 @@ select year_quarter_start_date, count(*) from air_oai_facts.airfare_survey_itine
 -- select itinerary_oai_id, flight_pass_seq, count(*) from airlines_pg.airfare_survey_coupon_v group by 1,2 having count(*) > 1 order by count(*) desc;
 -- select market_oai_id, count(*) from airlines_pg.airfare_survey_market_v group by 1 having count(*) > 1 order by count(*) desc;
 
--- 7. Clean-up
-DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_ticket_fdw;
-DROP TABLE IF EXISTS air_oai_facts.airfare_survey_ticket_fdw;
-DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_coupon_fdw;
-DROP TABLE IF EXISTS air_oai_facts.airfare_survey_coupon_fdw;
-DROP FOREIGN TABLE IF EXISTS air_oai_facts.airfare_survey_market_fdw;
-DROP TABLE IF EXISTS air_oai_facts.airfare_survey_market_fdw;
 
 ---------------------------------------------------------
 ----------------------- fin -----------------------------
@@ -105,51 +403,18 @@ select * from air_oai_dims.airframe_and_engine_inventory_annual limit 25;
 ---------------------------------------------------------
 ----------------------- dim -----------------------------
 ---------------------------------------------------------
--- 12. vacuum the tables
-vacuum analyze air_oai_dims.aircraft_types;
-vacuum analyze air_oai_dims.world_areas;
-vacuum analyze air_oai_dims.airport_history;
-vacuum analyze air_oai_dims.aircraft_type_groups;
-vacuum analyze air_oai_dims.airline_entity_new_groups;
-vacuum analyze air_oai_dims.airline_entity_legacy_groups;
-vacuum analyze air_oai_dims.airline_entities;
 
 
 -- 13. test/validation queries
 -- TODO
 -- ROW COUNT
 
-select 'aircraft_types' area_tested, case when count(distinct aircraft_type_oai_nbr) = 437 then 'passed' else 'error' end test_result
-from air_oai_dims.aircraft_types
-union all 
-select 'world_areas', case when count(distinct world_area_oai_seq_id) = 344 then 'passed' else 'error' end
-from air_oai_dims.world_areas
-union all 
-select 'airport_history', case when count(distinct airport_history_id) = 19150 then 'passed' else 'error' end
-from air_oai_dims.airport_history
-union all
---in Geof script is 10
--- changed aircraft_configuration_ref for  aircraft_group_oai_nbr
-select 'aircraft_type_groups', case when count(distinct aircraft_group_oai_nbr) = 9 then 'passed' else 'error' end  
-from air_oai_dims.aircraft_type_groups
-union all 
---changed airline_entity_id for airline_new_group_nbr
-select 'airline_entity_new_groups', case when count(distinct airline_new_group_nbr) = 9 then 'passed' else 'error' end
-from air_oai_dims.airline_entity_new_groups
-union all
---changed airline_entity_id for airline_old_group_nbr
-select 'airline_entity_legacy_groups', case when count(distinct airline_old_group_nbr) = 5 then 'passed' else 'error' end
-from air_oai_dims.airline_entity_legacy_groups 
-union all
-select 'airline_entities', case when count(distinct airline_entity_id) = 2791 then 'passed' else 'error' end
-from air_oai_dims.airline_entities
 
 	
 -- ### 1
 select aircraft_type_oai_nbr, count(*) from air_oai_dims.aircraft_types_fdw group by 1 having count(*) > 1 order by count(*) desc; -- unique! One aircraft one lane
 
-select * from air_oai_dims.aircraft_types; 
-select * from air_oai_dims.aircraft_types_fdw; -- 433
+
 
 
 -- ### 2
